@@ -1,0 +1,119 @@
+@import "tailwindcss";
+
+:root {
+  --background: #070604;
+  --foreground: #fff7ed;
+
+  --charcoal: #11100d;
+  --asphalt: #1a1612;
+
+  --gold: #f4b000;
+  --construction: #f59e0b;
+  --burnt-orange: #c2410c;
+  --deep-red: #7f1d1d;
+
+  --cream: #fff7ed;
+  --muted: #b8a99a;
+
+  --card: rgba(17, 16, 13, 0.78);
+  --card-border: rgba(244, 176, 0, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+  scroll-behavior: smooth;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+
+  background:
+    radial-gradient(circle at 12% 18%, rgba(244, 176, 0, 0.16), transparent 28%),
+    radial-gradient(circle at 85% 22%, rgba(127, 29, 29, 0.16), transparent 30%),
+    radial-gradient(circle at 50% 100%, rgba(194, 65, 12, 0.14), transparent 32%),
+    var(--background);
+
+  color: var(--foreground);
+
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+::selection {
+  background: rgba(244, 176, 0, 0.28);
+  color: #fff7ed;
+}
+
+/* 2026 Premium Industrial Design Layer */
+
+.grain-overlay {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  opacity: 0.045;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mix-blend-mode: overlay;
+}
+
+.industrial-card {
+  border: 1px solid rgba(244, 176, 0, 0.12);
+  background:
+    linear-gradient(145deg, rgba(26, 22, 18, 0.96), rgba(7, 6, 4, 0.96)),
+    radial-gradient(circle at top left, rgba(244, 176, 0, 0.12), transparent 36%);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 247, 237, 0.04);
+}
+
+.gold-line {
+  height: 1px;
+  width: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(244, 176, 0, 0.7),
+    transparent
+  );
+}
+
+.text-industrial-gradient {
+  background: linear-gradient(135deg, #fff7ed 0%, #f4b000 48%, #b45309 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
