@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { equipmentData } from "../../data/equipmentData";
+import { supabase } from "../../lib/supabase";
+import BookingSuccess from "./BookingSuccess";
 
 import type { BookingRequest } from "../../types/booking";
 
@@ -43,6 +45,9 @@ const BookingForm = () => {
     agreementAccepted: false,
   });
 
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleChange = (
     e:
       | React.ChangeEvent<HTMLInputElement>
@@ -60,8 +65,31 @@ const BookingForm = () => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const notifyN8n = async (bookingRequest: BookingRequest) => {
+    const webhookUrl = import.meta.env.VITE_N8N_RENTAL_REQUEST_WEBHOOK;
+
+    if (!webhookUrl) {
+      console.warn("N8N webhook URL is missing.");
+      return;
+    }
+
+    try {
+      await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(bookingRequest),
+      });
+    } catch (error) {
+      console.error("N8N WEBHOOK ERROR:", error);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    setIsSubmitting(true);
 
     const bookingRequest: BookingRequest = {
       ...formData,
@@ -70,12 +98,40 @@ const BookingForm = () => {
       submittedAt: new Date().toISOString(),
     };
 
-    console.log("BOOKING REQUEST:", bookingRequest);
+    const { error } = await supabase.from("rental_requests").insert({
+      full_name: bookingRequest.fullName,
+      phone: bookingRequest.phone,
+      email: bookingRequest.email,
+      equipment_requested: bookingRequest.equipmentRequested,
+      rental_start_date: bookingRequest.rentalStartDate,
+      rental_end_date: bookingRequest.rentalEndDate,
+      rental_duration: bookingRequest.rentalDuration,
+      fulfillment_type: bookingRequest.fulfillmentType,
+      project_type: bookingRequest.projectType,
+      notes: bookingRequest.notes,
+      agreement_accepted: bookingRequest.agreementAccepted,
+      status: bookingRequest.status,
+      source: bookingRequest.source,
+    });
 
-    alert(
-      "Rental request submitted. Urban Cowboy Rentals will confirm availability and next steps."
-    );
+    if (error) {
+      console.error("SUPABASE INSERT ERROR:", error);
+      alert("Something went wrong. Please try again.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    console.log("BOOKING REQUEST SAVED:", bookingRequest);
+
+    await notifyN8n(bookingRequest);
+
+    setIsSubmitting(false);
+    setIsSubmitted(true);
   };
+
+  if (isSubmitted) {
+    return <BookingSuccess />;
+  }
 
   return (
     <form
@@ -271,9 +327,10 @@ const BookingForm = () => {
 
       <button
         type="submit"
-        className="mt-8 w-full rounded-full bg-[#f4b000] px-8 py-5 text-lg font-black uppercase tracking-[0.08em] text-black transition hover:bg-[#f59e0b]"
+        disabled={isSubmitting}
+        className="mt-8 w-full rounded-full bg-[#f4b000] px-8 py-5 text-lg font-black uppercase tracking-[0.08em] text-black transition hover:bg-[#f59e0b] disabled:cursor-not-allowed disabled:opacity-60"
       >
-        Submit Rental Request
+        {isSubmitting ? "Submitting Request..." : "Submit Rental Request"}
       </button>
     </form>
   );

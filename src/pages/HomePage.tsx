@@ -8,6 +8,9 @@ import EquipmentGrid from "../components/equipment/EquipmentGrid";
 import CTASection from "../components/ui/CTASection";
 import ContactSection from "../components/ui/ContactSection";
 import PageReveal from "../components/ui/PageReveal";
+import FAQSection from "../components/ui/FAQSection";
+import PageTransition from "../components/ui/PageTransition";
+import SEO from "../components/seo/SEO";
 
 import { equipmentData } from "../data/equipmentData";
 
@@ -51,6 +54,10 @@ const featuredEquipment = equipmentData.filter(
 
 const HomePage = () => {
   return (
+    <PageTransition>
+       <SEO title="Urban Cowboy Rentals | Premium Equipment Rentals"
+      description="Rent heavy equipment, trailers, tools, and motorcycles from Urban Cowboy Rentals, LLC."
+      />
     <MainLayout>
       {/* HERO */}
 
@@ -242,6 +249,8 @@ const HomePage = () => {
         </div>
       </section>
 
+      <FAQSection />
+
       <ContactSection />
 
       <CTASection
@@ -250,6 +259,7 @@ const HomePage = () => {
         description="Browse the fleet, review rental rates, and submit a request online through Urban Cowboy Rentals."
       />
     </MainLayout>
+    </PageTransition>
   );
 };
 

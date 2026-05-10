@@ -1,8 +1,15 @@
 import MainLayout from "../components/layout/MainLayout";
 import BookingForm from "../components/forms/BookingForm";
+import PageTransition from "../components/ui/PageTransition";
+import SEO from "../components/seo/SEO";
+
 
 const BookingPage = () => {
   return (
+    <PageTransition>
+       <SEO title="Urban Cowboy Rentals | Premium Equipment Rentals"
+      description="Rent heavy equipment, trailers, tools, and motorcycles from Urban Cowboy Rentals, LLC."
+      />
     <MainLayout>
       <section className="px-6 py-24">
         <div className="mx-auto max-w-5xl">
@@ -25,6 +32,7 @@ const BookingPage = () => {
         </div>
       </section>
     </MainLayout>
+    </PageTransition>
   );
 };
 
