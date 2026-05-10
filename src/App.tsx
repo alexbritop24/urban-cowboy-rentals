@@ -1,6 +1,7 @@
 import { Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 
+import ProtectedRoute from "./components/auth/ProtectedRoute";
 import HomePage from "./pages/HomePage";
 import EquipmentPage from "./pages/EquipmentPage";
 import EquipmentDetailPage from "./pages/EquipmentDetailPage";
@@ -9,6 +10,7 @@ import ContactPage from "./pages/ContactPage";
 import BookingPage from "./pages/BookingPage";
 import PoliciesPage from "./pages/PoliciesPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
+import AdminLoginPage from "./pages/AdminLoginPage";
 
 function App() {
   const location = useLocation();
@@ -23,7 +25,16 @@ function App() {
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/book" element={<BookingPage />} />
         <Route path="/policies" element={<PoliciesPage />} />
-        <Route path="/admin" element={<AdminDashboardPage />} />
+        <Route path="/admin-login" element={<AdminLoginPage />} />
+
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <AdminDashboardPage />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </AnimatePresence>
   );

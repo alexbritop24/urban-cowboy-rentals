@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import AutomationLogs from "../components/admin/AutomationLogs";
 import MainLayout from "../components/layout/MainLayout";
@@ -33,9 +34,12 @@ const statusOptions = [
 ];
 
 const AdminDashboardPage = () => {
+  const navigate = useNavigate();
+
   const [requests, setRequests] = useState<RentalRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const fetchRequests = async () => {
     const { data, error } = await supabase
@@ -105,6 +109,21 @@ const AdminDashboardPage = () => {
     setUpdatingId(null);
   };
 
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      console.error("LOGOUT ERROR:", error);
+      alert("Could not log out. Please try again.");
+      setIsLoggingOut(false);
+      return;
+    }
+
+    navigate("/admin-login");
+  };
+
   return (
     <PageTransition>
       <SEO
@@ -115,18 +134,31 @@ const AdminDashboardPage = () => {
       <MainLayout>
         <section className="px-6 py-24">
           <div className="mx-auto max-w-7xl">
-            <p className="text-sm font-black uppercase tracking-[0.35em] text-[#f4b000]">
-              Admin Dashboard
-            </p>
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-sm font-black uppercase tracking-[0.35em] text-[#f4b000]">
+                  Admin Dashboard
+                </p>
 
-            <h1 className="mt-5 text-5xl font-black tracking-tight text-[#fff7ed] md:text-7xl">
-              Rental request command center.
-            </h1>
+                <h1 className="mt-5 text-5xl font-black tracking-tight text-[#fff7ed] md:text-7xl">
+                  Rental request command center.
+                </h1>
 
-            <p className="mt-6 max-w-2xl text-lg leading-relaxed text-[#b8a99a]">
-              Review incoming rental requests, customer details, dates, status,
-              automation history, and operational notes.
-            </p>
+                <p className="mt-6 max-w-2xl text-lg leading-relaxed text-[#b8a99a]">
+                  Review incoming rental requests, customer details, dates,
+                  status, automation history, and operational notes.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="w-fit rounded-full border border-red-500/20 bg-red-500/10 px-6 py-4 text-sm font-black uppercase tracking-[0.1em] text-red-300 transition hover:border-red-500/50 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isLoggingOut ? "Logging Out..." : "Logout"}
+              </button>
+            </div>
 
             <div className="mt-12 rounded-[2rem] border border-yellow-500/10 bg-[#11100d]/90 p-6 shadow-2xl shadow-black/30">
               <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
