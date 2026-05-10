@@ -23,14 +23,58 @@ interface RentalRequest {
   agreement_accepted: boolean;
   status: string;
   source: string;
+  assigned_to: string | null;
+  internal_notes: string | null;
+  priority: string | null;
+  quote_amount: number | null;
+  deposit_status: string | null;
+  payment_status: string | null;
+  delivery_status: string | null;
+  payment_link: string | null;
 }
 
 const statusOptions = [
   "new",
-  "approved",
-  "in_progress",
+  "quote_sent",
+  "deposit_pending",
+  "confirmed",
+  "preparing_equipment",
+  "scheduled_delivery",
+  "active_rental",
+  "pickup_scheduled",
+  "returned",
+  "inspection",
   "completed",
   "cancelled",
+];
+
+const priorityOptions = ["low", "normal", "high", "urgent"];
+
+const depositStatusOptions = [
+  "not_required",
+  "required",
+  "sent",
+  "paid",
+  "refunded",
+];
+
+const paymentStatusOptions = [
+  "unpaid",
+  "payment_link_sent",
+  "partial",
+  "paid",
+  "refunded",
+];
+
+const deliveryStatusOptions = [
+  "not_scheduled",
+  "pickup",
+  "delivery_needed",
+  "scheduled",
+  "out_for_delivery",
+  "delivered",
+  "return_pickup_needed",
+  "returned",
 ];
 
 const AdminDashboardPage = () => {
@@ -80,20 +124,21 @@ const AdminDashboardPage = () => {
     };
   }, []);
 
-  const updateRequestStatus = async (
+  const updateRequestField = async (
     requestId: string,
-    newStatus: string
+    field: keyof RentalRequest,
+    value: string | number | null
   ) => {
     setUpdatingId(requestId);
 
     const { error } = await supabase
       .from("rental_requests")
-      .update({ status: newStatus })
+      .update({ [field]: value })
       .eq("id", requestId);
 
     if (error) {
-      console.error("UPDATE STATUS ERROR:", error);
-      alert("Could not update request status.");
+      console.error("UPDATE REQUEST ERROR:", error);
+      alert("Could not update request.");
       setUpdatingId(null);
       return;
     }
@@ -101,7 +146,7 @@ const AdminDashboardPage = () => {
     setRequests((prev) =>
       prev.map((request) =>
         request.id === requestId
-          ? { ...request, status: newStatus }
+          ? { ...request, [field]: value }
           : request
       )
     );
@@ -146,7 +191,8 @@ const AdminDashboardPage = () => {
 
                 <p className="mt-6 max-w-2xl text-lg leading-relaxed text-[#b8a99a]">
                   Review incoming rental requests, customer details, dates,
-                  status, automation history, and operational notes.
+                  status, automation history, internal notes, assignments, and
+                  payment workflow.
                 </p>
               </div>
 
@@ -195,7 +241,7 @@ const AdminDashboardPage = () => {
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div>
                           <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
-                            {request.status.replace("_", " ")}
+                            {(request.status || "new").replace("_", " ")}
                           </p>
 
                           <h3 className="mt-2 text-2xl font-black text-[#fff7ed]">
@@ -214,11 +260,12 @@ const AdminDashboardPage = () => {
                           </div>
 
                           <select
-                            value={request.status}
+                            value={request.status || "new"}
                             disabled={updatingId === request.id}
                             onChange={(e) =>
-                              updateRequestStatus(
+                              updateRequestField(
                                 request.id,
+                                "status",
                                 e.target.value
                               )
                             }
@@ -289,10 +336,222 @@ const AdminDashboardPage = () => {
                         </div>
                       </div>
 
+                      <div className="mt-6 rounded-2xl border border-yellow-500/10 bg-black/25 p-5">
+                        <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
+                          Internal Operations
+                        </p>
+
+                        <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                          <div>
+                            <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
+                              Assigned To
+                            </label>
+
+                            <input
+                              type="text"
+                              value={request.assigned_to || ""}
+                              onChange={(e) =>
+                                updateRequestField(
+                                  request.id,
+                                  "assigned_to",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Staff name"
+                              className="w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 text-[#fff7ed] outline-none focus:border-yellow-500/40"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
+                              Priority
+                            </label>
+
+                            <select
+                              value={request.priority || "normal"}
+                              onChange={(e) =>
+                                updateRequestField(
+                                  request.id,
+                                  "priority",
+                                  e.target.value
+                                )
+                              }
+                              className="w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 text-[#fff7ed] outline-none focus:border-yellow-500/40"
+                            >
+                              {priorityOptions.map((priority) => (
+                                <option key={priority} value={priority}>
+                                  {priority}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
+                              Quote Amount
+                            </label>
+
+                            <input
+                              type="number"
+                              min="0"
+                              value={request.quote_amount ?? ""}
+                              onChange={(e) =>
+                                updateRequestField(
+                                  request.id,
+                                  "quote_amount",
+                                  e.target.value
+                                    ? Number(e.target.value)
+                                    : null
+                                )
+                              }
+                              placeholder="0.00"
+                              className="w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 text-[#fff7ed] outline-none focus:border-yellow-500/40"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
+                              Deposit Status
+                            </label>
+
+                            <select
+                              value={
+                                request.deposit_status || "not_required"
+                              }
+                              onChange={(e) =>
+                                updateRequestField(
+                                  request.id,
+                                  "deposit_status",
+                                  e.target.value
+                                )
+                              }
+                              className="w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 text-[#fff7ed] outline-none focus:border-yellow-500/40"
+                            >
+                              {depositStatusOptions.map((status) => (
+                                <option key={status} value={status}>
+                                  {status.replace("_", " ")}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
+                              Payment Status
+                            </label>
+
+                            <select
+                              value={request.payment_status || "unpaid"}
+                              onChange={(e) =>
+                                updateRequestField(
+                                  request.id,
+                                  "payment_status",
+                                  e.target.value
+                                )
+                              }
+                              className="w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 text-[#fff7ed] outline-none focus:border-yellow-500/40"
+                            >
+                              {paymentStatusOptions.map((status) => (
+                                <option key={status} value={status}>
+                                  {status.replace("_", " ")}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
+                              Delivery Status
+                            </label>
+
+                            <select
+                              value={
+                                request.delivery_status || "not_scheduled"
+                              }
+                              onChange={(e) =>
+                                updateRequestField(
+                                  request.id,
+                                  "delivery_status",
+                                  e.target.value
+                                )
+                              }
+                              className="w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 text-[#fff7ed] outline-none focus:border-yellow-500/40"
+                            >
+                              {deliveryStatusOptions.map((status) => (
+                                <option key={status} value={status}>
+                                  {status.replace("_", " ")}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="mt-5">
+                          <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
+                            Square Payment Link
+                          </label>
+
+                          <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+                            <input
+                              type="url"
+                              value={request.payment_link || ""}
+                              onChange={(e) =>
+                                updateRequestField(
+                                  request.id,
+                                  "payment_link",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Paste Square payment link here"
+                              className="w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 text-[#fff7ed] outline-none focus:border-yellow-500/40"
+                            />
+
+                            {request.payment_link ? (
+                              <a
+                                href={request.payment_link}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="rounded-2xl border border-yellow-500/20 bg-[#f4b000] px-5 py-3 text-center text-sm font-black uppercase tracking-[0.08em] text-black transition hover:bg-[#f59e0b]"
+                              >
+                                Open Link
+                              </a>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled
+                                className="rounded-2xl border border-yellow-500/10 bg-black/20 px-5 py-3 text-sm font-black uppercase tracking-[0.08em] text-[#8f8577]"
+                              >
+                                No Link
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="mt-5">
+                          <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
+                            Internal Notes
+                          </label>
+
+                          <textarea
+                            rows={4}
+                            value={request.internal_notes || ""}
+                            onChange={(e) =>
+                              updateRequestField(
+                                request.id,
+                                "internal_notes",
+                                e.target.value
+                              )
+                            }
+                            placeholder="Private team notes, prep instructions, quote reasoning, delivery details..."
+                            className="w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 text-[#fff7ed] outline-none focus:border-yellow-500/40"
+                          />
+                        </div>
+                      </div>
+
                       {request.notes && (
                         <div className="mt-6 rounded-2xl border border-yellow-500/10 bg-black/30 p-5">
                           <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8f8577]">
-                            Notes
+                            Customer Notes
                           </p>
 
                           <p className="mt-2 leading-relaxed text-[#b8a99a]">
