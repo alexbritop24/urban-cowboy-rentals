@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { equipmentData } from "../../data/equipmentData";
-import { supabase } from "../../lib/supabase";
+import { publicSupabase } from "../../lib/supabase";
 import BookingSuccess from "./BookingSuccess";
 
 import type { BookingRequest } from "../../types/booking";
@@ -18,6 +18,20 @@ const durationOptions = [
   "Custom",
 ];
 
+const initialFormState = {
+  fullName: "",
+  phone: "",
+  email: "",
+  equipmentRequested: "",
+  rentalStartDate: "",
+  rentalEndDate: "",
+  rentalDuration: "",
+  fulfillmentType: "" as BookingRequest["fulfillmentType"],
+  projectType: "",
+  notes: "",
+  agreementAccepted: false,
+};
+
 const BookingForm = () => {
   const [searchParams] = useSearchParams();
 
@@ -32,17 +46,8 @@ const BookingForm = () => {
   }, [equipmentQuery]);
 
   const [formData, setFormData] = useState({
-    fullName: "",
-    phone: "",
-    email: "",
+    ...initialFormState,
     equipmentRequested: defaultEquipment,
-    rentalStartDate: "",
-    rentalEndDate: "",
-    rentalDuration: "",
-    fulfillmentType: "" as BookingRequest["fulfillmentType"],
-    projectType: "",
-    notes: "",
-    agreementAccepted: false,
   });
 
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -65,68 +70,92 @@ const BookingForm = () => {
     }));
   };
 
-  const notifyN8n = async (bookingRequest: BookingRequest) => {
-    const webhookUrl = import.meta.env.VITE_N8N_RENTAL_REQUEST_WEBHOOK;
+  const notifyN8n = (bookingRequest: BookingRequest) => {
+    const webhookUrl =
+      import.meta.env.VITE_N8N_RENTAL_REQUEST_WEBHOOK;
 
     if (!webhookUrl) {
-      console.warn("N8N webhook URL is missing.");
+      console.warn("N8N webhook URL missing.");
       return;
     }
 
-    try {
-      await fetch(webhookUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(bookingRequest),
-      });
-    } catch (error) {
+    fetch(webhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(bookingRequest),
+    }).catch((error) => {
       console.error("N8N WEBHOOK ERROR:", error);
-    }
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (isSubmitting) return;
+
     setIsSubmitting(true);
 
-    const bookingRequest: BookingRequest = {
-      ...formData,
-      status: "new",
-      source: "website",
-      submittedAt: new Date().toISOString(),
-    };
+    try {
+      const bookingRequest: BookingRequest = {
+        ...formData,
+        status: "new",
+        source: "website",
+        submittedAt: new Date().toISOString(),
+      };
 
-    const { error } = await supabase.from("rental_requests").insert({
-      full_name: bookingRequest.fullName,
-      phone: bookingRequest.phone,
-      email: bookingRequest.email,
-      equipment_requested: bookingRequest.equipmentRequested,
-      rental_start_date: bookingRequest.rentalStartDate,
-      rental_end_date: bookingRequest.rentalEndDate,
-      rental_duration: bookingRequest.rentalDuration,
-      fulfillment_type: bookingRequest.fulfillmentType,
-      project_type: bookingRequest.projectType,
-      notes: bookingRequest.notes,
-      agreement_accepted: bookingRequest.agreementAccepted,
-      status: bookingRequest.status,
-      source: bookingRequest.source,
-    });
+      console.log("STARTING BOOKING INSERT:", bookingRequest);
 
-    if (error) {
-      console.error("SUPABASE INSERT ERROR:", error);
-      alert("Something went wrong. Please try again.");
+      const { error } = await publicSupabase
+        .from("rental_requests")
+        .insert({
+          full_name: bookingRequest.fullName,
+          phone: bookingRequest.phone,
+          email: bookingRequest.email,
+          equipment_requested: bookingRequest.equipmentRequested,
+          rental_start_date: bookingRequest.rentalStartDate,
+          rental_end_date: bookingRequest.rentalEndDate,
+          rental_duration: bookingRequest.rentalDuration,
+          fulfillment_type: bookingRequest.fulfillmentType,
+          project_type: bookingRequest.projectType,
+          notes: bookingRequest.notes,
+          agreement_accepted: bookingRequest.agreementAccepted,
+          status: bookingRequest.status,
+          source: bookingRequest.source,
+          priority: "normal",
+          payment_status: "unpaid",
+          deposit_status: "not_required",
+          delivery_status: "not_scheduled",
+        });
+
+      if (error) {
+        console.error("SUPABASE INSERT ERROR:", error);
+        alert(`Database error: ${error.message}`);
+        return;
+      }
+
+      console.log("BOOKING REQUEST SAVED SUCCESSFULLY");
+
+      notifyN8n(bookingRequest);
+
+      setFormData({
+        ...initialFormState,
+        equipmentRequested: defaultEquipment,
+      });
+
+      setIsSubmitted(true);
+    } catch (error) {
+      console.error("BOOKING SUBMIT ERROR:", error);
+
+      if (error instanceof Error) {
+        alert(error.message);
+      } else {
+        alert("Something went wrong submitting the request.");
+      }
+    } finally {
       setIsSubmitting(false);
-      return;
     }
-
-    console.log("BOOKING REQUEST SAVED:", bookingRequest);
-
-    await notifyN8n(bookingRequest);
-
-    setIsSubmitting(false);
-    setIsSubmitted(true);
   };
 
   if (isSubmitted) {
@@ -200,6 +229,7 @@ const BookingForm = () => {
             className="w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition focus:border-yellow-500/40"
           >
             <option value="">Select equipment</option>
+
             {equipmentData.map((item) => (
               <option key={item.id} value={item.name}>
                 {item.name}
@@ -251,6 +281,7 @@ const BookingForm = () => {
             className="w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition focus:border-yellow-500/40"
           >
             <option value="">Select duration</option>
+
             {durationOptions.map((duration) => (
               <option key={duration} value={duration}>
                 {duration}

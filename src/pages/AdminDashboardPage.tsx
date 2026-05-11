@@ -86,6 +86,8 @@ const AdminDashboardPage = () => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const fetchRequests = async () => {
+    setIsLoading(true);
+
     const { data, error } = await supabase
       .from("rental_requests")
       .select("*")
@@ -93,6 +95,7 @@ const AdminDashboardPage = () => {
 
     if (error) {
       console.error("FETCH RENTAL REQUESTS ERROR:", error);
+      setRequests([]);
       setIsLoading(false);
       return;
     }
@@ -152,6 +155,33 @@ const AdminDashboardPage = () => {
     );
 
     setUpdatingId(null);
+  };
+
+  const handleCopyPaymentLink = async (paymentLink: string | null) => {
+    if (!paymentLink) return;
+
+    try {
+      await navigator.clipboard.writeText(paymentLink);
+      alert("Payment link copied.");
+    } catch (error) {
+      console.error("COPY PAYMENT LINK ERROR:", error);
+      alert("Could not copy payment link.");
+    }
+  };
+
+  const handlePaymentLinkChange = async (
+    requestId: string,
+    paymentLink: string
+  ) => {
+    await updateRequestField(requestId, "payment_link", paymentLink);
+
+    if (paymentLink.trim()) {
+      await updateRequestField(
+        requestId,
+        "payment_status",
+        "payment_link_sent"
+      );
+    }
   };
 
   const handleLogout = async () => {
@@ -337,9 +367,58 @@ const AdminDashboardPage = () => {
                       </div>
 
                       <div className="mt-6 rounded-2xl border border-yellow-500/10 bg-black/25 p-5">
-                        <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
-                          Internal Operations
-                        </p>
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                          <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
+                            Internal Operations
+                          </p>
+
+                          <div className="flex flex-wrap gap-3">
+                            <button
+                              type="button"
+                              disabled={updatingId === request.id}
+                              onClick={() =>
+                                updateRequestField(
+                                  request.id,
+                                  "status",
+                                  "quote_sent"
+                                )
+                              }
+                              className="rounded-full border border-yellow-500/20 bg-black/30 px-4 py-2 text-xs font-black uppercase tracking-[0.08em] text-[#fff7ed] transition hover:border-yellow-500/50 disabled:opacity-50"
+                            >
+                              Mark Quote Sent
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={updatingId === request.id}
+                              onClick={() =>
+                                updateRequestField(
+                                  request.id,
+                                  "status",
+                                  "confirmed"
+                                )
+                              }
+                              className="rounded-full border border-green-500/20 bg-green-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.08em] text-green-300 transition hover:border-green-500/50 disabled:opacity-50"
+                            >
+                              Confirm Rental
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={updatingId === request.id}
+                              onClick={() =>
+                                updateRequestField(
+                                  request.id,
+                                  "payment_status",
+                                  "paid"
+                                )
+                              }
+                              className="rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.08em] text-blue-300 transition hover:border-blue-500/50 disabled:opacity-50"
+                            >
+                              Mark Paid
+                            </button>
+                          </div>
+                        </div>
 
                         <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                           <div>
@@ -415,9 +494,7 @@ const AdminDashboardPage = () => {
                             </label>
 
                             <select
-                              value={
-                                request.deposit_status || "not_required"
-                              }
+                              value={request.deposit_status || "not_required"}
                               onChange={(e) =>
                                 updateRequestField(
                                   request.id,
@@ -465,9 +542,7 @@ const AdminDashboardPage = () => {
                             </label>
 
                             <select
-                              value={
-                                request.delivery_status || "not_scheduled"
-                              }
+                              value={request.delivery_status || "not_scheduled"}
                               onChange={(e) =>
                                 updateRequestField(
                                   request.id,
@@ -496,9 +571,8 @@ const AdminDashboardPage = () => {
                               type="url"
                               value={request.payment_link || ""}
                               onChange={(e) =>
-                                updateRequestField(
+                                handlePaymentLinkChange(
                                   request.id,
-                                  "payment_link",
                                   e.target.value
                                 )
                               }
@@ -507,14 +581,28 @@ const AdminDashboardPage = () => {
                             />
 
                             {request.payment_link ? (
-                              <a
-                                href={request.payment_link}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="rounded-2xl border border-yellow-500/20 bg-[#f4b000] px-5 py-3 text-center text-sm font-black uppercase tracking-[0.08em] text-black transition hover:bg-[#f59e0b]"
-                              >
-                                Open Link
-                              </a>
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleCopyPaymentLink(
+                                      request.payment_link
+                                    )
+                                  }
+                                  className="rounded-2xl border border-yellow-500/20 bg-black/40 px-5 py-3 text-sm font-black uppercase tracking-[0.08em] text-[#fff7ed] transition hover:border-yellow-500/50"
+                                >
+                                  Copy
+                                </button>
+
+                                <a
+                                  href={request.payment_link}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="rounded-2xl border border-yellow-500/20 bg-[#f4b000] px-5 py-3 text-center text-sm font-black uppercase tracking-[0.08em] text-black transition hover:bg-[#f59e0b]"
+                                >
+                                  Open Link
+                                </a>
+                              </div>
                             ) : (
                               <button
                                 type="button"

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 import MainLayout from "../components/layout/MainLayout";
 import PageTransition from "../components/ui/PageTransition";
@@ -7,8 +6,6 @@ import SEO from "../components/seo/SEO";
 import { supabase } from "../lib/supabase";
 
 const AdminLoginPage = () => {
-  const navigate = useNavigate();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -19,7 +16,7 @@ const AdminLoginPage = () => {
 
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -30,7 +27,13 @@ const AdminLoginPage = () => {
       return;
     }
 
-    navigate("/admin");
+    if (!data.session) {
+      alert("Login failed. No session was created.");
+      setLoading(false);
+      return;
+    }
+
+    window.location.href = "/admin";
   };
 
   return (
@@ -52,10 +55,7 @@ const AdminLoginPage = () => {
                 Sign in.
               </h1>
 
-              <form
-                onSubmit={handleLogin}
-                className="mt-8 space-y-5"
-              >
+              <form onSubmit={handleLogin} className="mt-8 space-y-5">
                 <div>
                   <label className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
                     Email
@@ -64,9 +64,7 @@ const AdminLoginPage = () => {
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) =>
-                      setEmail(e.target.value)
-                    }
+                    onChange={(e) => setEmail(e.target.value)}
                     required
                     className="w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none focus:border-yellow-500/40"
                   />
@@ -80,9 +78,7 @@ const AdminLoginPage = () => {
                   <input
                     type="password"
                     value={password}
-                    onChange={(e) =>
-                      setPassword(e.target.value)
-                    }
+                    onChange={(e) => setPassword(e.target.value)}
                     required
                     className="w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none focus:border-yellow-500/40"
                   />
@@ -91,11 +87,9 @@ const AdminLoginPage = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full rounded-full bg-[#f4b000] px-8 py-5 text-lg font-black uppercase tracking-[0.08em] text-black transition hover:bg-[#f59e0b]"
+                  className="w-full rounded-full bg-[#f4b000] px-8 py-5 text-lg font-black uppercase tracking-[0.08em] text-black transition hover:bg-[#f59e0b] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {loading
-                    ? "Signing In..."
-                    : "Sign In"}
+                  {loading ? "Signing In..." : "Sign In"}
                 </button>
               </form>
             </div>
