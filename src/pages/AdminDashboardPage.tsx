@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import AutomationLogs from "../components/admin/AutomationLogs";
@@ -16,6 +16,8 @@ interface RentalRequest {
   equipment_requested: string;
   rental_start_date: string;
   rental_end_date: string;
+  pickup_date: string | null;
+  return_date: string | null;
   rental_duration: string;
   fulfillment_type: string;
   project_type: string;
@@ -30,6 +32,8 @@ interface RentalRequest {
   deposit_status: string | null;
   payment_status: string | null;
   delivery_status: string | null;
+  availability_status: string | null;
+  availability_notes: string | null;
   payment_link: string | null;
 }
 
@@ -42,6 +46,7 @@ const statusOptions = [
   "scheduled_delivery",
   "active_rental",
   "pickup_scheduled",
+  "return_due",
   "returned",
   "inspection",
   "completed",
@@ -77,13 +82,35 @@ const deliveryStatusOptions = [
   "returned",
 ];
 
+const availabilityStatusOptions = [
+  "pending_review",
+  "available",
+  "conflict",
+  "unavailable",
+  "approved",
+];
+
+const formatLabel = (value: string) => value.replaceAll("_", " ");
+
+const automationWebhookUrl = import.meta.env.VITE_N8N_AUTOMATION_WEBHOOK_URL;
+
 const AdminDashboardPage = () => {
   const navigate = useNavigate();
 
   const [requests, setRequests] = useState<RentalRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [paymentFilter, setPaymentFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
+
+  const noteSaveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>(
+    {}
+  );
 
   const fetchRequests = async () => {
     setIsLoading(true);
@@ -124,14 +151,214 @@ const AdminDashboardPage = () => {
 
     return () => {
       supabase.removeChannel(channel);
+
+      Object.values(noteSaveTimers.current).forEach((timer) => {
+        clearTimeout(timer);
+      });
     };
   }, []);
+
+  const filteredRequests = useMemo(() => {
+    const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+
+    return requests.filter((request) => {
+      const matchesSearch =
+        !normalizedSearchTerm ||
+        [
+          request.full_name,
+          request.phone,
+          request.email,
+          request.equipment_requested,
+          request.project_type,
+          request.source,
+          request.assigned_to || "",
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedSearchTerm);
+
+      const matchesStatus =
+        statusFilter === "all" || request.status === statusFilter;
+
+      const matchesPayment =
+        paymentFilter === "all" ||
+        (request.payment_status || "unpaid") === paymentFilter;
+
+      const matchesPriority =
+        priorityFilter === "all" ||
+        (request.priority || "normal") === priorityFilter;
+
+      return matchesSearch && matchesStatus && matchesPayment && matchesPriority;
+    });
+  }, [requests, searchTerm, statusFilter, paymentFilter, priorityFilter]);
+
+  const dashboardStats = useMemo(() => {
+    const activeRequests = requests.filter(
+      (request) =>
+        !["completed", "cancelled", "returned"].includes(request.status || "new")
+    );
+
+    const quoteSent = requests.filter(
+      (request) => request.status === "quote_sent"
+    );
+
+    const confirmed = requests.filter(
+      (request) => request.status === "confirmed"
+    );
+
+    const unpaid = requests.filter(
+      (request) => (request.payment_status || "unpaid") !== "paid"
+    );
+
+    const urgent = requests.filter(
+      (request) => (request.priority || "normal") === "urgent"
+    );
+
+    const totalQuoted = requests.reduce((sum, request) => {
+      return sum + (Number(request.quote_amount) || 0);
+    }, 0);
+
+    return {
+      total: requests.length,
+      active: activeRequests.length,
+      quoteSent: quoteSent.length,
+      confirmed: confirmed.length,
+      unpaid: unpaid.length,
+      urgent: urgent.length,
+      totalQuoted,
+    };
+  }, [requests]);
+
+  const createAutomationLog = async (
+  request: RentalRequest,
+  eventType: string,
+  message: string,
+  channel = "email"
+) => {
+  const { error } = await supabase.from("automation_logs").insert({
+    rental_request_id: request.id,
+    event_type: eventType,
+    channel,
+    status: "success",
+    message,
+  });
+
+  if (error) {
+    console.error("CREATE AUTOMATION LOG ERROR:", error);
+    alert(
+      "The request was updated, but the automation log could not be created."
+    );
+    return;
+  }
+
+  if (!automationWebhookUrl) {
+    console.warn("Missing VITE_N8N_AUTOMATION_WEBHOOK_URL.");
+    return;
+  }
+
+  try {
+    await fetch(automationWebhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        rental_request_id: request.id,
+        event_type: eventType,
+        channel,
+        message,
+        customer_name: request.full_name,
+        customer_email: request.email,
+        customer_phone: request.phone,
+        equipment_requested: request.equipment_requested,
+        rental_start_date: request.rental_start_date,
+        rental_end_date: request.rental_end_date,
+        rental_duration: request.rental_duration,
+        fulfillment_type: request.fulfillment_type,
+        project_type: request.project_type,
+        quote_amount: request.quote_amount,
+        payment_status: request.payment_status,
+        deposit_status: request.deposit_status,
+        delivery_status: request.delivery_status,
+        payment_link: request.payment_link,
+      }),
+    });
+  } catch (webhookError) {
+    console.error("N8N WEBHOOK ERROR:", webhookError);
+  }
+};
+
+const hasDateConflict = (
+  currentRequestId: string,
+  equipmentRequested: string,
+  pickupDate: string,
+  returnDate: string
+) => {
+  return requests.some((request) => {
+    if (request.id === currentRequestId) return false;
+
+    if (request.equipment_requested !== equipmentRequested) {
+      return false;
+    }
+
+    if (!request.pickup_date || !request.return_date) {
+      return false;
+    }
+
+    const existingPickup = new Date(request.pickup_date).getTime();
+    const existingReturn = new Date(request.return_date).getTime();
+
+    const newPickup = new Date(pickupDate).getTime();
+    const newReturn = new Date(returnDate).getTime();
+
+    return newPickup < existingReturn && newReturn > existingPickup;
+     });
+    };
 
   const updateRequestField = async (
     requestId: string,
     field: keyof RentalRequest,
     value: string | number | null
   ) => {
+
+    if (
+  field === "pickup_date" ||
+  field === "return_date"
+) {
+  const currentRequest = requests.find(
+    (request) => request.id === requestId
+  );
+
+  if (!currentRequest) return;
+
+  const pickupDate =
+    field === "pickup_date"
+      ? value
+      : currentRequest.pickup_date;
+
+  const returnDate =
+    field === "return_date"
+      ? value
+      : currentRequest.return_date;
+
+  if (
+    pickupDate &&
+    returnDate &&
+    hasDateConflict(
+      requestId,
+      currentRequest.equipment_requested,
+      String(pickupDate || ""),
+      String(returnDate || "")
+      )
+     ) {
+      alert(
+      "Equipment conflict detected. This equipment is already booked during that time."
+       );
+
+        return;
+     }
+  }
+    
     setUpdatingId(requestId);
 
     const { error } = await supabase
@@ -148,13 +375,80 @@ const AdminDashboardPage = () => {
 
     setRequests((prev) =>
       prev.map((request) =>
-        request.id === requestId
-          ? { ...request, [field]: value }
-          : request
+        request.id === requestId ? { ...request, [field]: value } : request
       )
     );
 
     setUpdatingId(null);
+  };
+
+  const updateRequestFields = async (
+  requestId: string,
+  updates: Partial<RentalRequest>
+) => {
+  setUpdatingId(requestId);
+
+  const currentRequest = getRequestById(requestId);
+
+  const { error } = await supabase
+    .from("rental_requests")
+    .update(updates)
+    .eq("id", requestId);
+
+  if (error) {
+    console.error("UPDATE REQUEST FIELDS ERROR:", error);
+    alert("Could not update request.");
+    setUpdatingId(null);
+    return null;
+  }
+
+  const updatedRequest = currentRequest
+    ? { ...currentRequest, ...updates }
+    : null;
+
+  setRequests((prev) =>
+    prev.map((request) =>
+      request.id === requestId ? { ...request, ...updates } : request
+    )
+  );
+
+  setUpdatingId(null);
+
+  return updatedRequest;
+  };
+
+  const getRequestById = (requestId: string) => {
+    return requests.find((request) => request.id === requestId) || null;
+  };
+
+  const handleInternalNotesChange = (requestId: string, value: string) => {
+    setRequests((prev) =>
+      prev.map((request) =>
+        request.id === requestId
+          ? { ...request, internal_notes: value }
+          : request
+      )
+    );
+
+    if (noteSaveTimers.current[requestId]) {
+      clearTimeout(noteSaveTimers.current[requestId]);
+    }
+
+    noteSaveTimers.current[requestId] = setTimeout(async () => {
+      setSavingNoteId(requestId);
+
+      const { error } = await supabase
+        .from("rental_requests")
+        .update({ internal_notes: value || null })
+        .eq("id", requestId);
+
+      if (error) {
+        console.error("SAVE INTERNAL NOTES ERROR:", error);
+        alert("Could not save internal notes.");
+      }
+
+      setSavingNoteId(null);
+    }, 800);
   };
 
   const handleCopyPaymentLink = async (paymentLink: string | null) => {
@@ -173,13 +467,64 @@ const AdminDashboardPage = () => {
     requestId: string,
     paymentLink: string
   ) => {
-    await updateRequestField(requestId, "payment_link", paymentLink);
+    const trimmedPaymentLink = paymentLink.trim();
+    const currentRequest = getRequestById(requestId);
 
-    if (paymentLink.trim()) {
-      await updateRequestField(
-        requestId,
-        "payment_status",
-        "payment_link_sent"
+    if (!currentRequest) return;
+
+    const updatedRequest = await updateRequestFields(requestId, {
+      payment_link: paymentLink,
+      payment_status: trimmedPaymentLink ? "payment_link_sent" : "unpaid",
+    });
+
+    if (updatedRequest && trimmedPaymentLink) {
+      await createAutomationLog(
+        updatedRequest,
+        "payment_link_sent",
+        `Payment link sent to ${updatedRequest.full_name} for ${updatedRequest.equipment_requested}.`
+      );
+    }
+  };
+
+  const handleMarkQuoteSent = async (requestId: string) => {
+    const updatedRequest = await updateRequestFields(requestId, {
+      status: "quote_sent",
+    });
+
+    if (updatedRequest) {
+      await createAutomationLog(
+        updatedRequest,
+        "quote_sent",
+        `Quote sent to ${updatedRequest.full_name} for ${updatedRequest.equipment_requested}.`
+      );
+    }
+  };
+
+  const handleConfirmRental = async (requestId: string) => {
+    const updatedRequest = await updateRequestFields(requestId, {
+      status: "confirmed",
+    });
+
+    if (updatedRequest) {
+      await createAutomationLog(
+        updatedRequest,
+        "rental_confirmed",
+        `Rental confirmed for ${updatedRequest.full_name}: ${updatedRequest.equipment_requested}.`
+      );
+    }
+  };
+
+  const handleMarkPaid = async (requestId: string) => {
+    const updatedRequest = await updateRequestFields(requestId, {
+      payment_status: "paid",
+      deposit_status: "paid",
+    });
+
+    if (updatedRequest) {
+      await createAutomationLog(
+        updatedRequest,
+        "payment_paid",
+        `Payment marked as paid for ${updatedRequest.full_name}: ${updatedRequest.equipment_requested}.`
       );
     }
   };
@@ -207,7 +552,7 @@ const AdminDashboardPage = () => {
       />
 
       <MainLayout>
-        <section className="px-6 py-24">
+        <section className="px-4 py-20 sm:px-6 lg:py-24">
           <div className="mx-auto max-w-7xl">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
               <div>
@@ -215,11 +560,11 @@ const AdminDashboardPage = () => {
                   Admin Dashboard
                 </p>
 
-                <h1 className="mt-5 text-5xl font-black tracking-tight text-[#fff7ed] md:text-7xl">
+                <h1 className="mt-5 max-w-5xl text-4xl font-black tracking-tight text-[#fff7ed] sm:text-5xl md:text-7xl">
                   Rental request command center.
                 </h1>
 
-                <p className="mt-6 max-w-2xl text-lg leading-relaxed text-[#b8a99a]">
+                <p className="mt-6 max-w-2xl text-base leading-relaxed text-[#b8a99a] sm:text-lg">
                   Review incoming rental requests, customer details, dates,
                   status, automation history, internal notes, assignments, and
                   payment workflow.
@@ -236,13 +581,133 @@ const AdminDashboardPage = () => {
               </button>
             </div>
 
-            <div className="mt-12 rounded-[2rem] border border-yellow-500/10 bg-[#11100d]/90 p-6 shadow-2xl shadow-black/30">
-              <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <h2 className="text-2xl font-black text-[#fff7ed]">
-                  Incoming Requests
-                </h2>
+            <div className="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-[1.5rem] border border-yellow-500/10 bg-[#11100d]/90 p-5 shadow-xl shadow-black/20">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#8f8577]">
+                  Total Requests
+                </p>
+                <p className="mt-3 text-4xl font-black text-[#fff7ed]">
+                  {dashboardStats.total}
+                </p>
+              </div>
 
-                <div className="flex items-center gap-3">
+              <div className="rounded-[1.5rem] border border-yellow-500/10 bg-[#11100d]/90 p-5 shadow-xl shadow-black/20">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#8f8577]">
+                  Active Rentals
+                </p>
+                <p className="mt-3 text-4xl font-black text-[#fff7ed]">
+                  {dashboardStats.active}
+                </p>
+              </div>
+
+              <div className="rounded-[1.5rem] border border-yellow-500/10 bg-[#11100d]/90 p-5 shadow-xl shadow-black/20">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#8f8577]">
+                  Payment Follow-Ups
+                </p>
+                <p className="mt-3 text-4xl font-black text-[#fff7ed]">
+                  {dashboardStats.unpaid}
+                </p>
+              </div>
+
+              <div className="rounded-[1.5rem] border border-yellow-500/10 bg-[#11100d]/90 p-5 shadow-xl shadow-black/20">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#8f8577]">
+                  Total Quoted
+                </p>
+                <p className="mt-3 text-4xl font-black text-[#fff7ed]">
+                  ${dashboardStats.totalQuoted.toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+              <div className="rounded-[1.5rem] border border-yellow-500/10 bg-black/30 p-5">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#8f8577]">
+                  Quotes Sent
+                </p>
+                <p className="mt-2 text-3xl font-black text-[#f4b000]">
+                  {dashboardStats.quoteSent}
+                </p>
+              </div>
+
+              <div className="rounded-[1.5rem] border border-yellow-500/10 bg-black/30 p-5">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#8f8577]">
+                  Confirmed
+                </p>
+                <p className="mt-2 text-3xl font-black text-green-300">
+                  {dashboardStats.confirmed}
+                </p>
+              </div>
+
+              <div className="rounded-[1.5rem] border border-yellow-500/10 bg-black/30 p-5">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#8f8577]">
+                  Urgent
+                </p>
+                <p className="mt-2 text-3xl font-black text-red-300">
+                  {dashboardStats.urgent}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-12 rounded-[2rem] border border-yellow-500/10 bg-[#11100d]/90 p-4 shadow-2xl shadow-black/30 sm:p-6">
+              <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                <div>
+                  <h2 className="text-2xl font-black text-[#fff7ed]">
+                    Incoming Requests
+                  </h2>
+                  <p className="mt-1 text-sm text-[#8f8577]">
+                    Showing {filteredRequests.length} of {requests.length}{" "}
+                    requests.
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                  <input
+                    type="search"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search customer, phone, email, equipment..."
+                    className="w-full rounded-full border border-yellow-500/10 bg-black/40 px-5 py-3 text-sm text-[#fff7ed] outline-none transition placeholder:text-[#8f8577] focus:border-yellow-500/40 lg:w-80"
+                  />
+
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="rounded-full border border-yellow-500/10 bg-black/40 px-5 py-3 text-sm font-black uppercase tracking-[0.08em] text-[#fff7ed] outline-none focus:border-yellow-500/40"
+                  >
+                    <option value="all">All Statuses</option>
+                    {statusOptions.map((status) => (
+                      <option key={status} value={status}>
+                        {formatLabel(status)}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={paymentFilter}
+                    onChange={(e) => setPaymentFilter(e.target.value)}
+                    className="rounded-full border border-yellow-500/10 bg-black/40 px-5 py-3 text-sm font-black uppercase tracking-[0.08em] text-[#fff7ed] outline-none focus:border-yellow-500/40"
+                  >
+                    <option value="all">All Payments</option>
+                    {paymentStatusOptions.map((status) => (
+                      <option key={status} value={status}>
+                        {formatLabel(status)}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={priorityFilter}
+                    onChange={(e) => setPriorityFilter(e.target.value)}
+                    className="rounded-full border border-yellow-500/10 bg-black/40 px-5 py-3 text-sm font-black uppercase tracking-[0.08em] text-[#fff7ed] outline-none focus:border-yellow-500/40"
+                  >
+                    <option value="all">All Priorities</option>
+                    {priorityOptions.map((priority) => (
+                      <option key={priority} value={priority}>
+                        {priority}
+                      </option>
+                    ))}
+                  </select>
+
                   <button
                     type="button"
                     onClick={fetchRequests}
@@ -250,10 +715,6 @@ const AdminDashboardPage = () => {
                   >
                     Refresh
                   </button>
-
-                  <span className="rounded-full bg-[#f4b000] px-4 py-2 text-sm font-black text-black">
-                    {requests.length} total
-                  </span>
                 </div>
               </div>
 
@@ -261,24 +722,38 @@ const AdminDashboardPage = () => {
                 <p className="text-[#b8a99a]">Loading requests...</p>
               ) : requests.length === 0 ? (
                 <p className="text-[#b8a99a]">No rental requests yet.</p>
+              ) : filteredRequests.length === 0 ? (
+                <p className="text-[#b8a99a]">
+                  No requests match the current filters.
+                </p>
               ) : (
                 <div className="grid gap-5">
-                  {requests.map((request) => (
+                  {filteredRequests.map((request) => (
                     <article
                       key={request.id}
-                      className="rounded-[1.5rem] border border-yellow-500/10 bg-[#1a1612] p-6"
+                      className="rounded-[1.5rem] border border-yellow-500/10 bg-[#1a1612] p-4 sm:p-6"
                     >
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div>
-                          <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
-                            {(request.status || "new").replace("_", " ")}
-                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="rounded-full bg-[#f4b000]/10 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-[#f4b000]">
+                              {formatLabel(request.status || "new")}
+                            </p>
 
-                          <h3 className="mt-2 text-2xl font-black text-[#fff7ed]">
+                            <p className="rounded-full border border-yellow-500/10 bg-black/30 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-[#b8a99a]">
+                              {request.priority || "normal"}
+                            </p>
+
+                            <p className="rounded-full border border-yellow-500/10 bg-black/30 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-[#b8a99a]">
+                              {formatLabel(request.payment_status || "unpaid")}
+                            </p>
+                          </div>
+
+                          <h3 className="mt-3 text-2xl font-black text-[#fff7ed]">
                             {request.equipment_requested}
                           </h3>
 
-                          <p className="mt-2 text-[#b8a99a]">
+                          <p className="mt-2 break-words text-[#b8a99a]">
                             {request.full_name} · {request.phone} ·{" "}
                             {request.email}
                           </p>
@@ -292,18 +767,66 @@ const AdminDashboardPage = () => {
                           <select
                             value={request.status || "new"}
                             disabled={updatingId === request.id}
-                            onChange={(e) =>
-                              updateRequestField(
-                                request.id,
-                                "status",
-                                e.target.value
-                              )
+                            onChange={async (e) => {
+
+                            const newStatus = e.target.value;
+
+                            await updateRequestField(request.id, "status", newStatus);
+
+                             if (newStatus === "completed") {
+
+                              await createAutomationLog(
+
+                              { ...request, status: "completed" },
+
+                                "rental_completed",
+
+                                `Rental completed for ${request.full_name}: ${request.equipment_requested}.`
+
+                               );
+
+                               }
+
+                                if (newStatus === "return_due") {
+                                 await createAutomationLog(
+                                { ...request, status: "return_due" },
+                                       "return_reminder",
+                             `Return reminder sent for ${request.full_name}: ${request.equipment_requested}.`
+                                 );
+                                 }
+
+                            if (newStatus === "pickup_scheduled") {
+                             await createAutomationLog(
+                            { ...request, status: "pickup_scheduled" },
+                                      "pickup_scheduled",
+                            `Pickup scheduled for ${request.full_name}: ${request.equipment_requested}.`
+                              );
                             }
+                            if (newStatus === "active_rental") {
+                             await createAutomationLog(
+                            { ...request, status: "active_rental" },
+                                  "active_rental",
+                             `Rental activated for ${request.full_name}: ${request.equipment_requested}.`
+                                       );
+                               }
+
+                               if (newStatus === "cancelled") {
+                                 await createAutomationLog(
+                                { ...request, status: "cancelled" },
+                                 "booking_cancelled",
+                                 `Booking cancelled for ${request.full_name}: ${request.equipment_requested}.`
+                                         );
+                                   }
+                                }}
+
+
+
+
                             className="rounded-2xl border border-yellow-500/10 bg-black/40 px-5 py-4 text-sm font-black uppercase tracking-[0.08em] text-[#fff7ed] outline-none transition focus:border-yellow-500/40 disabled:opacity-50"
                           >
                             {statusOptions.map((status) => (
                               <option key={status} value={status}>
-                                {status.replace("_", " ")}
+                                {formatLabel(status)}
                               </option>
                             ))}
                           </select>
@@ -366,23 +889,17 @@ const AdminDashboardPage = () => {
                         </div>
                       </div>
 
-                      <div className="mt-6 rounded-2xl border border-yellow-500/10 bg-black/25 p-5">
+                      <div className="mt-6 rounded-2xl border border-yellow-500/10 bg-black/25 p-4 sm:p-5">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                           <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
                             Internal Operations
                           </p>
 
-                          <div className="flex flex-wrap gap-3">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                             <button
                               type="button"
                               disabled={updatingId === request.id}
-                              onClick={() =>
-                                updateRequestField(
-                                  request.id,
-                                  "status",
-                                  "quote_sent"
-                                )
-                              }
+                              onClick={() => handleMarkQuoteSent(request.id)}
                               className="rounded-full border border-yellow-500/20 bg-black/30 px-4 py-2 text-xs font-black uppercase tracking-[0.08em] text-[#fff7ed] transition hover:border-yellow-500/50 disabled:opacity-50"
                             >
                               Mark Quote Sent
@@ -391,13 +908,7 @@ const AdminDashboardPage = () => {
                             <button
                               type="button"
                               disabled={updatingId === request.id}
-                              onClick={() =>
-                                updateRequestField(
-                                  request.id,
-                                  "status",
-                                  "confirmed"
-                                )
-                              }
+                              onClick={() => handleConfirmRental(request.id)}
                               className="rounded-full border border-green-500/20 bg-green-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.08em] text-green-300 transition hover:border-green-500/50 disabled:opacity-50"
                             >
                               Confirm Rental
@@ -406,13 +917,7 @@ const AdminDashboardPage = () => {
                             <button
                               type="button"
                               disabled={updatingId === request.id}
-                              onClick={() =>
-                                updateRequestField(
-                                  request.id,
-                                  "payment_status",
-                                  "paid"
-                                )
-                              }
+                              onClick={() => handleMarkPaid(request.id)}
                               className="rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.08em] text-blue-300 transition hover:border-blue-500/50 disabled:opacity-50"
                             >
                               Mark Paid
@@ -478,9 +983,7 @@ const AdminDashboardPage = () => {
                                 updateRequestField(
                                   request.id,
                                   "quote_amount",
-                                  e.target.value
-                                    ? Number(e.target.value)
-                                    : null
+                                  e.target.value ? Number(e.target.value) : null
                                 )
                               }
                               placeholder="0.00"
@@ -506,7 +1009,7 @@ const AdminDashboardPage = () => {
                             >
                               {depositStatusOptions.map((status) => (
                                 <option key={status} value={status}>
-                                  {status.replace("_", " ")}
+                                  {formatLabel(status)}
                                 </option>
                               ))}
                             </select>
@@ -530,7 +1033,7 @@ const AdminDashboardPage = () => {
                             >
                               {paymentStatusOptions.map((status) => (
                                 <option key={status} value={status}>
-                                  {status.replace("_", " ")}
+                                  {formatLabel(status)}
                                 </option>
                               ))}
                             </select>
@@ -554,12 +1057,56 @@ const AdminDashboardPage = () => {
                             >
                               {deliveryStatusOptions.map((status) => (
                                 <option key={status} value={status}>
-                                  {status.replace("_", " ")}
+                                  {formatLabel(status)}
                                 </option>
                               ))}
                             </select>
                           </div>
                         </div>
+
+                        <div>
+  <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
+    Availability Status
+  </label>
+
+  <select
+    value={request.availability_status || "pending_review"}
+    onChange={(e) =>
+      updateRequestField(
+        request.id,
+        "availability_status",
+        e.target.value
+      )
+    }
+    className="w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 text-[#fff7ed] outline-none focus:border-yellow-500/40"
+  >
+    {availabilityStatusOptions.map((status) => (
+      <option key={status} value={status}>
+        {formatLabel(status)}
+      </option>
+             ))}
+      </select>
+       </div>
+
+           <div className="md:col-span-2">
+             <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
+                      Availability Notes
+                           </label>
+
+                            <input
+                       type="text"
+                       value={request.availability_notes || ""}
+                              onChange={(e) =>
+                             updateRequestField(
+                                request.id,
+                                "availability_notes",
+                              e.target.value
+                                  )
+                                   }
+                                       placeholder="Conflict reason, equipment condition, approval notes..."
+                                       className="w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 text-[#fff7ed] outline-none focus:border-yellow-500/40"
+                                            />
+                                        </div>
 
                         <div className="mt-5">
                           <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
@@ -571,6 +1118,18 @@ const AdminDashboardPage = () => {
                               type="url"
                               value={request.payment_link || ""}
                               onChange={(e) =>
+                                setRequests((prev) =>
+                                  prev.map((item) =>
+                                    item.id === request.id
+                                      ? {
+                                          ...item,
+                                          payment_link: e.target.value,
+                                        }
+                                      : item
+                                  )
+                                )
+                              }
+                              onBlur={(e) =>
                                 handlePaymentLinkChange(
                                   request.id,
                                   e.target.value
@@ -581,13 +1140,11 @@ const AdminDashboardPage = () => {
                             />
 
                             {request.payment_link ? (
-                              <div className="flex gap-2">
+                              <div className="flex flex-col gap-2 sm:flex-row">
                                 <button
                                   type="button"
                                   onClick={() =>
-                                    handleCopyPaymentLink(
-                                      request.payment_link
-                                    )
+                                    handleCopyPaymentLink(request.payment_link)
                                   }
                                   className="rounded-2xl border border-yellow-500/20 bg-black/40 px-5 py-3 text-sm font-black uppercase tracking-[0.08em] text-[#fff7ed] transition hover:border-yellow-500/50"
                                 >
@@ -613,26 +1170,76 @@ const AdminDashboardPage = () => {
                               </button>
                             )}
                           </div>
+
+                          <p className="mt-2 text-xs text-[#8f8577]">
+                            Payment link saves when the field loses focus and
+                            creates a payment automation event.
+                          </p>
                         </div>
 
                         <div className="mt-5">
-                          <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
-                            Internal Notes
-                          </label>
+                          <div className="mb-2 flex items-center justify-between gap-3">
+                            <label className="block text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
+                              Internal Notes
+                            </label>
+
+                            {savingNoteId === request.id && (
+                              <span className="text-xs font-bold text-[#f4b000]">
+                                Saving...
+                              </span>
+                            )}
+                          </div>
 
                           <textarea
                             rows={4}
                             value={request.internal_notes || ""}
                             onChange={(e) =>
-                              updateRequestField(
+                              handleInternalNotesChange(
                                 request.id,
-                                "internal_notes",
                                 e.target.value
                               )
                             }
                             placeholder="Private team notes, prep instructions, quote reasoning, delivery details..."
                             className="w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 text-[#fff7ed] outline-none focus:border-yellow-500/40"
                           />
+                        </div>
+
+                        <div className="mt-5 rounded-2xl border border-yellow-500/10 bg-black/30 p-4">
+                          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8f8577]">
+                            Internal Activity Timeline
+                          </p>
+
+                          <div className="mt-4 space-y-3 text-sm text-[#b8a99a]">
+                            <p>
+                              <span className="font-bold text-[#fff7ed]">
+                                Request created:
+                              </span>{" "}
+                              {new Date(request.created_at).toLocaleString()}
+                            </p>
+
+                            <p>
+                              <span className="font-bold text-[#fff7ed]">
+                                Current status:
+                              </span>{" "}
+                              {formatLabel(request.status || "new")}
+                            </p>
+
+                            <p>
+                              <span className="font-bold text-[#fff7ed]">
+                                Payment status:
+                              </span>{" "}
+                              {formatLabel(request.payment_status || "unpaid")}
+                            </p>
+
+                            <p>
+                              <span className="font-bold text-[#fff7ed]">
+                                Delivery status:
+                              </span>{" "}
+                              {formatLabel(
+                                request.delivery_status || "not_scheduled"
+                              )}
+                            </p>
+                          </div>
                         </div>
                       </div>
 

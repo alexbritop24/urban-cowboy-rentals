@@ -3,8 +3,8 @@ export interface BookingRequest {
   phone: string;
   email: string;
   equipmentRequested: string;
-  rentalStartDate: string;
-  rentalEndDate: string;
+  pickupDate: string;
+  returnDate: string;
   rentalDuration: string;
   fulfillmentType: "Pickup" | "Delivery" | "";
   projectType: string;
@@ -13,4 +13,5 @@ export interface BookingRequest {
   status: "new";
   source: "website";
   submittedAt: string;
+  eventType: "new_request";
 }

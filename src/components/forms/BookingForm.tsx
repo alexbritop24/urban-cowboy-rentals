@@ -23,8 +23,8 @@ const initialFormState = {
   phone: "",
   email: "",
   equipmentRequested: "",
-  rentalStartDate: "",
-  rentalEndDate: "",
+  pickupDate: "",
+  returnDate: "",
   rentalDuration: "",
   fulfillmentType: "" as BookingRequest["fulfillmentType"],
   projectType: "",
@@ -53,6 +53,14 @@ const BookingForm = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const normalizePhoneNumber = (phone: string) => {
+    return phone.replace(/\D/g, "");
+  };
+
+  const getDateOnly = (dateTimeValue: string) => {
+    return dateTimeValue ? dateTimeValue.split("T")[0] : null;
+  };
+
   const handleChange = (
     e:
       | React.ChangeEvent<HTMLInputElement>
@@ -71,8 +79,7 @@ const BookingForm = () => {
   };
 
   const notifyN8n = (bookingRequest: BookingRequest) => {
-    const webhookUrl =
-      import.meta.env.VITE_N8N_RENTAL_REQUEST_WEBHOOK;
+    const webhookUrl = import.meta.env.VITE_N8N_RENTAL_REQUEST_WEBHOOK;
 
     if (!webhookUrl) {
       console.warn("N8N webhook URL missing.");
@@ -99,35 +106,37 @@ const BookingForm = () => {
 
     try {
       const bookingRequest: BookingRequest = {
-        ...formData,
-        status: "new",
-        source: "website",
-        submittedAt: new Date().toISOString(),
-      };
+       ...formData,
+       phone: normalizePhoneNumber(formData.phone),
+       status: "new",
+       source: "website",
+       submittedAt: new Date().toISOString(),
+       eventType: "new_request",
+        };
 
       console.log("STARTING BOOKING INSERT:", bookingRequest);
 
-      const { error } = await publicSupabase
-        .from("rental_requests")
-        .insert({
-          full_name: bookingRequest.fullName,
-          phone: bookingRequest.phone,
-          email: bookingRequest.email,
-          equipment_requested: bookingRequest.equipmentRequested,
-          rental_start_date: bookingRequest.rentalStartDate,
-          rental_end_date: bookingRequest.rentalEndDate,
-          rental_duration: bookingRequest.rentalDuration,
-          fulfillment_type: bookingRequest.fulfillmentType,
-          project_type: bookingRequest.projectType,
-          notes: bookingRequest.notes,
-          agreement_accepted: bookingRequest.agreementAccepted,
-          status: bookingRequest.status,
-          source: bookingRequest.source,
-          priority: "normal",
-          payment_status: "unpaid",
-          deposit_status: "not_required",
-          delivery_status: "not_scheduled",
-        });
+      const { error } = await publicSupabase.from("rental_requests").insert({
+        full_name: bookingRequest.fullName,
+        phone: bookingRequest.phone,
+        email: bookingRequest.email,
+        equipment_requested: bookingRequest.equipmentRequested,
+        rental_start_date: getDateOnly(bookingRequest.pickupDate),
+        rental_end_date: getDateOnly(bookingRequest.returnDate),
+        pickup_date: bookingRequest.pickupDate || null,
+        return_date: bookingRequest.returnDate || null,
+        rental_duration: bookingRequest.rentalDuration,
+        fulfillment_type: bookingRequest.fulfillmentType,
+        project_type: bookingRequest.projectType,
+        notes: bookingRequest.notes,
+        agreement_accepted: bookingRequest.agreementAccepted,
+        status: bookingRequest.status,
+        source: bookingRequest.source,
+        priority: "normal",
+        payment_status: "unpaid",
+        deposit_status: "not_required",
+        delivery_status: "not_scheduled",
+      });
 
       if (error) {
         console.error("SUPABASE INSERT ERROR:", error);
@@ -240,13 +249,13 @@ const BookingForm = () => {
 
         <div>
           <label className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
-            Rental Start Date
+            Pickup Date & Time
           </label>
 
           <input
-            type="date"
-            name="rentalStartDate"
-            value={formData.rentalStartDate}
+            type="datetime-local"
+            name="pickupDate"
+            value={formData.pickupDate}
             onChange={handleChange}
             required
             className="w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition focus:border-yellow-500/40"
@@ -255,13 +264,13 @@ const BookingForm = () => {
 
         <div>
           <label className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
-            Rental End Date
+            Return Date & Time
           </label>
 
           <input
-            type="date"
-            name="rentalEndDate"
-            value={formData.rentalEndDate}
+            type="datetime-local"
+            name="returnDate"
+            value={formData.returnDate}
             onChange={handleChange}
             required
             className="w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition focus:border-yellow-500/40"
