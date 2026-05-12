@@ -7,17 +7,6 @@ import BookingSuccess from "./BookingSuccess";
 
 import type { BookingRequest } from "../../types/booking";
 
-const durationOptions = [
-  "4 hours",
-  "1 day",
-  "2 days",
-  "1 week",
-  "2 weeks",
-  "3 weeks",
-  "4 weeks",
-  "Custom",
-];
-
 const initialFormState = {
   fullName: "",
   phone: "",
@@ -25,7 +14,6 @@ const initialFormState = {
   equipmentRequested: "",
   pickupDate: "",
   returnDate: "",
-  rentalDuration: "",
   fulfillmentType: "" as BookingRequest["fulfillmentType"],
   projectType: "",
   notes: "",
@@ -60,6 +48,33 @@ const BookingForm = () => {
   const getDateOnly = (dateTimeValue: string) => {
     return dateTimeValue ? dateTimeValue.split("T")[0] : null;
   };
+
+  const calculateRentalDuration = (pickupDate: string, returnDate: string) => {
+    if (!pickupDate || !returnDate) return "";
+
+    const pickupTime = new Date(pickupDate).getTime();
+    const returnTime = new Date(returnDate).getTime();
+
+    if (Number.isNaN(pickupTime) || Number.isNaN(returnTime)) return "";
+    if (returnTime <= pickupTime) return "";
+
+    const diffMs = returnTime - pickupTime;
+    const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+    const days = Math.floor(diffHours / 24);
+    const hours = diffHours % 24;
+
+    if (days === 0) return `${hours} hour${hours === 1 ? "" : "s"}`;
+    if (hours === 0) return `${days} day${days === 1 ? "" : "s"}`;
+
+    return `${days} day${days === 1 ? "" : "s"} ${hours} hour${
+      hours === 1 ? "" : "s"
+    }`;
+  };
+
+  const rentalDuration = calculateRentalDuration(
+    formData.pickupDate,
+    formData.returnDate
+  );
 
   const handleChange = (
     e:
@@ -102,17 +117,23 @@ const BookingForm = () => {
 
     if (isSubmitting) return;
 
+    if (!rentalDuration) {
+      alert("Please select a valid pickup and return date/time.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       const bookingRequest: BookingRequest = {
-       ...formData,
-       phone: normalizePhoneNumber(formData.phone),
-       status: "new",
-       source: "website",
-       submittedAt: new Date().toISOString(),
-       eventType: "new_request",
-        };
+        ...formData,
+        phone: normalizePhoneNumber(formData.phone),
+        rentalDuration,
+        status: "new",
+        source: "website",
+        submittedAt: new Date().toISOString(),
+        eventType: "new_request",
+      };
 
       console.log("STARTING BOOKING INSERT:", bookingRequest);
 
@@ -136,6 +157,8 @@ const BookingForm = () => {
         payment_status: "unpaid",
         deposit_status: "not_required",
         delivery_status: "not_scheduled",
+        availability_status: "pending_review",
+        availability_notes: null,
       });
 
       if (error) {
@@ -279,24 +302,12 @@ const BookingForm = () => {
 
         <div>
           <label className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
-            Rental Duration
+            Estimated Rental Duration
           </label>
 
-          <select
-            name="rentalDuration"
-            value={formData.rentalDuration}
-            onChange={handleChange}
-            required
-            className="w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition focus:border-yellow-500/40"
-          >
-            <option value="">Select duration</option>
-
-            {durationOptions.map((duration) => (
-              <option key={duration} value={duration}>
-                {duration}
-              </option>
-            ))}
-          </select>
+          <div className="flex min-h-[58px] items-center rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed]">
+            {rentalDuration || "Select pickup and return time"}
+          </div>
         </div>
 
         <div>
