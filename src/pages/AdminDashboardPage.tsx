@@ -102,6 +102,17 @@ const AdminDashboardPage = () => {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [adminNotice, setAdminNotice] = useState("");
+
+  useEffect(() => {
+  if (!adminNotice) return;
+
+  const timer = setTimeout(() => {
+    setAdminNotice("");
+  }, 4000);
+
+   return () => clearTimeout(timer);
+    }, [adminNotice]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -245,7 +256,7 @@ const AdminDashboardPage = () => {
 
   if (error) {
     console.error("CREATE AUTOMATION LOG ERROR:", error);
-    alert(
+    setAdminNotice(
       "The request was updated, but the automation log could not be created."
     );
     return;
@@ -342,23 +353,44 @@ const hasDateConflict = (
       : currentRequest.return_date;
 
   if (
-    pickupDate &&
-    returnDate &&
-    hasDateConflict(
-      requestId,
-      currentRequest.equipment_requested,
-      String(pickupDate || ""),
-      String(returnDate || "")
-      )
-     ) {
-      alert(
-      "Equipment conflict detected. This equipment is already booked during that time."
-       );
+  pickupDate &&
+  returnDate &&
+  hasDateConflict(
+    requestId,
+    currentRequest.equipment_requested,
+    String(pickupDate || ""),
+    String(returnDate || "")
+  )
+) {
+  await supabase
+    .from("rental_requests")
+    .update({
+      availability_status: "conflict",
+      availability_notes:
+        "Automatic conflict detected with another booking.",
+    })
+    .eq("id", requestId);
 
-        return;
-     }
-  }
-    
+  setRequests((prev) =>
+    prev.map((request) =>
+      request.id === requestId
+        ? {
+            ...request,
+            availability_status: "conflict",
+            availability_notes:
+              "Automatic conflict detected with another booking.",
+          }
+        : request
+    )
+  );
+
+  setAdminNotice(
+  "Equipment conflict detected. Availability status updated to CONFLICT."
+);
+
+  return;
+}
+}   
     setUpdatingId(requestId);
 
     const { error } = await supabase
@@ -368,7 +400,7 @@ const hasDateConflict = (
 
     if (error) {
       console.error("UPDATE REQUEST ERROR:", error);
-      alert("Could not update request.");
+      setAdminNotice("Could not update request.");
       setUpdatingId(null);
       return;
     }
@@ -397,7 +429,7 @@ const hasDateConflict = (
 
   if (error) {
     console.error("UPDATE REQUEST FIELDS ERROR:", error);
-    alert("Could not update request.");
+    setAdminNotice("Could not update request.");
     setUpdatingId(null);
     return null;
   }
@@ -444,7 +476,7 @@ const hasDateConflict = (
 
       if (error) {
         console.error("SAVE INTERNAL NOTES ERROR:", error);
-        alert("Could not save internal notes.");
+        setAdminNotice("Could not save internal notes.");
       }
 
       setSavingNoteId(null);
@@ -456,10 +488,10 @@ const hasDateConflict = (
 
     try {
       await navigator.clipboard.writeText(paymentLink);
-      alert("Payment link copied.");
+      setAdminNotice("Payment link copied.");
     } catch (error) {
       console.error("COPY PAYMENT LINK ERROR:", error);
-      alert("Could not copy payment link.");
+      setAdminNotice("Could not copy payment link.");
     }
   };
 
@@ -536,7 +568,7 @@ const hasDateConflict = (
 
     if (error) {
       console.error("LOGOUT ERROR:", error);
-      alert("Could not log out. Please try again.");
+      setAdminNotice("Could not log out. Please try again.");
       setIsLoggingOut(false);
       return;
     }
@@ -649,6 +681,11 @@ const hasDateConflict = (
             </div>
 
             <div className="mt-12 rounded-[2rem] border border-yellow-500/10 bg-[#11100d]/90 p-4 shadow-2xl shadow-black/30 sm:p-6">
+            {adminNotice && (
+           <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm font-bold text-red-300">
+                  {adminNotice}
+                          </div>
+                )}
               <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div>
                   <h2 className="text-2xl font-black text-[#fff7ed]">
@@ -731,7 +768,13 @@ const hasDateConflict = (
                   {filteredRequests.map((request) => (
                     <article
                       key={request.id}
-                      className="rounded-[1.5rem] border border-yellow-500/10 bg-[#1a1612] p-4 sm:p-6"
+                      className={`rounded-[1.5rem] p-4 sm:p-6 ${
+                      request.availability_status === "conflict"
+                      ? "border border-red-500/80 bg-[#1a1612] shadow-2xl shadow-red-500/25"
+                       : request.status === "new"
+                      ? "border border-red-400/70 bg-[#1a1612] shadow-2xl shadow-red-500/20"
+                          : "border border-yellow-500/10 bg-[#1a1612]"
+                              }`}
                     >
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div>
@@ -739,6 +782,17 @@ const hasDateConflict = (
                             <p className="rounded-full bg-[#f4b000]/10 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-[#f4b000]">
                               {formatLabel(request.status || "new")}
                             </p>
+
+                            {request.status === "new" && (
+                           <p className="animate-pulse rounded-full border border-red-400 bg-red-500 px-4 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-white shadow-lg shadow-red-500/40">
+                                         🔥 New Request
+                                        </p>
+                                     )}
+                             {request.availability_status === "conflict" && (
+                              <p className="animate-pulse rounded-full border border-red-400 bg-red-600 px-4 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-white shadow-lg shadow-red-500/40">
+                                            ⚠️ Conflict
+                                              </p>
+                              )}        
 
                             <p className="rounded-full border border-yellow-500/10 bg-black/30 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-[#b8a99a]">
                               {request.priority || "normal"}

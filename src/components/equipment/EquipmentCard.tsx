@@ -22,10 +22,14 @@ const EquipmentCard = ({ equipment }: EquipmentCardProps) => {
         <div className="absolute -bottom-20 left-10 h-40 w-40 rounded-full bg-[#7f1d1d]/10 blur-3xl" />
       </div>
 
-      <div className="relative flex h-64 items-center justify-center border-b border-yellow-500/10 bg-gradient-to-br from-[#17130e] via-[#0d0b08] to-[#050402]">
-        <span className="text-sm font-black uppercase tracking-[0.35em] text-[#f4b000]/70 transition duration-300 group-hover:tracking-[0.45em]">
-          Image Coming Soon
-        </span>
+      <div className="relative h-64 overflow-hidden border-b border-yellow-500/10 bg-gradient-to-br from-[#17130e] via-[#0d0b08] to-[#050402]">
+        <img
+          src={equipment.image}
+          alt={equipment.name}
+          className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+        />
+
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-black/20" />
 
         <div className="absolute left-5 top-5 rounded-full bg-black/60 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#f4b000] backdrop-blur-xl">
           {equipment.category}

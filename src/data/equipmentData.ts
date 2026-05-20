@@ -1,3 +1,14 @@
+import bauerBreakerJackHammerImage from "../assets/equipment/bauer-breaker-jack-hammer.jpg";
+import bobcatT550Image from "../assets/equipment/bobcat-t550-skid-steer.jpg";
+import dumpTrailerImage from "../assets/equipment/dump-trailer.jpg";
+import equipmentTrailerImage from "../assets/equipment/equipment-trailer.jpg";
+import harleyRoadGlideImage from "../assets/equipment/harley-road-glide.jpg";
+import harleySwitchbackImage from "../assets/equipment/harley-switchback.jpg";
+import herculesHammerDrillImage from "../assets/equipment/hercules-hammer-drill.jpg";
+import miniExcavatorImage from "../assets/equipment/mini-excavator.jpg";
+import scissorLiftImage from "../assets/equipment/scissor-lift.jpg";
+import utilityTrailerImage from "../assets/equipment/utility-trailer.jpg";
+
 import type { EquipmentItem } from "../types/equipment";
 
 export const equipmentData: EquipmentItem[] = [
@@ -6,7 +17,7 @@ export const equipmentData: EquipmentItem[] = [
     name: "2025 Bobcat T550 Skid Steer",
     category: "Heavy Equipment",
     startingPrice: 225,
-    image: "/equipment-placeholder.jpg",
+    image: bobcatT550Image,
     description:
       "Compact track skid steer built for grading, loading, clearing, and heavy jobsite work.",
     specs: [
@@ -30,7 +41,7 @@ export const equipmentData: EquipmentItem[] = [
     name: "2025 Bobcat E35R2 Compact Excavator",
     category: "Heavy Equipment",
     startingPrice: 225,
-    image: "/equipment-placeholder.jpg",
+    image: miniExcavatorImage,
     description:
       "Compact diesel excavator with long arm reach and optional bucket attachments for digging, trenching, and grading.",
     specs: [
@@ -63,7 +74,7 @@ export const equipmentData: EquipmentItem[] = [
     name: "2025 Lamar Telescopic Dump 9 Ton Trailer",
     category: "Trailers",
     startingPrice: 130,
-    image: "/equipment-placeholder.jpg",
+    image: dumpTrailerImage,
     description:
       "9 ton telescopic dump trailer for hauling dirt, gravel, debris, and jobsite materials.",
     specs: ["Weight: 3,200 lbs", "Width: 7’", "Height: 48”", "Length: 16’"],
@@ -81,7 +92,7 @@ export const equipmentData: EquipmentItem[] = [
     name: "2025 RawMax Tilt Deck 22’",
     category: "Trailers",
     startingPrice: 125,
-    image: "/equipment-placeholder.jpg",
+    image: equipmentTrailerImage,
     description:
       "Heavy-duty tilt deck trailer with a 17,000 lb waterproof winch for equipment and vehicle hauling.",
     specs: [
@@ -101,11 +112,56 @@ export const equipmentData: EquipmentItem[] = [
     featured: true,
   },
   {
+    id: "utility-trailer",
+    name: "Utility Trailer",
+    category: "Trailers",
+    startingPrice: 75,
+    image: utilityTrailerImage,
+    description:
+      "Open utility trailer for hauling equipment, tools, landscaping materials, and light-duty cargo.",
+    specs: [
+      "Open deck utility trailer",
+      "Rear ramp gate",
+      "Steel frame",
+      "Wood deck",
+      "Ideal for light-duty hauling",
+    ],
+    rates: [
+      { label: "4hr", price: 75 },
+      { label: "1 Day", price: 100 },
+      { label: "1 Week", price: 450 },
+      { label: "2 Weeks", price: 850 },
+      { label: "4 Weeks", price: 1500 },
+    ],
+  },
+  {
+    id: "scissor-lift",
+    name: "Electric Scissor Lift",
+    category: "Heavy Equipment",
+    startingPrice: 140,
+    image: scissorLiftImage,
+    description:
+      "Electric scissor lift designed for elevated indoor and outdoor construction, maintenance, and warehouse access work.",
+    specs: [
+      "Working height: 26 ft",
+      "Electric powered",
+      "Indoor / outdoor use",
+      "Non-marking tires",
+      "Compact maneuverability",
+    ],
+    rates: [
+      { label: "1 Day", price: 140 },
+      { label: "1 Week", price: 700 },
+      { label: "2 Weeks", price: 1300 },
+      { label: "4 Weeks", price: 2400 },
+    ],
+  },
+  {
     id: "hercules-hammer-drill",
     name: "Hercules Hammer Drill",
     category: "Tools",
     startingPrice: 60,
-    image: "/equipment-placeholder.jpg",
+    image: herculesHammerDrillImage,
     description:
       "12 Amp SDS-MAX rotary hammer drill with variable speed and vibration control.",
     specs: [
@@ -131,7 +187,7 @@ export const equipmentData: EquipmentItem[] = [
     name: "Bauer Breaker Jack Hammer",
     category: "Tools",
     startingPrice: 60,
-    image: "/equipment-placeholder.jpg",
+    image: bauerBreakerJackHammerImage,
     description:
       "Heavy-duty breaker jack hammer for demolition, concrete breaking, and removal work.",
     specs: [
@@ -148,7 +204,7 @@ export const equipmentData: EquipmentItem[] = [
     name: "2003 Harley Davidson Road Glide",
     category: "Motorcycles",
     startingPrice: 180,
-    image: "/equipment-placeholder.jpg",
+    image: harleyRoadGlideImage,
     description:
       "Classic Harley Davidson Road Glide built for comfortable rides, open-road cruising, and weekend adventure.",
     specs: [
@@ -173,7 +229,7 @@ export const equipmentData: EquipmentItem[] = [
     name: "2012 Harley Davidson FLD Switchback",
     category: "Motorcycles",
     startingPrice: 130,
-    image: "/equipment-placeholder.jpg",
+    image: harleySwitchbackImage,
     description:
       "Harley Davidson FLD Switchback rental for day rides, trips, and open-road use.",
     specs: [

@@ -40,6 +40,7 @@ const BookingForm = () => {
 
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [bookingError, setBookingError] = useState("");
 
   const normalizePhoneNumber = (phone: string) => {
     return phone.replace(/\D/g, "");
@@ -76,6 +77,35 @@ const BookingForm = () => {
     formData.returnDate
   );
 
+  const checkAvailabilityConflict = async (
+    equipmentRequested: string,
+    pickupDate: string,
+    returnDate: string
+  ) => {
+    const { data, error } = await publicSupabase
+      .from("rental_requests")
+      .select("*")
+      .eq("equipment_requested", equipmentRequested)
+      .neq("status", "cancelled");
+
+    if (error) {
+      console.error("AVAILABILITY CHECK ERROR:", error);
+      return false;
+    }
+
+    const requestedPickup = new Date(pickupDate).getTime();
+    const requestedReturn = new Date(returnDate).getTime();
+
+    return data.some((request) => {
+      if (!request.pickup_date || !request.return_date) return false;
+
+      const existingPickup = new Date(request.pickup_date).getTime();
+      const existingReturn = new Date(request.return_date).getTime();
+
+      return requestedPickup < existingReturn && requestedReturn > existingPickup;
+    });
+  };
+
   const handleChange = (
     e:
       | React.ChangeEvent<HTMLInputElement>
@@ -83,6 +113,8 @@ const BookingForm = () => {
       | React.ChangeEvent<HTMLSelectElement>
   ) => {
     const { name, value, type } = e.target;
+
+    setBookingError("");
 
     setFormData((prev) => ({
       ...prev,
@@ -117,14 +149,30 @@ const BookingForm = () => {
 
     if (isSubmitting) return;
 
+    setBookingError("");
+
     if (!rentalDuration) {
-      alert("Please select a valid pickup and return date/time.");
+      setBookingError("Please select a valid pickup and return date/time.");
       return;
     }
 
     setIsSubmitting(true);
 
     try {
+      const hasConflict = await checkAvailabilityConflict(
+        formData.equipmentRequested,
+        formData.pickupDate,
+        formData.returnDate
+      );
+
+      if (hasConflict) {
+        setBookingError(
+          "This equipment is already booked during the selected dates. Please choose another time or contact Urban Cowboy Rentals."
+        );
+        setIsSubmitting(false);
+        return;
+      }
+
       const bookingRequest: BookingRequest = {
         ...formData,
         phone: normalizePhoneNumber(formData.phone),
@@ -134,8 +182,6 @@ const BookingForm = () => {
         submittedAt: new Date().toISOString(),
         eventType: "new_request",
       };
-
-      console.log("STARTING BOOKING INSERT:", bookingRequest);
 
       const { error } = await publicSupabase.from("rental_requests").insert({
         full_name: bookingRequest.fullName,
@@ -163,11 +209,9 @@ const BookingForm = () => {
 
       if (error) {
         console.error("SUPABASE INSERT ERROR:", error);
-        alert(`Database error: ${error.message}`);
+        setBookingError(`Database error: ${error.message}`);
         return;
       }
-
-      console.log("BOOKING REQUEST SAVED SUCCESSFULLY");
 
       notifyN8n(bookingRequest);
 
@@ -181,9 +225,9 @@ const BookingForm = () => {
       console.error("BOOKING SUBMIT ERROR:", error);
 
       if (error instanceof Error) {
-        alert(error.message);
+        setBookingError(error.message);
       } else {
-        alert("Something went wrong submitting the request.");
+        setBookingError("Something went wrong submitting the request.");
       }
     } finally {
       setIsSubmitting(false);
@@ -375,6 +419,12 @@ const BookingForm = () => {
           Urban Cowboy Rentals before the rental is approved.
         </p>
       </div>
+
+      {bookingError && (
+        <div className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-4">
+          <p className="text-sm font-semibold text-red-300">{bookingError}</p>
+        </div>
+      )}
 
       <button
         type="submit"
