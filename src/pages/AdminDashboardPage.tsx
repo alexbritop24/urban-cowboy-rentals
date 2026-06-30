@@ -143,6 +143,14 @@ const AdminDashboardPage = () => {
   };
 
   useEffect(() => {
+  const initializeAdmin = async () => {
+    const { data, error } = await supabase.auth.getSession();
+
+    if (error || !data.session) {
+      navigate("/admin-login");
+      return;
+    }
+
     fetchRequests();
 
     const channel = supabase
@@ -160,14 +168,25 @@ const AdminDashboardPage = () => {
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
+    return channel;
+  };
 
-      Object.values(noteSaveTimers.current).forEach((timer) => {
-        clearTimeout(timer);
-      });
-    };
-  }, []);
+  let activeChannel: ReturnType<typeof supabase.channel> | null = null;
+
+  initializeAdmin().then((channel) => {
+    if (channel) activeChannel = channel;
+  });
+
+  return () => {
+    if (activeChannel) {
+      supabase.removeChannel(activeChannel);
+    }
+
+    Object.values(noteSaveTimers.current).forEach((timer) => {
+      clearTimeout(timer);
+    });
+  };
+}, [navigate]);
 
   const filteredRequests = useMemo(() => {
     const normalizedSearchTerm = searchTerm.trim().toLowerCase();
