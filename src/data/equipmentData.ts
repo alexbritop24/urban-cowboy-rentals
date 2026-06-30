@@ -1,13 +1,16 @@
 import bauerBreakerJackHammerImage from "../assets/equipment/bauer-breaker-jack-hammer.jpg";
-import bobcatT550Image from "../assets/equipment/bobcat-t550-skid-steer.jpg";
-import dumpTrailerImage from "../assets/equipment/dump-trailer.jpg";
+import bobcatT550Image from "../assets/equipment/bobcat-t550-skid-steer-1.jpg";
+import dumpTrailerImage from "../assets/equipment/dump-trailer-1.jpg";
 import equipmentTrailerImage from "../assets/equipment/equipment-trailer.jpg";
 import harleyRoadGlideImage from "../assets/equipment/harley-road-glide.jpg";
 import harleySwitchbackImage from "../assets/equipment/harley-switchback.jpg";
-import herculesHammerDrillImage from "../assets/equipment/hercules-hammer-drill.jpg";
-import miniExcavatorImage from "../assets/equipment/mini-excavator.jpg";
+import herculesHammerDrillImage from "../assets/equipment/hercules-hammer-drill-1.jpg";
+import miniExcavatorImage from "../assets/equipment/mini-excavator-1.jpg";
 import scissorLiftImage from "../assets/equipment/scissor-lift.jpg";
 import utilityTrailerImage from "../assets/equipment/utility-trailer.jpg";
+import plateCompactorImage from "../assets/equipment/plate-compactor-1.jpg";
+import wackerRd12RollerImage from "../assets/equipment/wacker-rd12-roller-1.jpg";
+import kobaltHandTamperImage from "../assets/equipment/kobalt-hand-tamper-1.jpg";
 
 import type { EquipmentItem } from "../types/equipment";
 
@@ -250,7 +253,78 @@ export const equipmentData: EquipmentItem[] = [
       { label: "4 Weeks", price: 2000 },
     ],
   },
+
+  {
+  id: "plate-compactor",
+  name: "Central Machinery Plate Compactor",
+  category: "Tools",
+  startingPrice: 60,
+  image: plateCompactorImage,
+  description:
+    "Gas-powered plate compactor for soil, gravel, asphalt, pavers, and base preparation.",
+  specs: [
+    "7 HP gas engine",
+    "212cc Predator engine",
+    "Heavy-duty steel construction",
+    "Fold-up handle and wheel kit",
+    "Ideal for soil, gravel, asphalt and pavers",
+  ],
+  rates: [
+    { label: "1 Day", price: 60 },
+    { label: "1 Week", price: 280 },
+    { label: "4 Weeks", price: 900 },
+  ],
+},
+{
+  id: "wacker-rd12-roller",
+  name: "Wacker Neuson RD12 Roller",
+  category: "Heavy Equipment",
+  startingPrice: 180,
+  image: wackerRd12RollerImage,
+  description:
+    "Ride-on vibratory roller for asphalt, gravel and soil compaction.",
+  specs: [
+    "Operating weight: 8,623 lbs",
+    "Drum width: 47.2 in",
+    "Travel speed: up to 7.1 mph",
+    "Diesel engine",
+    "Articulated steering",
+  ],
+  rates: [
+    { label: "1 Day", price: 180 },
+    { label: "1 Week", price: 800 },
+    { label: "4 Weeks", price: 1800 },
+  ],
+},
+{
+  id: "kobalt-hand-tamper",
+  name: "Kobalt 10×10 Hand Tamper",
+  category: "Tools",
+  startingPrice: 10,
+  image: kobaltHandTamperImage,
+  description:
+    "Manual steel tamper for compacting soil, gravel, pavers and landscaping projects.",
+  specs: [
+    '10" × 10" steel head',
+    "13.6 lbs",
+    "Heavy-duty steel construction",
+    "Cushioned grip",
+    "Ideal for pavers, sod and trench backfill",
+  ],
+  rates: [
+    { label: "1 Day", price: 10 },
+    { label: "1 Week", price: 40 },
+    { label: "4 Weeks", price: 120 },
+  ],
+},
+
+
+
+
 ];
+
+
+
 
 export const equipmentCategories = [
   "All",
