@@ -61,28 +61,23 @@ const EquipmentDetailPage = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
             >
-              <div className="industrial-card overflow-hidden rounded-[2.5rem] p-6">
-                <div className="relative flex h-[520px] items-center justify-center overflow-hidden rounded-[2rem] border border-yellow-500/10 bg-gradient-to-br from-[#1a1612] via-[#0d0b08] to-[#050402]">
-                  <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-[#f4b000]/10 blur-3xl" />
+              <div className="relative h-[520px] overflow-hidden rounded-[2rem] border border-yellow-500/10 bg-[#050402]">
+  <img
+    src={equipment.image}
+    alt={equipment.name}
+    className={
+      equipment.id === "kobalt-hand-tamper"
+        ? "h-full w-full object-contain bg-[#050402]"
+        : "h-full w-full object-cover"
+    }
+  />
 
-                  <div className="absolute -bottom-20 -right-20 h-72 w-72 rounded-full bg-[#7f1d1d]/10 blur-3xl" />
+  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-black/20" />
 
-                  <div className="relative text-center">
-                    <p className="text-sm font-black uppercase tracking-[0.4em] text-[#f4b000]/70">
-                      Equipment Image
-                    </p>
-
-                    <h2 className="mt-6 text-4xl font-black text-[#fff7ed]">
-                      Coming Soon
-                    </h2>
-
-                    <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-[#b8a99a]">
-                      Add real equipment photography here later for a major
-                      visual upgrade.
-                    </p>
-                  </div>
-                </div>
-              </div>
+  <div className="absolute left-6 top-6 rounded-full bg-black/60 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#f4b000] backdrop-blur-xl">
+    {equipment.category}
+  </div>
+</div>
 
               <div className="mt-8 grid gap-5 md:grid-cols-2">
                 <div className="industrial-card rounded-[2rem] p-7">
