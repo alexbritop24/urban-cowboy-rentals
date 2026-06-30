@@ -8,6 +8,11 @@ interface EquipmentCardProps {
 }
 
 const EquipmentCard = ({ equipment }: EquipmentCardProps) => {
+  const imageClass =
+    equipment.id === "kobalt-hand-tamper"
+      ? "h-full w-full object-contain bg-[#0d0b08] transition duration-700 group-hover:scale-105"
+      : "h-full w-full object-cover transition duration-700 group-hover:scale-105";
+
   return (
     <motion.article
       initial={{ opacity: 0, y: 24 }}
@@ -26,7 +31,7 @@ const EquipmentCard = ({ equipment }: EquipmentCardProps) => {
         <img
           src={equipment.image}
           alt={equipment.name}
-          className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+          className={imageClass}
         />
 
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-black/20" />
