@@ -39,7 +39,9 @@ const AdminLoginPage = () => {
       return;
     }
 
-    navigate("/admin");
+    setTimeout(() => {
+  navigate("/admin", { replace: true });
+}, 300);
   };
 
   return (
