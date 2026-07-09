@@ -1,4 +1,3 @@
-import bauerBreakerJackHammerImage from "../assets/equipment/bauer-breaker-jack-hammer.jpg";
 import bobcatT550Image from "../assets/equipment/bobcat-t550-skid-steer-1.jpg";
 import dumpTrailerImage from "../assets/equipment/dump-trailer-1.jpg";
 import equipmentTrailerImage from "../assets/equipment/equipment-trailer.jpg";
@@ -11,6 +10,8 @@ import utilityTrailerImage from "../assets/equipment/utility-trailer.jpg";
 import plateCompactorImage from "../assets/equipment/plate-compactor-1.jpg";
 import wackerRd12RollerImage from "../assets/equipment/wacker-rd12-roller-1.jpg";
 import kobaltHandTamperImage from "../assets/equipment/kobalt-hand-tamper-1.jpg";
+import bauer65JDemolitionHammerImage from "../assets/equipment/bauer-65j-demolition-hammer.jpg";
+import rawmaxxDtx24TiltDeckImage from "../assets/equipment/rawmaxx-dtx-24-tilt-deck.jpg";
 
 import type { EquipmentItem } from "../types/equipment";
 
@@ -115,6 +116,31 @@ export const equipmentData: EquipmentItem[] = [
     featured: true,
   },
   {
+    id: "rawmaxx-dtx-24-tilt-deck",
+    name: "RawMaxx DTX 24’ Tilt Deck Trailer",
+    category: "Trailers",
+    startingPrice: 150,
+    image: rawmaxxDtx24TiltDeckImage,
+    description:
+      "Heavy-duty RawMaxx DTX 24’ tilt deck trailer built for hauling equipment, vehicles, materials, and jobsite loads.",
+    specs: [
+      "16,000 lb GVWR",
+      "24’ tilt deck",
+      "83” wide",
+      "Tandem 7K axles",
+      "Rubrail and stake pockets",
+      "Full power tilt deck",
+      "LED lighting package",
+      "Adjustable coupler",
+    ],
+    rates: [
+      { label: "1 Day", price: 150 },
+      { label: "1 Week", price: 800 },
+      { label: "4 Weeks", price: 2000 },
+    ],
+    featured: true,
+  },
+  {
     id: "utility-trailer",
     name: "Utility Trailer",
     category: "Trailers",
@@ -160,47 +186,119 @@ export const equipmentData: EquipmentItem[] = [
     ],
   },
   {
-    id: "hercules-hammer-drill",
-    name: "Hercules Hammer Drill",
+    id: "hercules-sds-max-demolition-hammer",
+    name: "Hercules SDS-MAX Demolition Hammer",
     category: "Tools",
-    startingPrice: 60,
+    startingPrice: 50,
     image: herculesHammerDrillImage,
     description:
-      "12 Amp SDS-MAX rotary hammer drill with variable speed and vibration control.",
+      "Hercules 14.5 Amp SDS-MAX demolition hammer built for concrete breaking, chiseling, and tough demolition jobs.",
     specs: [
-      "12 Amp",
-      "1-9/16 in. SDS-MAX type",
-      "Variable-speed rotary hammer",
+      "Model: HE36",
+      "14.5 Amp",
+      "23 lb operating weight",
+      "1,900 BPM",
+      "SDS-MAX chuck",
+      "Variable-speed control",
       "Maximum vibration control",
-      "Weight: 23 lbs",
-      "Height: 11 1/8”",
-      "Width: 4 3/8”",
-      "Length: 22”",
+      "360° auxiliary handle",
+      "Heavy-duty storage case included",
+      "Chisels sold separately",
+      "$100 refundable security deposit",
+    ],
+    rates: [
+      { label: "1 Day", price: 50 },
+      { label: "1 Week", price: 200 },
+      { label: "4 Weeks", price: 600 },
+    ],
+    featured: true,
+  },
+  {
+    id: "bauer-65j-demolition-hammer",
+    name: "Bauer 65J Demolition Hammer",
+    category: "Tools",
+    startingPrice: 50,
+    image: bauer65JDemolitionHammerImage,
+    description:
+      "Heavy-duty Bauer demolition hammer for breaking concrete, asphalt, rock, and other demanding demolition work.",
+    specs: [
+      "65 Joules impact energy",
+      "120V / 15 Amp",
+      "1-1/8 in. Hex shank",
+      "1,400 BPM",
+      "63 lb operating weight",
+      "Includes point chisel",
+      "Low vibration technology",
+    ],
+    rates: [
+      { label: "1 Day", price: 50 },
+      { label: "1 Week", price: 200 },
+      { label: "4 Weeks", price: 600 },
+    ],
+    featured: true,
+  },
+  {
+    id: "plate-compactor",
+    name: "Central Machinery Plate Compactor",
+    category: "Tools",
+    startingPrice: 60,
+    image: plateCompactorImage,
+    description:
+      "Gas-powered plate compactor for soil, gravel, asphalt, pavers, and base preparation.",
+    specs: [
+      "7 HP gas engine",
+      "212cc Predator engine",
+      "Heavy-duty steel construction",
+      "Fold-up handle and wheel kit",
+      "Ideal for soil, gravel, asphalt and pavers",
     ],
     rates: [
       { label: "1 Day", price: 60 },
       { label: "1 Week", price: 280 },
-      { label: "2 Weeks", price: 560 },
-      { label: "3 Weeks", price: 1000 },
-      { label: "4 Weeks", price: 1200 },
+      { label: "4 Weeks", price: 900 },
     ],
   },
   {
-    id: "bauer-breaker-jack-hammer",
-    name: "Bauer Breaker Jack Hammer",
-    category: "Tools",
-    startingPrice: 60,
-    image: bauerBreakerJackHammerImage,
+    id: "wacker-rd12-roller",
+    name: "Wacker Neuson RD12 Roller",
+    category: "Heavy Equipment",
+    startingPrice: 180,
+    image: wackerRd12RollerImage,
     description:
-      "Heavy-duty breaker jack hammer for demolition, concrete breaking, and removal work.",
+      "Ride-on vibratory roller for asphalt, gravel and soil compaction.",
     specs: [
-      "Weight: 70 lbs",
-      "16’ power cord",
-      "120 VAC / 60 Hz / 15A",
-      "Accepts 1-1/8” / 28mm hex steel",
-      "Heavy duty bit retainer",
+      "Operating weight: 8,623 lbs",
+      "Drum width: 47.2 in",
+      "Travel speed: up to 7.1 mph",
+      "Diesel engine",
+      "Articulated steering",
     ],
-    rates: [{ label: "1 Day", price: 60 }],
+    rates: [
+      { label: "1 Day", price: 180 },
+      { label: "1 Week", price: 800 },
+      { label: "4 Weeks", price: 1800 },
+    ],
+  },
+  {
+    id: "kobalt-hand-tamper",
+    name: "Kobalt 10×10 Hand Tamper",
+    category: "Tools",
+    startingPrice: 10,
+    image: kobaltHandTamperImage,
+    description:
+      "Manual steel tamper for compacting soil, gravel, pavers and landscaping projects.",
+    specs: [
+      '10" × 10" steel head',
+      "13.6 lbs",
+      "Heavy-duty steel construction",
+      "Cushioned grip",
+      "Ideal for pavers, sod and trench backfill",
+    ],
+    rates: [
+      { label: "1 Day", price: 10 },
+      { label: "1 Week", price: 40 },
+      { label: "4 Weeks", price: 120 },
+    ],
   },
   {
     id: "harley-road-glide-2003",
@@ -253,78 +351,7 @@ export const equipmentData: EquipmentItem[] = [
       { label: "4 Weeks", price: 2000 },
     ],
   },
-
-  {
-  id: "plate-compactor",
-  name: "Central Machinery Plate Compactor",
-  category: "Tools",
-  startingPrice: 60,
-  image: plateCompactorImage,
-  description:
-    "Gas-powered plate compactor for soil, gravel, asphalt, pavers, and base preparation.",
-  specs: [
-    "7 HP gas engine",
-    "212cc Predator engine",
-    "Heavy-duty steel construction",
-    "Fold-up handle and wheel kit",
-    "Ideal for soil, gravel, asphalt and pavers",
-  ],
-  rates: [
-    { label: "1 Day", price: 60 },
-    { label: "1 Week", price: 280 },
-    { label: "4 Weeks", price: 900 },
-  ],
-},
-{
-  id: "wacker-rd12-roller",
-  name: "Wacker Neuson RD12 Roller",
-  category: "Heavy Equipment",
-  startingPrice: 180,
-  image: wackerRd12RollerImage,
-  description:
-    "Ride-on vibratory roller for asphalt, gravel and soil compaction.",
-  specs: [
-    "Operating weight: 8,623 lbs",
-    "Drum width: 47.2 in",
-    "Travel speed: up to 7.1 mph",
-    "Diesel engine",
-    "Articulated steering",
-  ],
-  rates: [
-    { label: "1 Day", price: 180 },
-    { label: "1 Week", price: 800 },
-    { label: "4 Weeks", price: 1800 },
-  ],
-},
-{
-  id: "kobalt-hand-tamper",
-  name: "Kobalt 10×10 Hand Tamper",
-  category: "Tools",
-  startingPrice: 10,
-  image: kobaltHandTamperImage,
-  description:
-    "Manual steel tamper for compacting soil, gravel, pavers and landscaping projects.",
-  specs: [
-    '10" × 10" steel head',
-    "13.6 lbs",
-    "Heavy-duty steel construction",
-    "Cushioned grip",
-    "Ideal for pavers, sod and trench backfill",
-  ],
-  rates: [
-    { label: "1 Day", price: 10 },
-    { label: "1 Week", price: 40 },
-    { label: "4 Weeks", price: 120 },
-  ],
-},
-
-
-
-
 ];
-
-
-
 
 export const equipmentCategories = [
   "All",
