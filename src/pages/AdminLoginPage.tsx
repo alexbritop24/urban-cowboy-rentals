@@ -34,10 +34,24 @@ const AdminLoginPage = () => {
     }
 
     if (!data.session) {
-      alert("Login failed. No session was created.");
-      setLoading(false);
-      return;
-    }
+
+  setErrorMessage("Login failed. No session was created.");
+
+  setLoading(false);
+
+  return;
+
+}
+
+await supabase.auth.setSession({
+
+  access_token: data.session.access_token,
+
+  refresh_token: data.session.refresh_token,
+
+});
+
+navigate("/admin", { replace: true });
 
     setTimeout(() => {
   navigate("/admin", { replace: true });
