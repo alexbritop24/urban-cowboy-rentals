@@ -6,6 +6,7 @@ import MainLayout from "../components/layout/MainLayout";
 import SEO from "../components/seo/SEO";
 import PageTransition from "../components/ui/PageTransition";
 import { supabase } from "../lib/supabase";
+import { createRentalAgreement } from "../services/agreementService";
 
 interface RentalRequest {
   id: string;
@@ -580,6 +581,17 @@ const hasDateConflict = (
     }
   };
 
+  const handleCreateRentalAgreement = async (request: RentalRequest) => {
+  const agreement = await createRentalAgreement(request);
+
+  if (!agreement) {
+    setAdminNotice("Could not create rental agreement.");
+    return;
+  }
+
+  setAdminNotice(`Rental agreement created: ${agreement.agreement_number}`);
+  };
+
   const handleLogout = async () => {
     setIsLoggingOut(true);
 
@@ -997,6 +1009,15 @@ const hasDateConflict = (
                             </button>
                           </div>
                         </div>
+
+                        <button
+                          type="button"
+                          disabled={updatingId === request.id}
+                          onClick={() => handleCreateRentalAgreement(request)}
+                          className="rounded-full border border-purple-500/20 bg-purple-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.08em] text-purple-300 transition hover:border-purple-500/50 disabled:opacity-50"
+                            >
+                          Create Agreement
+                          </button>
 
                         <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                           <div>
