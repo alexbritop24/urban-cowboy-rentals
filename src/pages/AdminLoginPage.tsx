@@ -4,6 +4,7 @@ import MainLayout from "../components/layout/MainLayout";
 import PageTransition from "../components/ui/PageTransition";
 import SEO from "../components/seo/SEO";
 import { supabase } from "../lib/supabase";
+import { useNavigate } from "react-router-dom";
 
 const AdminLoginPage = () => {
   const [email, setEmail] = useState("");
@@ -11,6 +12,8 @@ const AdminLoginPage = () => {
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +39,7 @@ const AdminLoginPage = () => {
       return;
     }
 
-    window.location.href = "/admin";
+    navigate("/admin");
   };
 
   return (
