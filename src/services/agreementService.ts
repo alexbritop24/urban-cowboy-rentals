@@ -48,10 +48,14 @@ export const createRentalAgreement = async (
     .select("*")
     .single();
 
-  if (error) {
-    console.error("CREATE RENTAL AGREEMENT ERROR:", error);
-    return null;
-  }
+ if (error) {
+  console.error("CREATE RENTAL AGREEMENT ERROR");
+  console.error(error);
+
+  alert(JSON.stringify(error, null, 2));
+
+  return null;
+}
 
   return data;
 };
