@@ -5,14 +5,9 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const hasSupabaseSession = Object.keys(localStorage).some(
-    (key) =>
-      key.startsWith("sb-") &&
-      key.endsWith("-auth-token") &&
-      Boolean(localStorage.getItem(key))
-  );
+  const adminSession = localStorage.getItem("urban-cowboy-admin-auth");
 
-  if (!hasSupabaseSession) {
+  if (!adminSession) {
     return <Navigate to="/admin-login" replace />;
   }
 
