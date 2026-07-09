@@ -10,19 +10,22 @@ const AdminLoginPage = () => {
   const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    setErrorMessage("");
+
     setLoading(true);
 
     const { data, error } = await supabase.auth.signInWithPassword({
-      email,
+      email: email.trim(),
       password,
     });
 
     if (error) {
-      alert(error.message);
+      setErrorMessage(error.message);
       setLoading(false);
       return;
     }
@@ -54,6 +57,12 @@ const AdminLoginPage = () => {
               <h1 className="mt-5 text-4xl font-black text-[#fff7ed]">
                 Sign in.
               </h1>
+
+              {errorMessage && (
+  <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300">
+    {errorMessage}
+  </div>
+)}
 
               <form onSubmit={handleLogin} className="mt-8 space-y-5">
                 <div>
