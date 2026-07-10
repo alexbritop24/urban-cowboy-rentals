@@ -11,6 +11,7 @@ import BookingPage from "./pages/BookingPage";
 import PoliciesPage from "./pages/PoliciesPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
+import AgreementPage from "./pages/AgreementPage";
 
 function App() {
   const location = useLocation();
@@ -26,6 +27,14 @@ function App() {
         <Route path="/book" element={<BookingPage />} />
         <Route path="/policies" element={<PoliciesPage />} />
         <Route path="/admin-login" element={<AdminLoginPage />} />
+        <Route
+                  path="/admin/agreement/:id"
+                          element={
+    <ProtectedRoute>
+      <AgreementPage />
+    </ProtectedRoute>
+  }
+/>
 
         <Route
           path="/admin"

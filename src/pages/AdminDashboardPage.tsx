@@ -584,10 +584,9 @@ const hasDateConflict = (
   const handleCreateRentalAgreement = async (request: RentalRequest) => {
   const agreement = await createRentalAgreement(request);
 
-  if (!agreement) {
-    setAdminNotice("Could not create rental agreement.");
-    return;
-  }
+  if (!agreement) return;
+
+navigate(`/admin/agreement/${agreement.id}`);
 
   setAdminNotice(`Rental agreement created: ${agreement.agreement_number}`);
   };

@@ -18,9 +18,34 @@ const generateAgreementNumber = () => {
   return `UCR-${Date.now()}`;
 };
 
+export const getRentalAgreementByRequestId = async (
+  rentalRequestId: string
+): Promise<RentalAgreement | null> => {
+  const { data, error } = await supabase
+    .from("rental_agreements")
+    .select("*")
+    .eq("rental_request_id", rentalRequestId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("GET RENTAL AGREEMENT ERROR:", error);
+    return null;
+  }
+
+  return data;
+};
+
 export const createRentalAgreement = async (
   request: RentalRequestForAgreement
 ): Promise<RentalAgreement | null> => {
+  const existingAgreement = await getRentalAgreementByRequestId(request.id);
+
+  if (existingAgreement) {
+    return existingAgreement;
+  }
+
   const quoteAmount = Number(request.quote_amount) || 0;
 
   const { data, error } = await supabase
@@ -48,14 +73,11 @@ export const createRentalAgreement = async (
     .select("*")
     .single();
 
- if (error) {
-  console.error("CREATE RENTAL AGREEMENT ERROR");
-  console.error(error);
-
-  alert(JSON.stringify(error, null, 2));
-
-  return null;
-}
+  if (error) {
+    console.error("CREATE RENTAL AGREEMENT ERROR:", error);
+    alert(JSON.stringify(error, null, 2));
+    return null;
+  }
 
   return data;
 };
