@@ -9,6 +9,8 @@ import SEO from "../components/seo/SEO";
 import PageTransition from "../components/ui/PageTransition";
 import { supabase } from "../lib/supabase";
 import type { RentalAgreement } from "../types/agreement";
+import PricingSummary from "../components/agreement/PricingSummary";
+import TermsSection from "../components/agreement/TermsSection";
 
 export default function AgreementPage() {
   const { id } = useParams();
@@ -136,119 +138,28 @@ export default function AgreementPage() {
                 <EquipmentSection agreement={agreement} />
               </div>
 
-              <section className="rounded-3xl border border-yellow-500/10 bg-black/25 p-6">
-                <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
-                      Pricing
-                    </p>
+              <AgreementHeader agreement={agreement} />
 
-                    <h2 className="mt-2 text-2xl font-black text-[#fff7ed]">
-                      Agreement charges
-                    </h2>
-                  </div>
+              <div className="grid gap-8 lg:grid-cols-2">
+                 <CustomerSection agreement={agreement} />
+                 <EquipmentSection agreement={agreement} />
+              </div>
 
-                  <p className="text-sm font-bold text-[#8f8577]">
-                    {isSaving ? "Saving..." : notice}
-                  </p>
+             <PricingSummary
+               agreement={agreement}
+               isSaving={isSaving}
+               notice={notice}
+               updateFinancialField={updateFinancialField}
+                />
+
+                <TermsSection /> 
+
+        
                 </div>
-
-                <div className="grid gap-5 md:grid-cols-2">
-                  <div>
-                    <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
-                      Quote Amount
-                    </label>
-
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={agreement.quote_amount ?? 0}
-                      onChange={(event) =>
-                        updateFinancialField(
-                          "quote_amount",
-                          Number(event.target.value) || 0
-                        )
-                      }
-                      className="w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 text-[#fff7ed] outline-none focus:border-yellow-500/40"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
-                      Deposit
-                    </label>
-
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={agreement.deposit_amount}
-                      onChange={(event) =>
-                        updateFinancialField(
-                          "deposit_amount",
-                          Number(event.target.value) || 0
-                        )
-                      }
-                      className="w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 text-[#fff7ed] outline-none focus:border-yellow-500/40"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
-                      Delivery Fee
-                    </label>
-
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={agreement.delivery_fee}
-                      onChange={(event) =>
-                        updateFinancialField(
-                          "delivery_fee",
-                          Number(event.target.value) || 0
-                        )
-                      }
-                      className="w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 text-[#fff7ed] outline-none focus:border-yellow-500/40"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
-                      Tax
-                    </label>
-
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={agreement.tax_amount}
-                      onChange={(event) =>
-                        updateFinancialField(
-                          "tax_amount",
-                          Number(event.target.value) || 0
-                        )
-                      }
-                      className="w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 text-[#fff7ed] outline-none focus:border-yellow-500/40"
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-yellow-500/20 bg-[#f4b000]/10 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
-                  <span className="text-lg font-black uppercase tracking-[0.08em] text-[#fff7ed]">
-                    Total
-                  </span>
-
-                  <span className="text-3xl font-black text-[#f4b000]">
-                    ${Number(agreement.total_amount || 0).toFixed(2)}
-                  </span>
-                </div>
-              </section>
-            </div>
-          </div>
-        </section>
-      </MainLayout>
-    </PageTransition>
+                 </div>
+               </section>
+              </MainLayout>
+             </PageTransition>
   );
+  
 }

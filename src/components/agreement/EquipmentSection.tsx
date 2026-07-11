@@ -11,46 +11,52 @@ const EquipmentSection = ({ agreement }: EquipmentSectionProps) => {
         Equipment Information
       </p>
 
-      <div className="mt-5 grid gap-5 md:grid-cols-2">
+      <div className="mt-6 space-y-5">
+
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-[#8f8577]">
             Equipment
           </p>
 
-          <p className="mt-2 text-lg font-bold text-[#fff7ed]">
+          <p className="mt-1 text-xl font-bold text-[#fff7ed]">
             {agreement.equipment_requested}
           </p>
         </div>
 
+        <div className="grid gap-5 md:grid-cols-2">
+
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#8f8577]">
+              Rental Start
+            </p>
+
+            <p className="mt-1 text-[#d8cfc4]">
+              {agreement.rental_start_date}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#8f8577]">
+              Rental End
+            </p>
+
+            <p className="mt-1 text-[#d8cfc4]">
+              {agreement.rental_end_date}
+            </p>
+          </div>
+
+        </div>
+
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-[#8f8577]">
             Rental Duration
           </p>
 
-          <p className="mt-2 text-lg text-[#fff7ed]">
+          <p className="mt-1 text-[#d8cfc4]">
             {agreement.rental_duration}
           </p>
         </div>
 
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
-            Pickup Date
-          </p>
-
-          <p className="mt-2 text-[#fff7ed]">
-            {agreement.rental_start_date}
-          </p>
-        </div>
-
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
-            Return Date
-          </p>
-
-          <p className="mt-2 text-[#fff7ed]">
-            {agreement.rental_end_date}
-          </p>
-        </div>
       </div>
     </section>
   );
