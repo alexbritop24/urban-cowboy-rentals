@@ -1,3 +1,5 @@
+import type { AgreementClause } from "./agreementClause";
+
 export interface RentalAgreement {
   id: string;
   rental_request_id: string;
@@ -29,4 +31,8 @@ export interface RentalAgreement {
 
   created_at: string;
   updated_at: string;
+
+  clause_snapshot: AgreementClause[] | null;
+  clause_snapshot_created_at: string | null;
+  locked_at: string | null;
 }

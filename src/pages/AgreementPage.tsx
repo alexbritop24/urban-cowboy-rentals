@@ -11,7 +11,10 @@ import MainLayout from "../components/layout/MainLayout";
 import SEO from "../components/seo/SEO";
 import PageTransition from "../components/ui/PageTransition";
 import { supabase } from "../lib/supabase";
-import { getAgreementClauses } from "../services/agreementClauseService";
+import {
+  createAgreementClauseSnapshot,
+  getAgreementClauses,
+} from "../services/agreementClauseService";
 import type { RentalAgreement } from "../types/agreement";
 import type { AgreementClause } from "../types/agreementClause";
 
@@ -22,6 +25,7 @@ export default function AgreementPage() {
   const [agreement, setAgreement] = useState<RentalAgreement | null>(null);
   const [clauses, setClauses] = useState<AgreementClause[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -45,14 +49,20 @@ export default function AgreementPage() {
         return;
       }
 
-      setAgreement(data);
+      const loadedAgreement = data as RentalAgreement;
 
-      try {
-        const legalClauses = await getAgreementClauses();
-        setClauses(legalClauses);
-      } catch (error) {
-        console.error("LOAD AGREEMENT CLAUSES ERROR:", error);
-        setClauses([]);
+      setAgreement(loadedAgreement);
+
+      if (loadedAgreement.clause_snapshot?.length) {
+        setClauses(loadedAgreement.clause_snapshot);
+      } else {
+        try {
+          const legalClauses = await getAgreementClauses();
+          setClauses(legalClauses);
+        } catch (clausesError) {
+          console.error("LOAD AGREEMENT CLAUSES ERROR:", clausesError);
+          setClauses([]);
+        }
       }
 
       setLoading(false);
@@ -70,6 +80,11 @@ export default function AgreementPage() {
     value: number
   ) => {
     if (!agreement) return;
+
+    if (agreement.locked_at) {
+      setNotice("This agreement is finalized and cannot be edited.");
+      return;
+    }
 
     const updatedAgreement: RentalAgreement = {
       ...agreement,
@@ -108,6 +123,62 @@ export default function AgreementPage() {
 
     setNotice("Agreement saved.");
     setIsSaving(false);
+  };
+
+  const handleFinalizeAgreement = async () => {
+    if (!agreement || clauses.length === 0) {
+      setNotice("The agreement cannot be finalized without legal clauses.");
+      return;
+    }
+
+    if (agreement.locked_at) {
+      setNotice("This agreement has already been finalized.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Finalize this agreement? Pricing and legal terms will be locked for this agreement."
+    );
+
+    if (!confirmed) return;
+
+    setIsFinalizing(true);
+    setNotice("");
+
+    try {
+      const snapshottedAgreement = await createAgreementClauseSnapshot(
+        agreement.id,
+        clauses
+      );
+
+      const { data, error } = await supabase
+        .from("rental_agreements")
+        .update({
+          status: "ready",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", agreement.id)
+        .select("*")
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      const finalizedAgreement = {
+        ...snapshottedAgreement,
+        ...(data as RentalAgreement),
+      };
+
+      setAgreement(finalizedAgreement);
+      setClauses(finalizedAgreement.clause_snapshot || clauses);
+      setNotice("Agreement finalized and locked.");
+    } catch (finalizeError) {
+      console.error("FINALIZE AGREEMENT ERROR:", finalizeError);
+      setNotice("Could not finalize the agreement.");
+    } finally {
+      setIsFinalizing(false);
+    }
   };
 
   if (loading) {
@@ -158,6 +229,43 @@ export default function AgreementPage() {
                 notice={notice}
                 updateFinancialField={updateFinancialField}
               />
+
+              <div className="flex flex-col gap-3 rounded-3xl border border-yellow-500/10 bg-black/25 p-6 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-[#f4b000]">
+                    Agreement Status
+                  </p>
+
+                  <p className="mt-2 text-sm text-[#b8a99a]">
+                    {agreement.locked_at
+                      ? "Legal terms and pricing are locked for this agreement."
+                      : "Finalize the agreement before sending it to the customer."}
+                  </p>
+
+                  {notice && (
+                    <p className="mt-2 text-sm font-bold text-[#fff7ed]">
+                      {notice}
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleFinalizeAgreement}
+                  disabled={
+                    isFinalizing ||
+                    Boolean(agreement.locked_at) ||
+                    clauses.length === 0
+                  }
+                  className="rounded-full bg-[#f4b000] px-6 py-4 text-sm font-black uppercase tracking-[0.1em] text-black transition hover:bg-[#f59e0b] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {agreement.locked_at
+                    ? "Agreement Finalized"
+                    : isFinalizing
+                      ? "Finalizing..."
+                      : "Finalize Agreement"}
+                </button>
+              </div>
 
               <LegalClauses clauses={clauses} />
 
