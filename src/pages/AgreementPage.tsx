@@ -4,19 +4,23 @@ import { useNavigate, useParams } from "react-router-dom";
 import AgreementHeader from "../components/agreement/AgreementHeader";
 import CustomerSection from "../components/agreement/CustomerSection";
 import EquipmentSection from "../components/agreement/EquipmentSection";
+import LegalClauses from "../components/agreement/LegalClauses";
+import PricingSummary from "../components/agreement/PricingSummary";
+import SignatureSection from "../components/agreement/SignatureSection";
 import MainLayout from "../components/layout/MainLayout";
 import SEO from "../components/seo/SEO";
 import PageTransition from "../components/ui/PageTransition";
 import { supabase } from "../lib/supabase";
+import { getAgreementClauses } from "../services/agreementClauseService";
 import type { RentalAgreement } from "../types/agreement";
-import PricingSummary from "../components/agreement/PricingSummary";
-import TermsSection from "../components/agreement/TermsSection";
+import type { AgreementClause } from "../types/agreementClause";
 
 export default function AgreementPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 
   const [agreement, setAgreement] = useState<RentalAgreement | null>(null);
+  const [clauses, setClauses] = useState<AgreementClause[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
@@ -42,6 +46,15 @@ export default function AgreementPage() {
       }
 
       setAgreement(data);
+
+      try {
+        const legalClauses = await getAgreementClauses();
+        setClauses(legalClauses);
+      } catch (error) {
+        console.error("LOAD AGREEMENT CLAUSES ERROR:", error);
+        setClauses([]);
+      }
+
       setLoading(false);
     };
 
@@ -89,10 +102,11 @@ export default function AgreementPage() {
     if (error) {
       console.error("UPDATE AGREEMENT ERROR:", error);
       setNotice("Could not save the agreement.");
-    } else {
-      setNotice("Agreement saved.");
+      setIsSaving(false);
+      return;
     }
 
+    setNotice("Agreement saved.");
     setIsSaving(false);
   };
 
@@ -138,28 +152,20 @@ export default function AgreementPage() {
                 <EquipmentSection agreement={agreement} />
               </div>
 
-              <AgreementHeader agreement={agreement} />
+              <PricingSummary
+                agreement={agreement}
+                isSaving={isSaving}
+                notice={notice}
+                updateFinancialField={updateFinancialField}
+              />
 
-              <div className="grid gap-8 lg:grid-cols-2">
-                 <CustomerSection agreement={agreement} />
-                 <EquipmentSection agreement={agreement} />
-              </div>
+              <LegalClauses clauses={clauses} />
 
-             <PricingSummary
-               agreement={agreement}
-               isSaving={isSaving}
-               notice={notice}
-               updateFinancialField={updateFinancialField}
-                />
-
-                <TermsSection /> 
-
-        
-                </div>
-                 </div>
-               </section>
-              </MainLayout>
-             </PageTransition>
+              <SignatureSection agreement={agreement} />
+            </div>
+          </div>
+        </section>
+      </MainLayout>
+    </PageTransition>
   );
-  
 }
