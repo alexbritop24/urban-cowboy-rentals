@@ -12,7 +12,7 @@ import SEO from "../components/seo/SEO";
 import PageTransition from "../components/ui/PageTransition";
 import { supabase } from "../lib/supabase";
 import {
-  createAgreementClauseSnapshot,
+  finalizeAgreement,
   getAgreementClauses,
 } from "../services/agreementClauseService";
 import type { RentalAgreement } from "../types/agreement";
@@ -53,9 +53,13 @@ export default function AgreementPage() {
 
       setAgreement(loadedAgreement);
 
-      if (loadedAgreement.clause_snapshot?.length) {
-        setClauses(loadedAgreement.clause_snapshot);
-      } else {
+      const savedSnapshot = Array.isArray(loadedAgreement.clause_snapshot)
+  ? loadedAgreement.clause_snapshot
+  : [];
+
+     if (savedSnapshot.length > 0) {
+       setClauses(savedSnapshot);
+        } else {
         try {
           const legalClauses = await getAgreementClauses();
           setClauses(legalClauses);
@@ -125,61 +129,53 @@ export default function AgreementPage() {
     setIsSaving(false);
   };
 
-  const handleFinalizeAgreement = async () => {
-    if (!agreement || clauses.length === 0) {
-      setNotice("The agreement cannot be finalized without legal clauses.");
-      return;
-    }
+ const handleFinalizeAgreement = async () => {
+  if (!agreement) {
+    setNotice("Agreement could not be found.");
+    return;
+  }
 
-    if (agreement.locked_at) {
-      setNotice("This agreement has already been finalized.");
-      return;
-    }
+  if (clauses.length === 0) {
+    setNotice("The agreement cannot be finalized without legal clauses.");
+    return;
+  }
 
-    const confirmed = window.confirm(
-      "Finalize this agreement? Pricing and legal terms will be locked for this agreement."
+  if (agreement.locked_at) {
+    setNotice("This agreement has already been finalized.");
+    return;
+  }
+
+  const confirmed = window.confirm(
+    "Finalize this agreement? Pricing and legal terms will be locked for this agreement."
+  );
+
+  if (!confirmed) return;
+
+  setIsFinalizing(true);
+  setNotice("");
+
+  try {
+    const finalizedAgreement = await finalizeAgreement(
+      agreement.id,
+      clauses
     );
 
-    if (!confirmed) return;
+    const savedSnapshot = Array.isArray(
+      finalizedAgreement.clause_snapshot
+    )
+      ? finalizedAgreement.clause_snapshot
+      : clauses;
 
-    setIsFinalizing(true);
-    setNotice("");
-
-    try {
-      const snapshottedAgreement = await createAgreementClauseSnapshot(
-        agreement.id,
-        clauses
-      );
-
-      const { data, error } = await supabase
-        .from("rental_agreements")
-        .update({
-          status: "ready",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", agreement.id)
-        .select("*")
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      const finalizedAgreement = {
-        ...snapshottedAgreement,
-        ...(data as RentalAgreement),
-      };
-
-      setAgreement(finalizedAgreement);
-      setClauses(finalizedAgreement.clause_snapshot || clauses);
-      setNotice("Agreement finalized and locked.");
-    } catch (finalizeError) {
-      console.error("FINALIZE AGREEMENT ERROR:", finalizeError);
-      setNotice("Could not finalize the agreement.");
-    } finally {
-      setIsFinalizing(false);
-    }
-  };
+    setAgreement(finalizedAgreement);
+    setClauses(savedSnapshot);
+    setNotice("Agreement finalized and locked.");
+  } catch (finalizeError) {
+    console.error("FINALIZE AGREEMENT ERROR:", finalizeError);
+    setNotice("Could not finalize the agreement.");
+  } finally {
+    setIsFinalizing(false);
+  }
+};
 
   if (loading) {
     return (

@@ -16,18 +16,19 @@ export default function LegalClauses({ clauses }: Props) {
       </h2>
 
       <div className="mt-8 space-y-8">
-        {clauses.map((clause) => (
-          <div key={clause.id}>
-            <h3 className="text-lg font-bold text-[#fff7ed]">
-              {clause.title}
-            </h3>
+  {Array.isArray(clauses) &&
+    clauses.map((clause) => (
+      <div key={clause.id}>
+        <h3 className="text-lg font-bold text-[#fff7ed]">
+          {clause.title}
+        </h3>
 
-            <p className="mt-2 whitespace-pre-wrap leading-7 text-[#b8a99a]">
-              {clause.body}
-            </p>
-          </div>
-        ))}
+        <p className="mt-2 whitespace-pre-wrap leading-7 text-[#b8a99a]">
+          {clause.body}
+        </p>
       </div>
+    ))}
+</div>
     </section>
   );
 }
