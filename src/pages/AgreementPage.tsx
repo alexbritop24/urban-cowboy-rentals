@@ -17,6 +17,8 @@ import {
 } from "../services/agreementClauseService";
 import type { RentalAgreement } from "../types/agreement";
 import type { AgreementClause } from "../types/agreementClause";
+import { createInvoiceFromAgreement } from "../services/invoiceService";
+
 
 export default function AgreementPage() {
   const { id } = useParams();
@@ -177,6 +179,24 @@ export default function AgreementPage() {
   }
 };
 
+  const handleCreateInvoice = async () => {
+  if (!agreement) return;
+
+  if (!agreement.locked_at) {
+    setNotice("Finalize the agreement before creating an invoice.");
+    return;
+  }
+
+  try {
+    const invoice = await createInvoiceFromAgreement(agreement);
+
+    navigate(`/invoice/${invoice.id}`);
+  } catch (error) {
+    console.error("CREATE INVOICE ERROR:", error);
+    setNotice("Could not create invoice.");
+  }
+};
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#070604] p-10 text-[#fff7ed]">
@@ -262,6 +282,36 @@ export default function AgreementPage() {
                       : "Finalize Agreement"}
                 </button>
               </div>
+
+              <div className="flex flex-wrap justify-end gap-4">
+  <button
+    type="button"
+    onClick={handleCreateInvoice}
+    disabled={!agreement.locked_at}
+    className="rounded-full bg-[#f4b000] px-6 py-4 text-sm font-black uppercase tracking-[0.08em] text-black transition hover:bg-[#f59e0b] disabled:cursor-not-allowed disabled:opacity-50"
+  >
+    Create Invoice
+  </button>
+
+  <button
+    type="button"
+    onClick={async () => {
+      const { generateAgreementPdf } = await import(
+        "../utils/generateAgreementPdf"
+      );
+
+      await generateAgreementPdf(
+        agreement,
+        agreement.clause_snapshot?.length
+          ? agreement.clause_snapshot
+          : clauses
+      );
+    }}
+    className="rounded-full border border-yellow-500 px-6 py-4 text-sm font-black uppercase tracking-[0.08em] text-[#f4b000] transition hover:bg-yellow-500/10"
+  >
+    Download PDF
+  </button>
+</div>
 
               <LegalClauses clauses={clauses} />
 

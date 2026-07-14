@@ -12,6 +12,7 @@ import PoliciesPage from "./pages/PoliciesPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import AgreementPage from "./pages/AgreementPage";
+import InvoicePage from "./pages/InvoicePage";
 
 function App() {
   const location = useLocation();
@@ -27,12 +28,12 @@ function App() {
         <Route path="/book" element={<BookingPage />} />
         <Route path="/policies" element={<PoliciesPage />} />
         <Route path="/admin-login" element={<AdminLoginPage />} />
-        <Route
-                  path="/admin/agreement/:id"
-                          element={
+        <Route path="/admin/agreement/:id" element={
     <ProtectedRoute>
       <AgreementPage />
+      <Route path="/invoice/:id" element={<InvoicePage />} />
     </ProtectedRoute>
+    
   }
 />
 
