@@ -199,10 +199,10 @@ export default function InvoicePage() {
                     {isDraft
                       ? "Review the charges, then issue the invoice to lock it."
                       : invoice.issued_at
-                        ? `Issued on ${new Date(
-                            invoice.issued_at
-                          ).toLocaleString()}`
-                        : "This invoice has been issued."}
+                      ? `Issued on ${new Date(
+                          invoice.issued_at
+                        ).toLocaleString()}`
+                      : "This invoice has been issued."}
                   </p>
 
                   {notice && (
@@ -212,18 +212,34 @@ export default function InvoicePage() {
                   )}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleIssueInvoice}
-                  disabled={!isDraft || isIssuing || isSaving}
-                  className="rounded-full bg-[#f4b000] px-6 py-4 text-sm font-black uppercase tracking-[0.1em] text-black transition hover:bg-[#f59e0b] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {!isDraft
-                    ? "Invoice Issued"
-                    : isIssuing
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={handleIssueInvoice}
+                    disabled={!isDraft || isIssuing || isSaving}
+                    className="rounded-full bg-[#f4b000] px-6 py-4 text-sm font-black uppercase tracking-[0.1em] text-black transition hover:bg-[#f59e0b] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {!isDraft
+                      ? "Invoice Issued"
+                      : isIssuing
                       ? "Issuing..."
                       : "Issue Invoice"}
-                </button>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const { generateInvoicePdf } = await import(
+                        "../utils/generateInvoicePdf"
+                      );
+
+                      await generateInvoicePdf(invoice);
+                    }}
+                    className="rounded-full border border-yellow-500 px-6 py-4 text-sm font-black uppercase tracking-[0.1em] text-[#f4b000] transition hover:bg-yellow-500/10"
+                  >
+                    Download Invoice PDF
+                  </button>
+                </div>
               </section>
             </div>
           </div>
