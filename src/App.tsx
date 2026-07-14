@@ -1,18 +1,18 @@
-import { Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
+import { Route, Routes, useLocation } from "react-router-dom";
 
 import ProtectedRoute from "./components/auth/ProtectedRoute";
-import HomePage from "./pages/HomePage";
-import EquipmentPage from "./pages/EquipmentPage";
-import EquipmentDetailPage from "./pages/EquipmentDetailPage";
 import AboutPage from "./pages/AboutPage";
-import ContactPage from "./pages/ContactPage";
-import BookingPage from "./pages/BookingPage";
-import PoliciesPage from "./pages/PoliciesPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import AgreementPage from "./pages/AgreementPage";
+import BookingPage from "./pages/BookingPage";
+import ContactPage from "./pages/ContactPage";
+import EquipmentDetailPage from "./pages/EquipmentDetailPage";
+import EquipmentPage from "./pages/EquipmentPage";
+import HomePage from "./pages/HomePage";
 import InvoicePage from "./pages/InvoicePage";
+import PoliciesPage from "./pages/PoliciesPage";
 
 function App() {
   const location = useLocation();
@@ -28,20 +28,30 @@ function App() {
         <Route path="/book" element={<BookingPage />} />
         <Route path="/policies" element={<PoliciesPage />} />
         <Route path="/admin-login" element={<AdminLoginPage />} />
-        <Route path="/admin/agreement/:id" element={
-    <ProtectedRoute>
-      <AgreementPage />
-      <Route path="/invoice/:id" element={<InvoicePage />} />
-    </ProtectedRoute>
-    
-  }
-/>
 
         <Route
           path="/admin"
           element={
             <ProtectedRoute>
               <AdminDashboardPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/agreement/:id"
+          element={
+            <ProtectedRoute>
+              <AgreementPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/invoice/:id"
+          element={
+            <ProtectedRoute>
+              <InvoicePage />
             </ProtectedRoute>
           }
         />
