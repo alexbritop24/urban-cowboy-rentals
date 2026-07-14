@@ -11,6 +11,7 @@ import { supabase } from "../lib/supabase";
 import { issueInvoice } from "../services/issueInvoiceService";
 import { updateInvoiceField } from "../services/updateInvoiceService";
 import type { Invoice } from "../types/invoice";
+import PaymentSection from "../components/invoice/PaymentSection";
 
 type EditableInvoiceField =
   | "subtotal"
@@ -187,6 +188,12 @@ export default function InvoicePage() {
                 isSaving={isSaving}
                 notice={notice}
                 onFieldChange={handleFieldChange}
+              />
+
+              <PaymentSection
+              invoice={invoice}
+              onInvoiceUpdated={setInvoice}
+
               />
 
               <section className="flex flex-col gap-4 rounded-3xl border border-yellow-500/10 bg-black/25 p-6 sm:flex-row sm:items-center sm:justify-between">
