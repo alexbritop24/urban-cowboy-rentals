@@ -12,6 +12,7 @@ import { issueInvoice } from "../services/issueInvoiceService";
 import { updateInvoiceField } from "../services/updateInvoiceService";
 import type { Invoice } from "../types/invoice";
 import PaymentSection from "../components/invoice/PaymentSection";
+import PaymentHistory from "../components/invoice/PaymentHistory";
 
 type EditableInvoiceField =
   | "subtotal"
@@ -27,6 +28,7 @@ export default function InvoicePage() {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isIssuing, setIsIssuing] = useState(false);
+  const [paymentRefreshKey, setPaymentRefreshKey] = useState(0);
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
@@ -191,10 +193,17 @@ export default function InvoicePage() {
               />
 
               <PaymentSection
-              invoice={invoice}
-              onInvoiceUpdated={setInvoice}
-
+               invoice={invoice}
+               onInvoiceUpdated={setInvoice}
+               onPaymentRecorded={() =>
+               setPaymentRefreshKey((current) => current + 1)
+               }
               />
+
+              <PaymentHistory
+               invoiceId={invoice.id}
+               refreshKey={paymentRefreshKey}
+                  />
 
               <section className="flex flex-col gap-4 rounded-3xl border border-yellow-500/10 bg-black/25 p-6 sm:flex-row sm:items-center sm:justify-between">
                 <div>
