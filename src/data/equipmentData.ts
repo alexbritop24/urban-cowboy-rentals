@@ -15,12 +15,14 @@ import rawmaxxDtx24TiltDeckImage from "../assets/equipment/rawmaxx-dtx-24-tilt-d
 
 import type { EquipmentItem } from "../types/equipment";
 
-export const equipmentData: EquipmentItem[] = [
+export const equipmentData: readonly EquipmentItem[] = [
   {
     id: "bobcat-t550-skid-steer",
-    name: "2025 Bobcat T550 Skid Steer",
+    name: "2024 Bobcat T550 Track Loader",
     category: "Heavy Equipment",
-    startingPrice: 225,
+    status: "active",
+    catalogOrder: 20,
+    startingPrice: 120,
     image: bobcatT550Image,
     description:
       "Compact track skid steer built for grading, loading, clearing, and heavy jobsite work.",
@@ -32,18 +34,21 @@ export const equipmentData: EquipmentItem[] = [
       "68” heavy duty grading bucket",
     ],
     rates: [
-      { label: "4hr", price: 225 },
-      { label: "1 Day", price: 275 },
+      { label: "1 Day", price: 120 },
       { label: "1 Week", price: 1000 },
       { label: "2 Weeks", price: 2000 },
       { label: "4 Weeks", price: 2800 },
     ],
+    serialNumber: "B57T133070",
     featured: true,
+    mostPopular: true,
   },
   {
     id: "bobcat-e35r2-compact-excavator",
-    name: "2025 Bobcat E35R2 Compact Excavator",
+    name: "2025 Bobcat E35 Compact Excavator",
     category: "Heavy Equipment",
+    status: "active",
+    catalogOrder: 30,
     startingPrice: 225,
     image: miniExcavatorImage,
     description:
@@ -71,12 +76,15 @@ export const equipmentData: EquipmentItem[] = [
       '24” bucket with teeth: 1 Day $25 / 1 Week $65 / 4 Weeks $175',
       '48” grading bucket: 1 Day $30 / 1 Week $90 / 4 Weeks $220',
     ],
+    serialNumber: "B57920400",
     featured: true,
   },
   {
     id: "lamar-telescopic-dump-9-ton",
     name: "2025 Lamar Telescopic Dump 9 Ton Trailer",
     category: "Trailers",
+    status: "active",
+    catalogOrder: 110,
     startingPrice: 130,
     image: dumpTrailerImage,
     description:
@@ -95,6 +103,8 @@ export const equipmentData: EquipmentItem[] = [
     id: "rawmax-tilt-deck-22",
     name: "2025 RawMax Tilt Deck 22’",
     category: "Trailers",
+    status: "archived",
+    catalogOrder: 120,
     startingPrice: 125,
     image: equipmentTrailerImage,
     description:
@@ -119,6 +129,8 @@ export const equipmentData: EquipmentItem[] = [
     id: "rawmaxx-dtx-24-tilt-deck",
     name: "RawMaxx DTX 24’ Tilt Deck Trailer",
     category: "Trailers",
+    status: "active",
+    catalogOrder: 130,
     startingPrice: 150,
     image: rawmaxxDtx24TiltDeckImage,
     description:
@@ -144,6 +156,8 @@ export const equipmentData: EquipmentItem[] = [
     id: "utility-trailer",
     name: "Utility Trailer",
     category: "Trailers",
+    status: "archived",
+    catalogOrder: 140,
     startingPrice: 75,
     image: utilityTrailerImage,
     description:
@@ -167,6 +181,8 @@ export const equipmentData: EquipmentItem[] = [
     id: "scissor-lift",
     name: "Electric Scissor Lift",
     category: "Heavy Equipment",
+    status: "active",
+    catalogOrder: 40,
     startingPrice: 140,
     image: scissorLiftImage,
     description:
@@ -189,6 +205,8 @@ export const equipmentData: EquipmentItem[] = [
     id: "hercules-sds-max-demolition-hammer",
     name: "Hercules SDS-MAX Demolition Hammer",
     category: "Tools",
+    status: "active",
+    catalogOrder: 210,
     startingPrice: 50,
     image: herculesHammerDrillImage,
     description:
@@ -217,6 +235,8 @@ export const equipmentData: EquipmentItem[] = [
     id: "bauer-65j-demolition-hammer",
     name: "Bauer 65J Demolition Hammer",
     category: "Tools",
+    status: "active",
+    catalogOrder: 220,
     startingPrice: 50,
     image: bauer65JDemolitionHammerImage,
     description:
@@ -241,6 +261,8 @@ export const equipmentData: EquipmentItem[] = [
     id: "plate-compactor",
     name: "Central Machinery Plate Compactor",
     category: "Tools",
+    status: "active",
+    catalogOrder: 230,
     startingPrice: 60,
     image: plateCompactorImage,
     description:
@@ -262,6 +284,8 @@ export const equipmentData: EquipmentItem[] = [
     id: "wacker-rd12-roller",
     name: "Wacker Neuson RD12 Roller",
     category: "Heavy Equipment",
+    status: "active",
+    catalogOrder: 10,
     startingPrice: 180,
     image: wackerRd12RollerImage,
     description:
@@ -278,11 +302,16 @@ export const equipmentData: EquipmentItem[] = [
       { label: "1 Week", price: 800 },
       { label: "4 Weeks", price: 1800 },
     ],
+    serialNumber: "WNCRD12AEPUM06214",
+    featured: true,
+    mostPopular: true,
   },
   {
     id: "kobalt-hand-tamper",
     name: "Kobalt 10×10 Hand Tamper",
     category: "Tools",
+    status: "active",
+    catalogOrder: 240,
     startingPrice: 10,
     image: kobaltHandTamperImage,
     description:
@@ -304,6 +333,8 @@ export const equipmentData: EquipmentItem[] = [
     id: "harley-road-glide-2003",
     name: "2003 Harley Davidson Road Glide",
     category: "Motorcycles",
+    status: "active",
+    catalogOrder: 310,
     startingPrice: 180,
     image: harleyRoadGlideImage,
     description:
@@ -329,6 +360,8 @@ export const equipmentData: EquipmentItem[] = [
     id: "harley-fld-switchback-2012",
     name: "2012 Harley Davidson FLD Switchback",
     category: "Motorcycles",
+    status: "active",
+    catalogOrder: 320,
     startingPrice: 130,
     image: harleySwitchbackImage,
     description:
@@ -352,6 +385,25 @@ export const equipmentData: EquipmentItem[] = [
     ],
   },
 ];
+
+const byCatalogOrder = (first: EquipmentItem, second: EquipmentItem) => {
+  return (
+    first.catalogOrder - second.catalogOrder ||
+    first.name.localeCompare(second.name)
+  );
+};
+
+export const activeEquipmentData = equipmentData
+  .filter((item) => item.status === "active")
+  .sort(byCatalogOrder);
+
+export const featuredEquipmentData = activeEquipmentData.filter(
+  (item) => item.featured
+);
+
+export const getEquipmentById = (id: string | undefined) => {
+  return equipmentData.find((item) => item.id === id);
+};
 
 export const equipmentCategories = [
   "All",

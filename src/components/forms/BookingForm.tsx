@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import { equipmentData } from "../../data/equipmentData";
+import { activeEquipmentData } from "../../data/equipmentData";
 import { publicSupabase } from "../../lib/supabase";
 import BookingSuccess from "./BookingSuccess";
 
@@ -26,7 +26,7 @@ const BookingForm = () => {
   const equipmentQuery = searchParams.get("equipment");
 
   const defaultEquipment = useMemo(() => {
-    const foundEquipment = equipmentData.find(
+    const foundEquipment = activeEquipmentData.find(
       (item) => item.id === equipmentQuery
     );
 
@@ -306,7 +306,7 @@ const BookingForm = () => {
           >
             <option value="">Select equipment</option>
 
-            {equipmentData.map((item) => (
+            {activeEquipmentData.map((item) => (
               <option key={item.id} value={item.name}>
                 {item.name}
               </option>

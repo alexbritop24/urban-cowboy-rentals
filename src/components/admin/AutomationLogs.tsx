@@ -4,15 +4,19 @@ import { supabase } from "../../lib/supabase";
 
 import type { AutomationLog } from "../../types/automation";
 
+const getAutomationLogs = () => {
+  return supabase
+    .from("automation_logs")
+    .select("*")
+    .order("created_at", { ascending: false });
+};
+
 const AutomationLogs = () => {
   const [logs, setLogs] = useState<AutomationLog[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchLogs = async () => {
-    const { data, error } = await supabase
-      .from("automation_logs")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data, error } = await getAutomationLogs();
 
     if (error) {
       console.error("FETCH AUTOMATION LOGS ERROR:", error);
@@ -24,7 +28,23 @@ const AutomationLogs = () => {
   };
 
   useEffect(() => {
-    fetchLogs();
+    let isActive = true;
+
+    const loadLogs = async () => {
+      const { data, error } = await getAutomationLogs();
+
+      if (!isActive) return;
+
+      if (error) {
+        console.error("FETCH AUTOMATION LOGS ERROR:", error);
+      } else {
+        setLogs(data || []);
+      }
+
+      setLoading(false);
+    };
+
+    void loadLogs();
 
     const channel = supabase
       .channel("automation-logs-realtime")
@@ -36,12 +56,13 @@ const AutomationLogs = () => {
           table: "automation_logs",
         },
         () => {
-          fetchLogs();
+          void loadLogs();
         }
       )
       .subscribe();
 
     return () => {
+      isActive = false;
       supabase.removeChannel(channel);
     };
   }, []);

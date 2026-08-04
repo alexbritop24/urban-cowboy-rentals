@@ -144,6 +144,8 @@ const AdminDashboardPage = () => {
   };
 
   useEffect(() => {
+  const noteTimers = noteSaveTimers.current;
+
   const initializeAdmin = async () => {
     const { data, error } = await supabase.auth.getSession();
 
@@ -183,7 +185,7 @@ const AdminDashboardPage = () => {
       supabase.removeChannel(activeChannel);
     }
 
-    Object.values(noteSaveTimers.current).forEach((timer) => {
+    Object.values(noteTimers).forEach((timer) => {
       clearTimeout(timer);
     });
   };

@@ -6,7 +6,10 @@ import EquipmentGrid from "../components/equipment/EquipmentGrid";
 import PageTransition from "../components/ui/PageTransition";
 import SEO from "../components/seo/SEO";
 
-import { equipmentCategories, equipmentData } from "../data/equipmentData";
+import {
+  activeEquipmentData,
+  equipmentCategories,
+} from "../data/equipmentData";
 
 import type { EquipmentCategory } from "../types/equipment";
 
@@ -18,10 +21,10 @@ const EquipmentPage = () => {
 
   const filteredEquipment = useMemo(() => {
     if (activeCategory === "All") {
-      return equipmentData;
+      return activeEquipmentData;
     }
 
-    return equipmentData.filter(
+    return activeEquipmentData.filter(
       (item) => item.category === activeCategory
     );
   }, [activeCategory]);

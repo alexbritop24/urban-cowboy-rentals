@@ -12,7 +12,7 @@ import FAQSection from "../components/ui/FAQSection";
 import PageTransition from "../components/ui/PageTransition";
 import SEO from "../components/seo/SEO";
 
-import { equipmentData } from "../data/equipmentData";
+import { featuredEquipmentData } from "../data/equipmentData";
 
 const categories = [
   "Heavy Equipment",
@@ -47,10 +47,6 @@ const steps = [
       "Urban Cowboy Rentals confirms availability and next steps.",
   },
 ];
-
-const featuredEquipment = equipmentData.filter(
-  (item) => item.featured
-);
 
 const HomePage = () => {
   return (
@@ -148,8 +144,8 @@ const HomePage = () => {
                 <div className="industrial-card relative overflow-hidden rounded-[2.5rem] p-4">
                   <div className="relative overflow-hidden rounded-[2rem] border border-yellow-500/10">
                     <img
-                      src={featuredEquipment[0]?.image}
-                      alt={featuredEquipment[0]?.name}
+                      src={featuredEquipmentData[0]?.image}
+                      alt={featuredEquipmentData[0]?.name}
                       className="h-[540px] w-full object-cover"
                     />
 
@@ -161,7 +157,7 @@ const HomePage = () => {
                       </p>
 
                       <h3 className="mt-4 text-4xl font-black text-[#fff7ed]">
-                        {featuredEquipment[0]?.name}
+                        {featuredEquipmentData[0]?.name}
                       </h3>
 
                       <p className="mt-4 max-w-lg text-base leading-relaxed text-[#d6c7b8]">
@@ -211,7 +207,7 @@ const HomePage = () => {
             </PageReveal>
 
             <div className="mt-16">
-              <EquipmentGrid equipment={featuredEquipment} />
+              <EquipmentGrid equipment={featuredEquipmentData} />
             </div>
           </div>
         </section>
