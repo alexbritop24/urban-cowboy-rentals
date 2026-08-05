@@ -6,8 +6,13 @@ import type {
   ReplaceRentalRequestItemsCommand,
 } from "../models/rentalRequestWorkflow";
 import type { RentalRequestWorkflowRepository } from "../models/rentalRequestWorkflowRepository";
+import type { Database } from "../../types/database.generated";
 
 type RpcResult = string | { id?: unknown; rental_request_id?: unknown } | null;
+type CreateRequestRpcArgs =
+  Database["public"]["Functions"]["create_rental_request_with_items"]["Args"];
+type ReplaceItemsRpcArgs =
+  Database["public"]["Functions"]["replace_rental_request_items"]["Args"];
 
 const dateOnly = (value: string): string | null =>
   value ? value.split("T")[0] ?? null : null;
@@ -41,37 +46,38 @@ export const createSupabaseRentalRequestWorkflowRepository = (
 ): RentalRequestWorkflowRepository => ({
   async createWithItems(command): Promise<RentalRequestCreationResult> {
     const { request } = command;
+    const rpcArguments = {
+      request_payload: {
+        customer_type: request.customerType,
+        full_name: request.fullName,
+        business_name:
+          request.customerType === "business" ? request.businessName : null,
+        phone: request.phone,
+        email: request.email,
+        equipment_requested: command.legacyFields.equipment_requested,
+        rental_start_date: dateOnly(command.pickupDate),
+        rental_end_date: dateOnly(command.returnDate),
+        pickup_date: command.pickupDate,
+        return_date: command.returnDate,
+        rental_duration: command.rentalDuration,
+        fulfillment_type: request.fulfillmentType,
+        project_type: request.projectType,
+        notes: request.notes,
+        agreement_accepted: request.agreementAccepted,
+        status: "new",
+        source: "website",
+        priority: "normal",
+        payment_status: "unpaid",
+        deposit_status: "not_required",
+        delivery_status: "not_scheduled",
+        availability_status: "pending_review",
+        availability_notes: null,
+      },
+      item_payloads: mapItems(command),
+    } satisfies CreateRequestRpcArgs;
     const { data, error } = await client.rpc(
       "create_rental_request_with_items",
-      {
-        request_payload: {
-          customer_type: request.customerType,
-          full_name: request.fullName,
-          business_name:
-            request.customerType === "business" ? request.businessName : null,
-          phone: request.phone,
-          email: request.email,
-          equipment_requested: command.legacyFields.equipment_requested,
-          rental_start_date: dateOnly(command.pickupDate),
-          rental_end_date: dateOnly(command.returnDate),
-          pickup_date: command.pickupDate,
-          return_date: command.returnDate,
-          rental_duration: command.rentalDuration,
-          fulfillment_type: request.fulfillmentType,
-          project_type: request.projectType,
-          notes: request.notes,
-          agreement_accepted: request.agreementAccepted,
-          status: "new",
-          source: "website",
-          priority: "normal",
-          payment_status: "unpaid",
-          deposit_status: "not_required",
-          delivery_status: "not_scheduled",
-          availability_status: "pending_review",
-          availability_notes: null,
-        },
-        item_payloads: mapItems(command),
-      }
+      rpcArguments
     );
 
     if (error) throw error;
@@ -79,7 +85,7 @@ export const createSupabaseRentalRequestWorkflowRepository = (
   },
 
   async replaceItems(command: ReplaceRentalRequestItemsCommand): Promise<void> {
-    const { error } = await client.rpc("replace_rental_request_items", {
+    const rpcArguments = {
       target_rental_request_id: command.rentalRequestId,
       item_payloads: mapItems(command),
       legacy_fields: {
@@ -93,7 +99,11 @@ export const createSupabaseRentalRequestWorkflowRepository = (
         availability_status: "pending_review",
         availability_notes: "Item schedule changed; availability requires review.",
       },
-    });
+    } satisfies ReplaceItemsRpcArgs;
+    const { error } = await client.rpc(
+      "replace_rental_request_items",
+      rpcArguments
+    );
 
     if (error) throw error;
   },
