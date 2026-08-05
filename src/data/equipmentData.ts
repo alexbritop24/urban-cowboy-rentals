@@ -95,6 +95,7 @@ export const equipmentData: EquipmentItem[] = [
     id: "rawmax-tilt-deck-22",
     name: "2025 RawMax Tilt Deck 22’",
     category: "Trailers",
+    status: "archived",
     startingPrice: 125,
     image: equipmentTrailerImage,
     description:
@@ -144,6 +145,7 @@ export const equipmentData: EquipmentItem[] = [
     id: "utility-trailer",
     name: "Utility Trailer",
     category: "Trailers",
+    status: "archived",
     startingPrice: 75,
     image: utilityTrailerImage,
     description:

@@ -42,6 +42,11 @@ export interface RentalRequestCreationResult {
   rentalRequestId: string;
 }
 
+export interface RentalRequestItemEditability {
+  editable: boolean;
+  reason: string;
+}
+
 export interface ReplaceRentalRequestItemsCommand {
   rentalRequestId: string;
   items: readonly RentalRequestItem[];

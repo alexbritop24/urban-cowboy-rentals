@@ -16,10 +16,14 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const validateRentalRequestItemDrafts = (
   drafts: readonly RentalRequestItemDraft[]
-): DomainValidationIssue[] =>
-  validateRentalRequestItems(
+): DomainValidationIssue[] => [
+  ...validateRentalRequestItems(
     rentalRequestDraftsToItems(drafts, "pending-rental-request")
-  );
+  ),
+  ...drafts.flatMap((draft, index) =>
+    validateRequiredText(draft.equipmentId, `items[${index}].equipmentId`)
+  ),
+];
 
 export const validateRentalRequestSubmission = (
   submission: RentalRequestSubmission

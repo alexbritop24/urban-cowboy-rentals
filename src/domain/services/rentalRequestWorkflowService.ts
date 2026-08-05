@@ -8,15 +8,15 @@ import {
 import type {
   PreparedRentalRequestCommand,
   RentalRequestCreationResult,
+  RentalRequestItemEditability,
   RentalRequestSubmission,
   ReplaceRentalRequestItemsCommand,
   RentalRequestItemDraft,
 } from "../models/rentalRequestWorkflow";
 import type { RentalRequestWorkflowRepository } from "../models/rentalRequestWorkflowRepository";
 import {
-  calculateLineTotal,
   calculateRentalDays,
-  calculateSubtotal,
+  calculateRentalItemsSubtotal,
 } from "../pricing/rentalPricing";
 import {
   assertValidRentalRequestSubmission,
@@ -47,15 +47,7 @@ const getRentalDuration = (items: readonly RentalRequestItemDraft[]): string => 
 
 const getEstimatedSubtotal = (
   items: readonly RentalRequestItemDraft[]
-): number =>
-  calculateSubtotal(
-    items.map((item) => {
-      const days = calculateRentalDays(item.startDate, item.endDate);
-      return {
-        lineTotal: calculateLineTotal(item.dailyRate, days, item.quantity),
-      };
-    })
-  );
+): number => calculateRentalItemsSubtotal(items);
 
 const assertWriteFeature = (
   repository: RentalRequestWorkflowRepository | undefined,
@@ -108,6 +100,9 @@ export interface RentalRequestWorkflowService {
     rentalRequestId: string,
     drafts: readonly RentalRequestItemDraft[]
   ): Promise<void>;
+  getEditability(
+    rentalRequestId: string
+  ): Promise<RentalRequestItemEditability>;
   prepareRequest(submission: RentalRequestSubmission): PreparedRentalRequestCommand;
 }
 
@@ -148,5 +143,10 @@ export const createRentalRequestWorkflowService = (
     const enabledRepository = assertWriteFeature(repository, flags);
     const preparedItems = prepareItems(drafts, rentalRequestId);
     await enabledRepository.replaceItems({ rentalRequestId, ...preparedItems });
+  },
+
+  async getEditability(rentalRequestId) {
+    const enabledRepository = assertWriteFeature(repository, flags);
+    return enabledRepository.getEditability(rentalRequestId);
   },
 });

@@ -1,35 +1,16 @@
 import type { RentalRequestItemDraft } from "../../domain/models/rentalRequestWorkflow";
-import {
-  calculateLineTotal,
-  calculateRentalDays,
-  calculateSubtotal,
-} from "../../domain/pricing/rentalPricing";
+import { prepareRentalRequestPricing } from "../../services/rentalRequestFormService";
 
 interface RentalPricingSummaryProps {
   items: readonly RentalRequestItemDraft[];
   showPendingFees?: boolean;
 }
 
-const calculateSafeSubtotal = (items: readonly RentalRequestItemDraft[]) => {
-  try {
-    return calculateSubtotal(
-      items.map((item) => {
-        const days = calculateRentalDays(item.startDate, item.endDate);
-        return {
-          lineTotal: calculateLineTotal(item.dailyRate, days, item.quantity),
-        };
-      })
-    );
-  } catch {
-    return null;
-  }
-};
-
 export default function RentalPricingSummary({
   items,
   showPendingFees = true,
 }: RentalPricingSummaryProps) {
-  const subtotal = calculateSafeSubtotal(items);
+  const pricing = prepareRentalRequestPricing(items);
 
   return (
     <aside className="rounded-3xl border border-yellow-500/20 bg-[#f4b000]/5 p-6">
@@ -41,7 +22,7 @@ export default function RentalPricingSummary({
         <div className="flex items-center justify-between gap-4">
           <dt className="text-[#b8a99a]">Equipment subtotal</dt>
           <dd className="font-black text-[#fff7ed]">
-            {subtotal === null ? "—" : `$${subtotal.toFixed(2)}`}
+            {pricing === null ? "—" : `$${pricing.subtotal.toFixed(2)}`}
           </dd>
         </div>
 

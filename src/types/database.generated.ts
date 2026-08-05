@@ -171,6 +171,12 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      get_rental_request_item_editability: {
+        Args: {
+          target_rental_request_id: string;
+        };
+        Returns: Json;
+      };
       create_rental_request_with_items: {
         Args: {
           request_payload: Json;

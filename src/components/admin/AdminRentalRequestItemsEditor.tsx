@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
 
-import { getBookableEquipment } from "../../data/equipmentSelectors";
-import { rentalRequestItemsToDrafts } from "../../domain/adapters/rentalRequestDraftAdapters";
 import {
   DomainValidationError,
   type DomainValidationIssue,
@@ -11,6 +9,12 @@ import {
   adminRentalRequestItemService,
   adminRentalRequestWorkflowService,
 } from "../../services/multiItemRentalRequestService";
+import {
+  addRentalRequestDraftItem,
+  getRentalRequestEquipmentOptions,
+  isRentalRequestStatusEditable,
+  prepareRentalRequestDraftsForEditing,
+} from "../../services/rentalRequestFormService";
 import RentalItemEditorList from "../rentalItems/RentalItemEditorList";
 import RentalPricingSummary from "../rentalItems/RentalPricingSummary";
 import RentalValidationSummary from "../rentalItems/RentalValidationSummary";
@@ -22,30 +26,11 @@ interface AdminRentalRequestItemsEditorProps {
   rentalEndDate: string;
   pickupDate: string | null;
   returnDate: string | null;
-  quoteAmount: number | null;
+  requestStatus: string;
   onSaved: () => void;
 }
 
-const equipmentOptions = getBookableEquipment();
-
-const createClientId = () =>
-  typeof crypto.randomUUID === "function"
-    ? crypto.randomUUID()
-    : `item-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-const createEmptyItem = (
-  previousItem?: RentalRequestItemDraft
-): RentalRequestItemDraft => ({
-  clientId: createClientId(),
-  equipmentId: "",
-  equipmentName: "",
-  startDate: previousItem?.startDate ?? "",
-  endDate: previousItem?.endDate ?? "",
-  quantity: 1,
-  dailyRate: 0,
-  serialNumber: null,
-  notes: "",
-});
+const equipmentOptions = getRentalRequestEquipmentOptions();
 
 export default function AdminRentalRequestItemsEditor({
   rentalRequestId,
@@ -54,9 +39,10 @@ export default function AdminRentalRequestItemsEditor({
   rentalEndDate,
   pickupDate,
   returnDate,
-  quoteAmount,
+  requestStatus,
   onSaved,
 }: AdminRentalRequestItemsEditorProps) {
+  const statusAllowsEditing = isRentalRequestStatusEditable(requestStatus);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -64,27 +50,37 @@ export default function AdminRentalRequestItemsEditor({
   const [items, setItems] = useState<RentalRequestItemDraft[]>([]);
   const [issues, setIssues] = useState<DomainValidationIssue[]>([]);
   const [notice, setNotice] = useState("");
+  const [serverAllowsEditing, setServerAllowsEditing] = useState(false);
 
   useEffect(() => {
     if (!isOpen || hasLoaded) return;
 
     let active = true;
 
-    adminRentalRequestItemService
-      .resolveItems({
-        rentalRequestId,
-        legacyFields: {
-          equipment_requested: equipmentRequested,
-          rental_start_date: pickupDate ?? rentalStartDate,
-          rental_end_date: returnDate ?? rentalEndDate,
-        },
-        legacyDefaults: {
-          dailyRate: quoteAmount ?? 0,
-        },
+    adminRentalRequestWorkflowService
+      .getEditability(rentalRequestId)
+      .then(async (editability) => {
+        if (!active) return null;
+        setServerAllowsEditing(editability.editable);
+
+        if (!editability.editable) {
+          setNotice(editability.reason);
+          setHasLoaded(true);
+          return null;
+        }
+
+        return adminRentalRequestItemService.resolveItems({
+          rentalRequestId,
+          legacyFields: {
+            equipment_requested: equipmentRequested,
+            rental_start_date: pickupDate ?? rentalStartDate,
+            rental_end_date: returnDate ?? rentalEndDate,
+          },
+        });
       })
       .then((resolution) => {
-        if (!active) return;
-        setItems(rentalRequestItemsToDrafts(resolution.items));
+        if (!active || !resolution) return;
+        setItems(prepareRentalRequestDraftsForEditing(resolution.items));
         setHasLoaded(true);
       })
       .catch((error) => {
@@ -104,7 +100,6 @@ export default function AdminRentalRequestItemsEditor({
     hasLoaded,
     isOpen,
     pickupDate,
-    quoteAmount,
     rentalEndDate,
     rentalRequestId,
     rentalStartDate,
@@ -118,6 +113,8 @@ export default function AdminRentalRequestItemsEditor({
   };
 
   const toggleEditor = () => {
+    if (!statusAllowsEditing) return;
+
     if (!isOpen && !hasLoaded) {
       setIsLoading(true);
       setNotice("");
@@ -132,6 +129,15 @@ export default function AdminRentalRequestItemsEditor({
     setNotice("");
 
     try {
+      const editability =
+        await adminRentalRequestWorkflowService.getEditability(rentalRequestId);
+
+      if (!editability.editable) {
+        setServerAllowsEditing(false);
+        setNotice(editability.reason);
+        return;
+      }
+
       await adminRentalRequestWorkflowService.replaceItems(
         rentalRequestId,
         items
@@ -159,32 +165,46 @@ export default function AdminRentalRequestItemsEditor({
             Multi-item request
           </p>
           <p className="mt-1 text-sm text-[#b8a99a]">
-            Edit equipment schedules, rates, serials, quantities, and notes.
+            Edit equipment schedules, quantities, and notes. Catalog pricing is
+            verified by the server when saved.
           </p>
         </div>
         <button
           type="button"
           onClick={toggleEditor}
+          disabled={!statusAllowsEditing}
           className="w-fit rounded-full border border-yellow-500/20 bg-black/30 px-4 py-2 text-xs font-black uppercase tracking-[0.08em] text-[#fff7ed] transition hover:border-yellow-500/50"
         >
-          {isOpen ? "Close item editor" : "Edit equipment items"}
+          {!statusAllowsEditing
+            ? "Equipment items locked"
+            : isOpen
+              ? "Close item editor"
+              : "Edit equipment items"}
         </button>
       </div>
 
-      {isOpen && (
+      {!statusAllowsEditing && (
+        <p className="mt-4 rounded-2xl border border-yellow-500/10 bg-black/30 px-5 py-4 text-sm text-[#b8a99a]">
+          Equipment items are editable only while the request is new.
+        </p>
+      )}
+
+      {isOpen && statusAllowsEditing && (
         <div className="mt-6 border-t border-yellow-500/10 pt-6">
           {isLoading ? (
             <p className="text-[#b8a99a]">Loading equipment items...</p>
+          ) : !serverAllowsEditing ? (
+            <p className="rounded-2xl border border-yellow-500/10 bg-black/30 px-5 py-4 text-sm text-[#b8a99a]">
+              {notice || "Equipment items are locked by the server."}
+            </p>
           ) : (
             <>
               <RentalItemEditorList
                 items={items}
                 equipmentOptions={equipmentOptions}
                 issues={issues}
-                allowRateEditing
-                showSerialNumber
                 onItemsChange={updateItems}
-                onAdd={() => updateItems([...items, createEmptyItem(items.at(-1))])}
+                onAdd={() => updateItems(addRentalRequestDraftItem(items))}
               />
 
               <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_320px]">

@@ -26,7 +26,6 @@ export const adminRentalRequestItemService = createRentalRequestItemService(
 export const submitPublicMultiItemRentalRequest = async (
   submission: RentalRequestSubmission
 ) => {
-  const prepared = publicRentalRequestWorkflowService.prepareRequest(submission);
   const result = await publicRentalRequestWorkflowService.createRequest(submission);
   const webhookUrl = import.meta.env.VITE_N8N_RENTAL_REQUEST_WEBHOOK;
 
@@ -36,26 +35,20 @@ export const submitPublicMultiItemRentalRequest = async (
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         rentalRequestId: result.rentalRequestId,
-        fullName: prepared.request.fullName,
-        businessName: prepared.request.businessName,
-        customerType: prepared.request.customerType,
-        phone: prepared.request.phone,
-        email: prepared.request.email,
-        equipmentRequested: prepared.legacyFields.equipment_requested,
-        pickupDate: prepared.pickupDate,
-        returnDate: prepared.returnDate,
-        rentalDuration: prepared.rentalDuration,
-        fulfillmentType: prepared.request.fulfillmentType,
-        projectType: prepared.request.projectType,
-        notes: prepared.request.notes,
-        agreementAccepted: prepared.request.agreementAccepted,
-        items: prepared.items.map((item) => ({
+        fullName: submission.fullName,
+        businessName: submission.businessName,
+        customerType: submission.customerType,
+        phone: submission.phone,
+        email: submission.email,
+        fulfillmentType: submission.fulfillmentType,
+        projectType: submission.projectType,
+        notes: submission.notes,
+        agreementAccepted: submission.agreementAccepted,
+        items: submission.items.map((item) => ({
           equipmentId: item.equipmentId,
-          equipmentName: item.equipmentName,
           startDate: item.startDate,
           endDate: item.endDate,
           quantity: item.quantity,
-          dailyRate: item.dailyRate,
           notes: item.notes,
         })),
         status: "new",

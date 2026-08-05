@@ -1,7 +1,9 @@
-import { getEquipmentDailyRate } from "../../data/equipmentSelectors";
-import { calculateLineTotal, calculateRentalDays } from "../../domain/pricing/rentalPricing";
 import type { DomainValidationIssue } from "../../domain/errors/DomainValidationError";
 import type { RentalRequestItemDraft } from "../../domain/models/rentalRequestWorkflow";
+import {
+  prepareRentalRequestItemPricing,
+  selectRentalRequestDraftEquipment,
+} from "../../services/rentalRequestFormService";
 import type { EquipmentItem } from "../../types/equipment";
 
 interface RentalItemEditorProps {
@@ -9,8 +11,6 @@ interface RentalItemEditorProps {
   index: number;
   equipmentOptions: readonly EquipmentItem[];
   issues?: readonly DomainValidationIssue[];
-  allowRateEditing?: boolean;
-  showSerialNumber?: boolean;
   onChange: (item: RentalRequestItemDraft) => void;
   onRemove: () => void;
 }
@@ -21,30 +21,17 @@ const getIssue = (
 ): string | null =>
   issues.find((issue) => issue.path.endsWith(pathSuffix))?.message ?? null;
 
-const getItemPricing = (item: RentalRequestItemDraft) => {
-  try {
-    const days = calculateRentalDays(item.startDate, item.endDate);
-    return {
-      days,
-      lineTotal: calculateLineTotal(item.dailyRate, days, item.quantity),
-    };
-  } catch {
-    return null;
-  }
-};
-
 export default function RentalItemEditor({
   item,
   index,
   equipmentOptions,
   issues = [],
-  allowRateEditing = false,
-  showSerialNumber = false,
   onChange,
   onRemove,
 }: RentalItemEditorProps) {
-  const pricing = getItemPricing(item);
-  const equipmentError = getIssue(issues, ".equipmentName");
+  const pricing = prepareRentalRequestItemPricing(item);
+  const equipmentError =
+    getIssue(issues, ".equipmentId") ?? getIssue(issues, ".equipmentName");
   const startDateError = getIssue(issues, ".rentalPeriod.startDate");
   const endDateError = getIssue(issues, ".rentalPeriod.endDate");
   const dateRangeError = getIssue(issues, ".rentalPeriod");
@@ -52,14 +39,7 @@ export default function RentalItemEditor({
   const rateError = getIssue(issues, ".dailyRate");
 
   const updateEquipment = (equipmentId: string) => {
-    const equipment = equipmentOptions.find((option) => option.id === equipmentId);
-
-    onChange({
-      ...item,
-      equipmentId,
-      equipmentName: equipment?.name ?? "",
-      dailyRate: equipment ? getEquipmentDailyRate(equipment) : 0,
-    });
+    onChange(selectRentalRequestDraftEquipment(item, equipmentId));
   };
 
   return (
@@ -169,10 +149,7 @@ export default function RentalItemEditor({
             min="0"
             step="0.01"
             value={item.dailyRate}
-            readOnly={!allowRateEditing}
-            onChange={(event) =>
-              onChange({ ...item, dailyRate: Number(event.target.value) || 0 })
-            }
+            readOnly
             aria-invalid={Boolean(rateError)}
             className="w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-4 py-3 text-[#fff7ed] outline-none read-only:cursor-default read-only:opacity-80 focus:border-yellow-500/40"
           />
@@ -181,26 +158,7 @@ export default function RentalItemEditor({
           )}
         </label>
 
-        {showSerialNumber && (
-          <label>
-            <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
-              Internal serial number
-            </span>
-            <input
-              type="text"
-              value={item.serialNumber ?? ""}
-              onChange={(event) =>
-                onChange({
-                  ...item,
-                  serialNumber: event.target.value.trim() || null,
-                })
-              }
-              className="w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-4 py-3 text-[#fff7ed] outline-none focus:border-yellow-500/40"
-            />
-          </label>
-        )}
-
-        <label className={showSerialNumber ? "" : "md:col-span-2"}>
+        <label className="md:col-span-2">
           <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
             Item notes
           </span>
@@ -217,7 +175,9 @@ export default function RentalItemEditor({
       <div className="mt-5 flex flex-col gap-2 rounded-2xl border border-yellow-500/10 bg-[#f4b000]/5 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <span className="text-sm text-[#b8a99a]">
           {pricing
-            ? `${pricing.days} billable day${pricing.days === 1 ? "" : "s"}`
+            ? `${pricing.billableDays} billable day${
+                pricing.billableDays === 1 ? "" : "s"
+              }`
             : "Complete the schedule to calculate pricing"}
         </span>
         <strong className="text-xl text-[#fff7ed]">

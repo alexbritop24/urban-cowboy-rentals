@@ -1,45 +1,25 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import { getBookableEquipment, getEquipmentDailyRate } from "../../data/equipmentSelectors";
 import { DomainValidationError, type DomainValidationIssue } from "../../domain/errors/DomainValidationError";
 import type {
   CustomerType,
   RentalRequestItemDraft,
   RentalRequestSubmission,
 } from "../../domain/models/rentalRequestWorkflow";
-import { validateRentalRequestSubmission } from "../../domain/validators/rentalRequestWorkflowValidators";
 import { submitPublicMultiItemRentalRequest } from "../../services/multiItemRentalRequestService";
+import {
+  addRentalRequestDraftItem,
+  createRentalRequestDraftItem,
+  getRentalRequestEquipmentOptions,
+  validateRentalRequestFormSubmission,
+} from "../../services/rentalRequestFormService";
 import RentalItemEditorList from "../rentalItems/RentalItemEditorList";
 import RentalPricingSummary from "../rentalItems/RentalPricingSummary";
 import RentalValidationSummary from "../rentalItems/RentalValidationSummary";
 import BookingSuccess from "./BookingSuccess";
 
-const equipmentOptions = getBookableEquipment();
-
-const createClientId = () =>
-  typeof crypto.randomUUID === "function"
-    ? crypto.randomUUID()
-    : `item-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-const createDraftItem = (
-  equipmentId = "",
-  dates?: Pick<RentalRequestItemDraft, "startDate" | "endDate">
-): RentalRequestItemDraft => {
-  const equipment = equipmentOptions.find((item) => item.id === equipmentId);
-
-  return {
-    clientId: createClientId(),
-    equipmentId: equipment?.id ?? "",
-    equipmentName: equipment?.name ?? "",
-    startDate: dates?.startDate ?? "",
-    endDate: dates?.endDate ?? "",
-    quantity: 1,
-    dailyRate: equipment ? getEquipmentDailyRate(equipment) : 0,
-    serialNumber: null,
-    notes: "",
-  };
-};
+const equipmentOptions = getRentalRequestEquipmentOptions();
 
 export default function MultiItemBookingForm() {
   const [searchParams] = useSearchParams();
@@ -56,7 +36,7 @@ export default function MultiItemBookingForm() {
   const [notes, setNotes] = useState("");
   const [agreementAccepted, setAgreementAccepted] = useState(false);
   const [items, setItems] = useState<RentalRequestItemDraft[]>(() => [
-    createDraftItem(initialEquipmentId),
+    createRentalRequestDraftItem(initialEquipmentId),
   ]);
   const [issues, setIssues] = useState<DomainValidationIssue[]>([]);
   const [submissionError, setSubmissionError] = useState("");
@@ -97,23 +77,14 @@ export default function MultiItemBookingForm() {
   };
 
   const addItem = () => {
-    const previousItem = items.at(-1);
-    updateItems([
-      ...items,
-      createDraftItem(
-        "",
-        previousItem
-          ? { startDate: previousItem.startDate, endDate: previousItem.endDate }
-          : undefined
-      ),
-    ]);
+    updateItems(addRentalRequestDraftItem(items));
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (isSubmitting) return;
 
-    const validationIssues = validateRentalRequestSubmission(submission);
+    const validationIssues = validateRentalRequestFormSubmission(submission);
     setIssues(validationIssues);
     setSubmissionError("");
 

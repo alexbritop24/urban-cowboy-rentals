@@ -1,4 +1,4 @@
-import type { LegacyItemFields } from "../adapters/legacyItemAdapters";
+import type { LegacyItemFields } from "../models/legacyItemFields";
 import { DomainValidationError } from "../errors/DomainValidationError";
 import type { MultiItemFeatureFlags } from "../featureFlags/multiItemFeatureFlags";
 import type { ItemResolution } from "../models/itemResolution";

@@ -1,7 +1,7 @@
 create schema if not exists private;
 revoke all on schema private from public, anon, authenticated;
 
-create table public.rental_request_items (
+create table if not exists public.rental_request_items (
   id uuid primary key default gen_random_uuid(),
   rental_request_id uuid not null,
   display_order integer not null,
@@ -36,14 +36,14 @@ create table public.rental_request_items (
     unique (rental_request_id, display_order)
 );
 
-create index rental_request_items_request_id_idx
+create index if not exists rental_request_items_request_id_idx
   on public.rental_request_items (rental_request_id);
 
-create index rental_request_items_equipment_schedule_idx
+create index if not exists rental_request_items_equipment_schedule_idx
   on public.rental_request_items (equipment_id, start_date, end_date)
   where equipment_id is not null;
 
-create index rental_request_items_schedule_idx
+create index if not exists rental_request_items_schedule_idx
   on public.rental_request_items (start_date, end_date);
 
 alter table public.rental_request_items enable row level security;
@@ -59,23 +59,31 @@ begin
 end;
 $$;
 
+drop trigger if exists rental_request_items_set_updated_at
+  on public.rental_request_items;
 create trigger rental_request_items_set_updated_at
 before update on public.rental_request_items
 for each row
 execute function private.set_current_timestamp_updated_at();
 
+drop policy if exists "authenticated staff can read rental request items"
+  on public.rental_request_items;
 create policy "authenticated staff can read rental request items"
   on public.rental_request_items
   for select
   to authenticated
   using (true);
 
+drop policy if exists "authenticated staff can insert rental request items"
+  on public.rental_request_items;
 create policy "authenticated staff can insert rental request items"
   on public.rental_request_items
   for insert
   to authenticated
   with check (true);
 
+drop policy if exists "authenticated staff can update rental request items"
+  on public.rental_request_items;
 create policy "authenticated staff can update rental request items"
   on public.rental_request_items
   for update
@@ -83,6 +91,8 @@ create policy "authenticated staff can update rental request items"
   using (true)
   with check (true);
 
+drop policy if exists "authenticated staff can delete rental request items"
+  on public.rental_request_items;
 create policy "authenticated staff can delete rental request items"
   on public.rental_request_items
   for delete

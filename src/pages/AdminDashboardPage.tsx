@@ -928,7 +928,7 @@ navigate(`/admin/agreement/${agreement.id}`);
                           rentalEndDate={request.rental_end_date}
                           pickupDate={request.pickup_date}
                           returnDate={request.return_date}
-                          quoteAmount={request.quote_amount}
+                          requestStatus={request.status}
                           onSaved={fetchRequests}
                         />
                       )}

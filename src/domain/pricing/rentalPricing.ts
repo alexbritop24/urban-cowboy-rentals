@@ -27,6 +27,18 @@ export interface BalanceDueOptions {
   minimumZero?: boolean;
 }
 
+export interface RentalPricingItemInput {
+  startDate: string;
+  endDate: string;
+  quantity: number;
+  dailyRate: number;
+}
+
+export interface RentalItemPricingResult {
+  billableDays: number;
+  lineTotal: number;
+}
+
 export const roundCurrency = (value: number): number =>
   Math.round((value + Number.EPSILON) * CURRENCY_SCALE) / CURRENCY_SCALE;
 
@@ -63,6 +75,20 @@ export const calculateLineTotal = (
   return roundCurrency(dailyRate * billableDays * quantity);
 };
 
+export const calculateRentalItemPricing = (
+  item: RentalPricingItemInput
+): RentalItemPricingResult => {
+  const billableDays = calculateRentalDays(item.startDate, item.endDate);
+  return {
+    billableDays,
+    lineTotal: calculateLineTotal(
+      item.dailyRate,
+      billableDays,
+      item.quantity
+    ),
+  };
+};
+
 export const calculateSubtotal = (
   lineItems: readonly { lineTotal: number }[]
 ): number => {
@@ -75,6 +101,10 @@ export const calculateSubtotal = (
     lineItems.reduce((subtotal, item) => subtotal + item.lineTotal, 0)
   );
 };
+
+export const calculateRentalItemsSubtotal = (
+  items: readonly RentalPricingItemInput[]
+): number => calculateSubtotal(items.map(calculateRentalItemPricing));
 
 export const calculateTax = (taxableAmount: number, taxRate: number): number => {
   assertNoValidationIssues([

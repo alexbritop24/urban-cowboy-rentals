@@ -7,8 +7,6 @@ interface RentalItemEditorListProps {
   items: readonly RentalRequestItemDraft[];
   equipmentOptions: readonly EquipmentItem[];
   issues?: readonly DomainValidationIssue[];
-  allowRateEditing?: boolean;
-  showSerialNumber?: boolean;
   onItemsChange: (items: RentalRequestItemDraft[]) => void;
   onAdd: () => void;
 }
@@ -17,8 +15,6 @@ export default function RentalItemEditorList({
   items,
   equipmentOptions,
   issues = [],
-  allowRateEditing = false,
-  showSerialNumber = false,
   onItemsChange,
   onAdd,
 }: RentalItemEditorListProps) {
@@ -70,8 +66,6 @@ export default function RentalItemEditorList({
               issues={issues.filter((issue) =>
                 issue.path.startsWith(`items[${index}]`)
               )}
-              allowRateEditing={allowRateEditing}
-              showSerialNumber={showSerialNumber}
               onChange={(updatedItem) => updateItem(index, updatedItem)}
               onRemove={() => removeItem(index)}
             />
