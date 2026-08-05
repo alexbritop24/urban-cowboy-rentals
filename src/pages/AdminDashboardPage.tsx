@@ -173,6 +173,7 @@ const AdminDashboardPage = () => {
   };
 
   let activeChannel: ReturnType<typeof supabase.channel> | null = null;
+  const pendingNoteSaveTimers = noteSaveTimers.current;
 
   initializeAdmin().then((channel) => {
     if (channel) activeChannel = channel;
@@ -183,7 +184,7 @@ const AdminDashboardPage = () => {
       supabase.removeChannel(activeChannel);
     }
 
-    Object.values(noteSaveTimers.current).forEach((timer) => {
+    Object.values(pendingNoteSaveTimers).forEach((timer) => {
       clearTimeout(timer);
     });
   };

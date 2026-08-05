@@ -24,7 +24,9 @@ const AutomationLogs = () => {
   };
 
   useEffect(() => {
-    fetchLogs();
+    const initialLoadTimer = window.setTimeout(() => {
+      void fetchLogs();
+    }, 0);
 
     const channel = supabase
       .channel("automation-logs-realtime")
@@ -42,6 +44,7 @@ const AutomationLogs = () => {
       .subscribe();
 
     return () => {
+      window.clearTimeout(initialLoadTimer);
       supabase.removeChannel(channel);
     };
   }, []);

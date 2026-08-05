@@ -1,4 +1,8 @@
 import { supabase } from "../lib/supabase";
+import {
+  calculateBalanceDue,
+  calculateInvoiceTotal,
+} from "../domain/pricing/rentalPricing";
 
 export async function updateInvoiceField(
   invoiceId: string,
@@ -39,14 +43,14 @@ export async function updateInvoiceField(
       ? value
       : Number(current.tax_amount);
 
-  const total =
-    subtotal +
-    deposit +
-    delivery +
-    tax;
+  const total = calculateInvoiceTotal({
+    subtotal,
+    depositAmount: deposit,
+    deliveryFee: delivery,
+    taxAmount: tax,
+  });
 
-  const balanceDue =
-    total - Number(current.amount_paid);
+  const balanceDue = calculateBalanceDue(total, Number(current.amount_paid));
 
   const { error } = await supabase
     .from("invoices")

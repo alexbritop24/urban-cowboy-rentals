@@ -10,6 +10,10 @@ import PageTransition from "../components/ui/PageTransition";
 import { supabase } from "../lib/supabase";
 import { issueInvoice } from "../services/issueInvoiceService";
 import { updateInvoiceField } from "../services/updateInvoiceService";
+import {
+  calculateBalanceDue,
+  calculateInvoiceTotal,
+} from "../domain/pricing/rentalPricing";
 import type { Invoice } from "../types/invoice";
 import PaymentSection from "../components/invoice/PaymentSection";
 import PaymentHistory from "../components/invoice/PaymentHistory";
@@ -74,14 +78,17 @@ export default function InvoicePage() {
       [field]: value,
     };
 
-    const totalAmount =
-      Number(optimisticInvoice.subtotal || 0) +
-      Number(optimisticInvoice.deposit_amount || 0) +
-      Number(optimisticInvoice.delivery_fee || 0) +
-      Number(optimisticInvoice.tax_amount || 0);
+    const totalAmount = calculateInvoiceTotal({
+      subtotal: Number(optimisticInvoice.subtotal || 0),
+      depositAmount: Number(optimisticInvoice.deposit_amount || 0),
+      deliveryFee: Number(optimisticInvoice.delivery_fee || 0),
+      taxAmount: Number(optimisticInvoice.tax_amount || 0),
+    });
 
-    const balanceDue =
-      totalAmount - Number(optimisticInvoice.amount_paid || 0);
+    const balanceDue = calculateBalanceDue(
+      totalAmount,
+      Number(optimisticInvoice.amount_paid || 0)
+    );
 
     setInvoice({
       ...optimisticInvoice,
