@@ -4,6 +4,8 @@ import { useSearchParams } from "react-router-dom";
 import { equipmentData } from "../../data/equipmentData";
 import { publicSupabase } from "../../lib/supabase";
 import BookingSuccess from "./BookingSuccess";
+import MultiItemBookingForm from "./MultiItemBookingForm";
+import { applicationFeatureFlags } from "../../config/featureFlags";
 
 import type { BookingRequest } from "../../types/booking";
 
@@ -20,7 +22,7 @@ const initialFormState = {
   agreementAccepted: false,
 };
 
-const BookingForm = () => {
+const LegacyBookingForm = () => {
   const [searchParams] = useSearchParams();
 
   const equipmentQuery = searchParams.get("equipment");
@@ -436,5 +438,12 @@ const BookingForm = () => {
     </form>
   );
 };
+
+const BookingForm = () =>
+  applicationFeatureFlags.multiItemRentalRequests ? (
+    <MultiItemBookingForm />
+  ) : (
+    <LegacyBookingForm />
+  );
 
 export default BookingForm;
