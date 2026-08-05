@@ -9,7 +9,7 @@ import type {
   RentalRequestSubmission,
 } from "../../domain/models/rentalRequestWorkflow";
 import { validateRentalRequestSubmission } from "../../domain/validators/rentalRequestWorkflowValidators";
-import { publicRentalRequestWorkflowService } from "../../services/multiItemRentalRequestService";
+import { submitPublicMultiItemRentalRequest } from "../../services/multiItemRentalRequestService";
 import RentalItemEditorList from "../rentalItems/RentalItemEditorList";
 import RentalPricingSummary from "../rentalItems/RentalPricingSummary";
 import RentalValidationSummary from "../rentalItems/RentalValidationSummary";
@@ -122,7 +122,7 @@ export default function MultiItemBookingForm() {
     setIsSubmitting(true);
 
     try {
-      await publicRentalRequestWorkflowService.createRequest(submission);
+      await submitPublicMultiItemRentalRequest(submission);
       setIsSubmitted(true);
     } catch (error) {
       if (error instanceof DomainValidationError) {
