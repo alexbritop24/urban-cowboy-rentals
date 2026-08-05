@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import AutomationLogs from "../components/admin/AutomationLogs";
+import AdminRentalRequestItemsEditor from "../components/admin/AdminRentalRequestItemsEditor";
 import MainLayout from "../components/layout/MainLayout";
 import SEO from "../components/seo/SEO";
 import PageTransition from "../components/ui/PageTransition";
 import { supabase } from "../lib/supabase";
 import { createRentalAgreement } from "../services/agreementService";
+import { applicationFeatureFlags } from "../config/featureFlags";
 
 interface RentalRequest {
   id: string;
@@ -917,6 +919,19 @@ navigate(`/admin/agreement/${agreement.id}`);
                           </select>
                         </div>
                       </div>
+
+                      {applicationFeatureFlags.multiItemRentalRequests && (
+                        <AdminRentalRequestItemsEditor
+                          rentalRequestId={request.id}
+                          equipmentRequested={request.equipment_requested}
+                          rentalStartDate={request.rental_start_date}
+                          rentalEndDate={request.rental_end_date}
+                          pickupDate={request.pickup_date}
+                          returnDate={request.return_date}
+                          quoteAmount={request.quote_amount}
+                          onSaved={fetchRequests}
+                        />
+                      )}
 
                       <div className="mt-6 grid gap-4 md:grid-cols-3">
                         <div>
