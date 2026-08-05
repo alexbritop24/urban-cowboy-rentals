@@ -3,6 +3,7 @@ export type DomainValidationIssueCode =
   | "invalid_date"
   | "invalid_date_range"
   | "invalid_number"
+  | "invalid_format"
   | "exceeds_balance"
   | "negative_amount"
   | "positive_integer_required"

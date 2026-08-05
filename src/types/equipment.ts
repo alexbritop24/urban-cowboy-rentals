@@ -20,4 +20,5 @@ export interface EquipmentItem {
   rates: EquipmentRate[];
   addOns?: string[];
   featured?: boolean;
+  status?: "active" | "archived";
 }
