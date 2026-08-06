@@ -62,7 +62,34 @@ const mapClauseSnapshot = (value: unknown): AgreementClauseSnapshot[] => {
   });
 };
 
-const mapAgreement = (row: DatabaseRow): RentalAgreementSnapshot => ({
+const mapAgreement = (row: DatabaseRow): RentalAgreementSnapshot => {
+  const clauseSnapshot = mapClauseSnapshot(row.clause_snapshot);
+  const termsVersion = nullableString(row.terms_version);
+  const clauseSnapshotCreatedAt = nullableString(row.clause_snapshot_created_at);
+  const snapshotSchemaVersion = row.snapshot_schema_version === 1 ? 1 : null;
+  const currentSnapshotHash = nullableString(row.current_snapshot_hash);
+  const creditCardAuthorizationTerms = nullableString(
+    row.credit_card_authorization_terms
+  );
+  const snapshotAvailability =
+    snapshotSchemaVersion === 1 &&
+    currentSnapshotHash &&
+    termsVersion &&
+    clauseSnapshotCreatedAt &&
+    creditCardAuthorizationTerms &&
+    clauseSnapshot.length > 0
+      ? {
+          status: "verified" as const,
+          schemaVersion: snapshotSchemaVersion,
+          currentHash: currentSnapshotHash,
+        }
+      : {
+          status: "missing" as const,
+          reason:
+            "An immutable legal Agreement snapshot is unavailable for this legacy record.",
+        };
+
+  return {
   id: requiredString(row, "id"),
   rentalRequestId: requiredString(row, "rental_request_id"),
   agreementNumber: requiredString(row, "agreement_number"),
@@ -107,9 +134,14 @@ const mapAgreement = (row: DatabaseRow): RentalAgreementSnapshot => ({
     row,
     "availability_confirmation_status"
   ) as AgreementAvailabilityStatus,
-  termsVersion: requiredString(row, "terms_version"),
-  clauseSnapshot: mapClauseSnapshot(row.clause_snapshot),
-  clauseSnapshotCreatedAt: requiredString(row, "clause_snapshot_created_at"),
+  termsVersion,
+  clauseSnapshot,
+  clauseSnapshotCreatedAt,
+  snapshotSchemaVersion,
+  currentSnapshotHash,
+  acceptedSnapshotHash: nullableString(row.accepted_snapshot_hash),
+  creditCardAuthorizationTerms,
+  snapshotAvailability,
   sentAt: nullableString(row.sent_at),
   viewedAt: nullableString(row.viewed_at),
   signedAt: nullableString(row.signed_at),
@@ -117,7 +149,8 @@ const mapAgreement = (row: DatabaseRow): RentalAgreementSnapshot => ({
   lockedAt: nullableString(row.locked_at),
   createdAt: requiredString(row, "created_at"),
   updatedAt: requiredString(row, "updated_at"),
-});
+  };
+};
 
 const mapItem = (row: DatabaseRow): AgreementItem => ({
   id: requiredString(row, "id"),

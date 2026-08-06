@@ -45,7 +45,14 @@ export interface RentalAgreement {
     | "approved"
     | "conflict"
     | "unavailable";
-  terms_version: string;
+  terms_version: string | null;
+  snapshot_schema_version: number | null;
+  current_snapshot_hash: string | null;
+  accepted_snapshot_hash: string | null;
+  credit_card_authorization_terms: string | null;
+  snapshot_availability:
+    | { status: "verified"; schema_version: number; current_hash: string }
+    | { status: "missing"; reason: string };
 
   sent_at: string | null;
   viewed_at: string | null;
@@ -55,6 +62,6 @@ export interface RentalAgreement {
   updated_at: string;
 
   clause_snapshot: AgreementClause[];
-  clause_snapshot_created_at: string;
+  clause_snapshot_created_at: string | null;
   locked_at: string | null;
 }

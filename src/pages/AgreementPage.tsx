@@ -10,7 +10,6 @@ import SignatureSection from "../components/agreement/SignatureSection";
 import MainLayout from "../components/layout/MainLayout";
 import SEO from "../components/seo/SEO";
 import PageTransition from "../components/ui/PageTransition";
-import { getAgreementClauses } from "../services/agreementClauseService";
 import {
   finalizeRentalAgreement,
   getRentalAgreementById,
@@ -20,7 +19,6 @@ import {
 } from "../services/agreementService";
 import { createInvoiceFromAgreement } from "../services/invoiceService";
 import type { RentalAgreement } from "../types/agreement";
-import type { AgreementClause } from "../types/agreementClause";
 
 const errorMessage = (error: unknown, fallback: string): string =>
   error instanceof Error && error.message ? error.message : fallback;
@@ -30,7 +28,6 @@ export default function AgreementPage() {
   const navigate = useNavigate();
 
   const [agreement, setAgreement] = useState<RentalAgreement | null>(null);
-  const [clauses, setClauses] = useState<AgreementClause[]>([]);
   const [signerName, setSignerName] = useState("");
   const [signerTitle, setSignerTitle] = useState("");
   const [agreementAccepted, setAgreementAccepted] = useState(false);
@@ -52,9 +49,6 @@ export default function AgreementPage() {
     setCardAuthorizationAcknowledged(
       nextAgreement.credit_card_authorization_acknowledged
     );
-    if (nextAgreement.clause_snapshot.length > 0) {
-      setClauses(nextAgreement.clause_snapshot);
-    }
   };
 
   useEffect(() => {
@@ -73,9 +67,6 @@ export default function AgreementPage() {
 
         applyAgreement(loadedAgreement);
 
-        if (loadedAgreement.clause_snapshot.length === 0) {
-          setClauses(await getAgreementClauses());
-        }
       } catch (error) {
         console.error("LOAD AGREEMENT ERROR:", error);
         setAgreement(null);
@@ -186,9 +177,7 @@ export default function AgreementPage() {
       const { generateAgreementPdf } = await import(
         "../utils/generateAgreementPdf"
       );
-      await generateAgreementPdf(agreement, agreement.clause_snapshot.length > 0
-        ? agreement.clause_snapshot
-        : clauses);
+      await generateAgreementPdf(agreement);
     } catch (error) {
       console.error("GENERATE AGREEMENT PDF ERROR:", error);
       setNotice(errorMessage(error, "Could not generate the Agreement PDF."));
@@ -206,6 +195,8 @@ export default function AgreementPage() {
   }
 
   const isFinalized = Boolean(agreement.locked_at);
+  const isAccepted = agreement.signature_status !== "pending";
+  const hasVerifiedSnapshot = agreement.snapshot_availability.status === "verified";
 
   return (
     <PageTransition>
@@ -247,11 +238,26 @@ export default function AgreementPage() {
                 agreement={agreement}
                 isSaving={isSaving}
                 notice={notice}
-                isLocked={isFinalized}
+                isLocked={isFinalized || isAccepted}
                 updateFinancialField={updateFinancialField}
               />
 
-              <LegalClauses clauses={clauses} />
+              <LegalClauses clauses={agreement.clause_snapshot} />
+
+              {!hasVerifiedSnapshot && (
+                <section className="rounded-3xl border border-amber-500/30 bg-amber-500/10 p-6 text-sm leading-7 text-amber-100">
+                  <p className="font-black uppercase tracking-[0.12em]">
+                    Immutable snapshot unavailable
+                  </p>
+                  <p className="mt-2">
+                    {agreement.snapshot_availability.status === "missing"
+                      ? agreement.snapshot_availability.reason
+                      : ""} PDF generation and
+                    acceptance are disabled so current legal terms are never
+                    substituted into this historical Agreement.
+                  </p>
+                </section>
+              )}
 
               <SignatureSection
                 agreement={agreement}
@@ -281,7 +287,13 @@ export default function AgreementPage() {
                   <button
                     type="button"
                     onClick={handleFinalizeAgreement}
-                    disabled={isFinalized || isFinalizing || isSaving || isSavingAcceptance}
+                    disabled={
+                      isFinalized ||
+                      !hasVerifiedSnapshot ||
+                      isFinalizing ||
+                      isSaving ||
+                      isSavingAcceptance
+                    }
                     className="rounded-full bg-[#f4b000] px-6 py-4 text-sm font-black uppercase tracking-[0.1em] text-black transition hover:bg-[#f59e0b] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isFinalized ? "Agreement Finalized" : isFinalizing ? "Finalizing..." : "Finalize Agreement"}
@@ -300,7 +312,7 @@ export default function AgreementPage() {
                   <button
                     type="button"
                     onClick={handleDownloadPdf}
-                    disabled={isGeneratingPdf}
+                    disabled={isGeneratingPdf || !hasVerifiedSnapshot}
                     className="rounded-full border border-yellow-500 px-6 py-4 text-sm font-black uppercase tracking-[0.08em] text-[#f4b000] transition hover:bg-yellow-500/10 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isGeneratingPdf ? "Generating PDF..." : "Download Agreement PDF"}

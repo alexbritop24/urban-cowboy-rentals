@@ -35,6 +35,17 @@ export interface AgreementClauseSnapshot {
   updatedAt: string;
 }
 
+export type AgreementSnapshotAvailability =
+  | {
+      status: "verified";
+      schemaVersion: number;
+      currentHash: string;
+    }
+  | {
+      status: "missing";
+      reason: string;
+    };
+
 export interface RentalAgreementSnapshot {
   id: string;
   rentalRequestId: string;
@@ -69,9 +80,14 @@ export interface RentalAgreementSnapshot {
   creditCardAuthorizationAcknowledgedAt: string | null;
   insuranceVerificationStatus: AgreementVerificationStatus;
   availabilityConfirmationStatus: AgreementAvailabilityStatus;
-  termsVersion: string;
+  termsVersion: string | null;
   clauseSnapshot: readonly AgreementClauseSnapshot[];
-  clauseSnapshotCreatedAt: string;
+  clauseSnapshotCreatedAt: string | null;
+  snapshotSchemaVersion: number | null;
+  currentSnapshotHash: string | null;
+  acceptedSnapshotHash: string | null;
+  creditCardAuthorizationTerms: string | null;
+  snapshotAvailability: AgreementSnapshotAvailability;
   sentAt: string | null;
   viewedAt: string | null;
   signedAt: string | null;

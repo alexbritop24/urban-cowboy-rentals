@@ -1,11 +1,8 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
 import type { RentalAgreement } from "../../../types/agreement";
-import type { AgreementClause } from "../../../types/agreementClause";
-
 interface Props {
   agreement: RentalAgreement;
-  clauses: AgreementClause[];
 }
 
 const styles = StyleSheet.create({
@@ -58,7 +55,7 @@ const styles = StyleSheet.create({
 
 const money = (value: number) => `$${Number(value || 0).toFixed(2)}`;
 
-export default function AgreementPdfDocument({ agreement, clauses }: Props) {
+export default function AgreementPdfDocument({ agreement }: Props) {
   return (
     <Document>
       <Page size="LETTER" style={styles.page} wrap>
@@ -119,14 +116,16 @@ export default function AgreementPdfDocument({ agreement, clauses }: Props) {
           <Text style={styles.evidence}>Insurance verification: {agreement.insurance_verification_status}</Text>
           <Text style={styles.evidence}>Availability confirmation: {agreement.availability_confirmation_status}</Text>
           <Text style={styles.evidence}>Credit-card authorization acknowledgment: {agreement.credit_card_authorization_acknowledged ? "Acknowledged" : "Pending"}</Text>
+          <Text style={styles.evidence}>Credit-card authorization terms: {agreement.credit_card_authorization_terms}</Text>
           <Text style={styles.evidence}>Signature evidence: {agreement.signature_status}</Text>
           <Text style={styles.evidence}>Signer: {agreement.authorized_signer_name || "Not recorded"}</Text>
-          <Text style={styles.evidence}>Terms snapshot: {agreement.terms_version}</Text>
+          <Text style={styles.evidence}>Clause snapshot: {agreement.terms_version}</Text>
+          <Text style={styles.evidence}>Material snapshot: {agreement.accepted_snapshot_hash || agreement.current_snapshot_hash}</Text>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.heading}>Terms &amp; Conditions</Text>
-          {clauses.map((clause) => (
+          {agreement.clause_snapshot.map((clause) => (
             <View key={clause.id} wrap={false}>
               <Text style={styles.clauseTitle}>{clause.title}</Text>
               <Text>{clause.body}</Text>

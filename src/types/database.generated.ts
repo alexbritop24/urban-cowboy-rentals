@@ -158,6 +158,10 @@ export type Database = {
           authorized_signer_name: string | null;
           authorized_signer_title: string | null;
           accepted_terms_version: string | null;
+          snapshot_schema_version: number | null;
+          current_snapshot_hash: string | null;
+          accepted_snapshot_hash: string | null;
+          credit_card_authorization_terms: string | null;
           credit_card_authorization_acknowledged: boolean;
           credit_card_authorization_acknowledged_at: string | null;
           insurance_verification_status: string;
@@ -203,6 +207,10 @@ export type Database = {
           authorized_signer_name?: string | null;
           authorized_signer_title?: string | null;
           accepted_terms_version?: string | null;
+          snapshot_schema_version?: number | null;
+          current_snapshot_hash?: string | null;
+          accepted_snapshot_hash?: string | null;
+          credit_card_authorization_terms?: string | null;
           credit_card_authorization_acknowledged?: boolean;
           credit_card_authorization_acknowledged_at?: string | null;
           insurance_verification_status?: string;
@@ -248,6 +256,10 @@ export type Database = {
           authorized_signer_name?: string | null;
           authorized_signer_title?: string | null;
           accepted_terms_version?: string | null;
+          snapshot_schema_version?: number | null;
+          current_snapshot_hash?: string | null;
+          accepted_snapshot_hash?: string | null;
+          credit_card_authorization_terms?: string | null;
           credit_card_authorization_acknowledged?: boolean;
           credit_card_authorization_acknowledged_at?: string | null;
           insurance_verification_status?: string;

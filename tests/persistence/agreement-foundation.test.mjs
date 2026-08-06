@@ -9,6 +9,7 @@ const migrationUrls = [
   new URL("../../supabase/migrations/20260805000000_rental_requests_compatibility_baseline.sql", import.meta.url),
   new URL("../../supabase/migrations/20260805000100_rental_request_items_persistence.sql", import.meta.url),
   new URL("../../supabase/migrations/20260805000200_rental_agreement_snapshot_persistence.sql", import.meta.url),
+  new URL("../../supabase/migrations/20260806000100_agreement_legal_integrity_remediation.sql", import.meta.url),
 ];
 
 const isoDaysFromNow = (days) => {
@@ -126,6 +127,33 @@ const createAgreement = async (database, requestId, role = "staff") => {
     [requestId]
   );
   await resetRole(database);
+  return result.rows[0].id;
+};
+
+const recordAcceptance = async (database, agreementId) => {
+  await setRole(database, "authenticated", {
+    app_metadata: { role: "staff" },
+    sub: "11111111-1111-4111-8111-111111111111",
+  });
+  await database.query(
+    "select public.record_rental_agreement_acceptance($1::uuid, 'Jordan Snapshot', 'Owner', true, true)",
+    [agreementId]
+  );
+  await resetRole(database);
+};
+
+const createLegacyRequest = async (database, label, startOffset = 30) => {
+  const result = await database.query(`
+    insert into public.rental_requests (
+      full_name, phone, email, equipment_requested, rental_start_date,
+      rental_end_date, agreement_accepted, quote_amount, availability_status,
+      insurance_verification_status, status
+    ) values (
+      $1, '8015550100', $2, 'Legacy Lifecycle Item',
+      current_date + $3::integer, current_date + $3::integer + 2,
+      true, 240.00, 'available', 'verified', 'new'
+    ) returning id
+  `, [label, `${label.toLowerCase().replaceAll(" ", "-")}@example.test`, startOffset]);
   return result.rows[0].id;
 };
 
@@ -329,7 +357,39 @@ test("Agreement authorization, grants, fixed search paths, and locking enforce l
   const createRpc = metadata.rows.find((row) => row.proname === "create_rental_agreement_for_request");
   assert.deepEqual(createRpc.proargnames, ["target_rental_request_id"]);
   assert.match(createRpc.definition, /FOR UPDATE/i);
+  assert.match(createRpc.definition, /assert_rental_request_agreement_eligible/i);
+  assert.match(createRpc.definition, /assert_no_serialized_item_overlaps/i);
   assert.doesNotMatch(createRpc.definition, /equipment_name\s+(text|jsonb)/i);
+  for (const functionName of [
+    "record_rental_agreement_acceptance",
+    "finalize_rental_agreement",
+  ]) {
+    const lifecycleRpc = metadata.rows.find((row) => row.proname === functionName);
+    assert.match(lifecycleRpc.definition, /FOR UPDATE/i);
+    assert.match(lifecycleRpc.definition, /assert_rental_request_agreement_eligible/i);
+  }
+
+  const privateSecurity = await database.query(`
+    select p.proname, p.prosecdef as security_definer, p.proconfig,
+      has_function_privilege('authenticated', p.oid, 'execute') as authenticated_execute
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'private' and p.proname in (
+      'current_credit_card_authorization_terms',
+      'agreement_clause_snapshot_hash',
+      'assert_rental_request_agreement_eligible',
+      'assert_no_serialized_item_overlaps',
+      'authoritative_item_payloads',
+      'rental_agreement_material_snapshot',
+      'rental_agreement_snapshot_hash',
+      'protect_rental_agreement_snapshot'
+    ) order by p.proname
+  `);
+  assert.equal(privateSecurity.rows.length, 8);
+  for (const helper of privateSecurity.rows) {
+    assert.equal(helper.security_definer, true);
+    assert.match(helper.proconfig[0], /^search_path=pg_catalog,/);
+    assert.equal(helper.authenticated_execute, false);
+  }
 
   const security = await database.query(`
     select
@@ -433,25 +493,31 @@ test("legacy compatibility, rollout gates, lifecycle gates, and rollback remain 
     app_metadata: { role: "staff" },
     sub: "11111111-1111-4111-8111-111111111111",
   });
-  await database.query(
-    "select public.record_rental_agreement_acceptance($1::uuid, 'Historical Draft', null, true, true)",
-    [historicalAgreement.rows[0].id]
-  );
-  await database.query(
-    "select public.finalize_rental_agreement($1::uuid)",
-    [historicalAgreement.rows[0].id]
+  await expectDatabaseError(
+    () => database.query(
+      "select public.record_rental_agreement_acceptance($1::uuid, 'Historical Draft', null, true, true)",
+      [historicalAgreement.rows[0].id]
+    ),
+    "verified immutable snapshot"
   );
   await resetRole(database);
   const upgradedHistorical = await database.query(`
-    select status, terms_version, jsonb_array_length(clause_snapshot) as clauses,
+    select status, terms_version, snapshot_schema_version,
+      current_snapshot_hash, accepted_snapshot_hash,
+      jsonb_array_length(clause_snapshot) as clauses,
       (select count(*)::integer from public.agreement_items items
        where items.rental_agreement_id = agreements.id) as item_count
     from public.rental_agreements agreements where id = $1
   `, [historicalAgreement.rows[0].id]);
-  assert.equal(upgradedHistorical.rows[0].status, "ready");
-  assert.match(upgradedHistorical.rows[0].terms_version, /^sha256:[0-9a-f]{64}$/);
-  assert.equal(upgradedHistorical.rows[0].clauses, 1);
-  assert.equal(upgradedHistorical.rows[0].item_count, 1);
+  assert.deepEqual(upgradedHistorical.rows[0], {
+    status: "draft",
+    terms_version: null,
+    snapshot_schema_version: null,
+    current_snapshot_hash: null,
+    accepted_snapshot_hash: null,
+    clauses: 0,
+    item_count: 0,
+  });
 
   await enableMultiItemGate(database);
   const gatedRequestId = await createNormalizedRequest(database, [normalizedItems()[0]]);
@@ -551,4 +617,376 @@ test("legacy compatibility, rollout gates, lifecycle gates, and rollback remain 
     )).rows[0].count,
     0
   );
+});
+
+test("acceptance binds the exact complete material snapshot and makes it immutable", async (t) => {
+  const database = await createDatabase();
+  t.after(() => database.close());
+  await enableMultiItemGate(database);
+
+  const requestId = await createNormalizedRequest(database);
+  const agreementId = await createAgreement(database, requestId);
+
+  const initialHashes = await database.query(`
+    select current_snapshot_hash,
+      private.rental_agreement_snapshot_hash(id) as first_hash,
+      private.rental_agreement_snapshot_hash(id) as second_hash
+    from public.rental_agreements where id = $1
+  `, [agreementId]);
+  assert.match(initialHashes.rows[0].current_snapshot_hash, /^sha256:[0-9a-f]{64}$/);
+  assert.equal(initialHashes.rows[0].first_hash, initialHashes.rows[0].second_hash);
+  assert.equal(initialHashes.rows[0].current_snapshot_hash, initialHashes.rows[0].first_hash);
+
+  const storedClauses = await database.query(
+    "select clause_snapshot, current_snapshot_hash from public.rental_agreements where id = $1",
+    [agreementId]
+  );
+  await database.exec(`
+    update public.agreement_clauses
+    set body = 'A later clause-library revision that must not affect this Agreement.'
+    where clause_key = 'rental-responsibility'
+  `);
+  const unchangedStoredSnapshot = await database.query(
+    "select clause_snapshot, current_snapshot_hash from public.rental_agreements where id = $1",
+    [agreementId]
+  );
+  assert.deepEqual(unchangedStoredSnapshot.rows[0], storedClauses.rows[0]);
+
+  await setRole(database, "authenticated", { app_metadata: { role: "staff" } });
+  await database.query(
+    "select public.update_rental_agreement_financials($1::uuid, 125, 40, 17.25)",
+    [agreementId]
+  );
+  await resetRole(database);
+
+  const changedHash = await database.query(`
+    select current_snapshot_hash
+    from public.rental_agreements where id = $1
+  `, [agreementId]);
+  assert.notEqual(
+    changedHash.rows[0].current_snapshot_hash,
+    initialHashes.rows[0].current_snapshot_hash
+  );
+
+  await recordAcceptance(database, agreementId);
+  const accepted = await database.query(`
+    select current_snapshot_hash, accepted_snapshot_hash,
+      accepted_terms_version, terms_version
+    from public.rental_agreements where id = $1
+  `, [agreementId]);
+  assert.equal(accepted.rows[0].accepted_snapshot_hash, accepted.rows[0].current_snapshot_hash);
+  assert.equal(accepted.rows[0].accepted_terms_version, accepted.rows[0].terms_version);
+
+  await setRole(database, "authenticated", { app_metadata: { role: "staff" } });
+  await expectDatabaseError(
+    () => database.query(
+      "select public.update_rental_agreement_financials($1::uuid, 0, 0, 0)",
+      [agreementId]
+    ),
+    "Accepted Agreement material terms"
+  );
+  await resetRole(database);
+
+  await expectDatabaseError(
+    () => database.query(
+      "update public.agreement_items set notes = 'changed' where rental_agreement_id = $1",
+      [agreementId]
+    ),
+    "immutable"
+  );
+  await expectDatabaseError(
+    () => database.query(
+      "update public.rental_agreements set clause_snapshot = '[]'::jsonb where id = $1",
+      [agreementId]
+    ),
+    "immutable"
+  );
+
+  await setRole(database, "authenticated", { app_metadata: { role: "staff" } });
+  await database.query("select public.finalize_rental_agreement($1::uuid)", [agreementId]);
+  await resetRole(database);
+  assert.equal(
+    (await database.query(
+      "select status from public.rental_agreements where id = $1",
+      [agreementId]
+    )).rows[0].status,
+    "ready"
+  );
+
+  for (const [label, offset, corruptedHash] of [
+    ["Missing accepted hash", 40, null],
+    ["Mismatched accepted hash", 50, `sha256:${"0".repeat(64)}`],
+  ]) {
+    const corruptionRequestId = await createLegacyRequest(database, label, offset);
+    const corruptionAgreementId = await createAgreement(database, corruptionRequestId);
+    await recordAcceptance(database, corruptionAgreementId);
+    await database.exec("alter table public.rental_agreements disable trigger rental_agreements_protect_snapshot");
+    await database.query(
+      "update public.rental_agreements set accepted_snapshot_hash = $2 where id = $1",
+      [corruptionAgreementId, corruptedHash]
+    );
+    await database.exec("alter table public.rental_agreements enable trigger rental_agreements_protect_snapshot");
+    await setRole(database, "authenticated", { app_metadata: { role: "staff" } });
+    await expectDatabaseError(
+      () => database.query(
+        "select public.finalize_rental_agreement($1::uuid)",
+        [corruptionAgreementId]
+      ),
+      corruptedHash ? "does not match" : "acceptance evidence"
+    );
+    await resetRole(database);
+  }
+});
+
+test("acceptance and finalization share authoritative request lifecycle eligibility", async (t) => {
+  const database = await createDatabase();
+  t.after(() => database.close());
+
+  const beforeAcceptanceCases = [
+    ["Cancelled before acceptance", "cancelled", 60],
+    ["Completed before acceptance", "completed", 70],
+  ];
+  for (const [label, status, offset] of beforeAcceptanceCases) {
+    const requestId = await createLegacyRequest(database, label, offset);
+    const agreementId = await createAgreement(database, requestId);
+    await database.query("update public.rental_requests set status = $2 where id = $1", [requestId, status]);
+    await setRole(database, "authenticated", { app_metadata: { role: "staff" } });
+    await expectDatabaseError(
+      () => database.query(
+        "select public.record_rental_agreement_acceptance($1::uuid, 'Lifecycle Signer', null, true, true)",
+        [agreementId]
+      ),
+      "lifecycle status"
+    );
+    await resetRole(database);
+  }
+
+  const beforeFinalizationCases = [
+    ["Cancelled before finalization", "cancelled", 80],
+    ["Completed before finalization", "completed", 90],
+  ];
+  for (const [label, status, offset] of beforeFinalizationCases) {
+    const requestId = await createLegacyRequest(database, label, offset);
+    const agreementId = await createAgreement(database, requestId);
+    await recordAcceptance(database, agreementId);
+    await database.query("update public.rental_requests set status = $2 where id = $1", [requestId, status]);
+    await setRole(database, "authenticated", { app_metadata: { role: "staff" } });
+    await expectDatabaseError(
+      () => database.query(
+        "select public.finalize_rental_agreement($1::uuid)",
+        [agreementId]
+      ),
+      "lifecycle status"
+    );
+    await resetRole(database);
+  }
+
+  const validRequestId = await createLegacyRequest(database, "Valid lifecycle", 100);
+  const validAgreementId = await createAgreement(database, validRequestId);
+  await recordAcceptance(database, validAgreementId);
+  await setRole(database, "authenticated", { app_metadata: { role: "staff" } });
+  await database.query("select public.finalize_rental_agreement($1::uuid)", [validAgreementId]);
+  await resetRole(database);
+});
+
+test("serialized equipment overlap is rejected at request and Agreement boundaries", async (t) => {
+  const database = await createDatabase();
+  t.after(() => database.close());
+  await enableMultiItemGate(database);
+
+  const serializedItem = (start, end) => ({
+    equipment_id: "bobcat-t550-skid-steer",
+    start_date: isoDaysFromNow(start),
+    end_date: isoDaysFromNow(end),
+    quantity: 1,
+  });
+  const invalidSets = [
+    [serializedItem(110, 114), serializedItem(110, 114)],
+    [serializedItem(120, 124), serializedItem(122, 126)],
+    [serializedItem(130, 140), serializedItem(132, 134)],
+  ];
+
+  for (const items of invalidSets) {
+    await setRole(database, "anon");
+    await expectDatabaseError(
+      () => database.query(
+        "select public.create_rental_request_with_items($1::jsonb, $2::jsonb)",
+        [JSON.stringify(requestPayload), JSON.stringify(items)]
+      ),
+      "overlapping rental periods"
+    );
+    await resetRole(database);
+  }
+
+  await setRole(database, "anon");
+  const sequential = await database.query(
+    "select public.create_rental_request_with_items($1::jsonb, $2::jsonb) as id",
+    [
+      JSON.stringify(requestPayload),
+      JSON.stringify([serializedItem(150, 152), serializedItem(153, 155)]),
+    ]
+  );
+  const differentUnits = await database.query(
+    "select public.create_rental_request_with_items($1::jsonb, $2::jsonb) as id",
+    [
+      JSON.stringify({ ...requestPayload, email: "different-unit@example.test" }),
+      JSON.stringify([
+        serializedItem(160, 164),
+        {
+          equipment_id: "wacker-rd12-roller",
+          start_date: isoDaysFromNow(160),
+          end_date: isoDaysFromNow(164),
+          quantity: 1,
+        },
+      ]),
+    ]
+  );
+  await expectDatabaseError(
+    () => database.query(
+      "select public.create_rental_request_with_items($1::jsonb, $2::jsonb)",
+      [
+        JSON.stringify({ ...requestPayload, email: "manipulated@example.test" }),
+        JSON.stringify([{ ...serializedItem(170, 172), serial_number: "CLIENT" }]),
+      ]
+    ),
+    "manipulated"
+  );
+  await resetRole(database);
+  assert.ok(sequential.rows[0].id);
+  assert.ok(differentUnits.rows[0].id);
+
+  const replaceRequestId = await createNormalizedRequest(database, [serializedItem(180, 182)]);
+  await setRole(database, "authenticated", { app_metadata: { role: "staff" } });
+  await expectDatabaseError(
+    () => database.query(
+      "select public.replace_rental_request_items($1::uuid, $2::jsonb, '{}'::jsonb)",
+      [replaceRequestId, JSON.stringify([serializedItem(180, 184), serializedItem(182, 186)])]
+    ),
+    "overlapping rental periods"
+  );
+  await resetRole(database);
+
+  const defensiveRequest = await database.query(`
+    insert into public.rental_requests (
+      full_name, phone, email, equipment_requested, rental_start_date,
+      rental_end_date, agreement_accepted, availability_status,
+      insurance_verification_status, status
+    ) values (
+      'Defensive Boundary', '8015550100', 'defensive@example.test',
+      '2024 Bobcat T550 Track Loader', current_date + 200,
+      current_date + 206, true, 'available', 'verified', 'new'
+    ) returning id
+  `);
+  await database.query(`
+    insert into public.rental_request_items (
+      rental_request_id, display_order, equipment_id, equipment_name,
+      start_date, end_date, quantity, daily_rate, serial_number
+    ) values
+      ($1, 0, 'bobcat-t550-skid-steer', '2024 Bobcat T550 Track Loader',
+       now() + interval '200 days', now() + interval '204 days', 1, 120, 'B57T133070'),
+      ($1, 1, 'bobcat-t550-skid-steer', '2024 Bobcat T550 Track Loader',
+       now() + interval '202 days', now() + interval '206 days', 1, 120, 'B57T133070')
+  `, [defensiveRequest.rows[0].id]);
+  await setRole(database, "authenticated", { app_metadata: { role: "staff" } });
+  await expectDatabaseError(
+    () => database.query(
+      "select public.create_rental_agreement_for_request($1::uuid)",
+      [defensiveRequest.rows[0].id]
+    ),
+    "overlapping rental periods"
+  );
+  await resetRole(database);
+});
+
+test("Agreement PDF preparation is persisted-snapshot-only", async () => {
+  const pageSource = await readFile(
+    new URL("../../src/pages/AgreementPage.tsx", import.meta.url),
+    "utf8"
+  );
+  const generatorSource = await readFile(
+    new URL("../../src/utils/generateAgreementPdf.tsx", import.meta.url),
+    "utf8"
+  );
+  const pdfSource = await readFile(
+    new URL("../../src/components/agreement/pdf/AgreementPdfDocument.tsx", import.meta.url),
+    "utf8"
+  );
+  const adapterSource = await readFile(
+    new URL("../../src/domain/adapters/supabaseRentalAgreementRepository.ts", import.meta.url),
+    "utf8"
+  );
+
+  assert.doesNotMatch(pageSource, /getAgreementClauses/);
+  assert.doesNotMatch(pageSource, /clause_snapshot\.length\s*>\s*0\s*\?/);
+  assert.match(pageSource, /disabled=\{isGeneratingPdf \|\| !hasVerifiedSnapshot\}/);
+  assert.match(generatorSource, /snapshot_availability\.status !== "verified"/);
+  assert.doesNotMatch(generatorSource, /AgreementClause/);
+  assert.match(pdfSource, /agreement\.clause_snapshot\.map/);
+  assert.match(adapterSource, /status: "missing" as const/);
+});
+
+test("remediation migration preserves finalized historical Agreements without silent backfill", async (t) => {
+  const database = new PGlite({ extensions: { pgcrypto } });
+  t.after(() => database.close());
+  await database.exec("create role anon nologin; create role authenticated nologin;");
+  for (const migrationUrl of migrationUrls.slice(0, -1)) {
+    await database.exec(await readFile(migrationUrl, "utf8"));
+  }
+
+  const request = await database.query(`
+    insert into public.rental_requests (
+      full_name, phone, email, equipment_requested, rental_start_date,
+      rental_end_date, agreement_accepted, availability_status,
+      insurance_verification_status
+    ) values (
+      'Finalized Historical', '8015550100', 'finalized-history@example.test',
+      'Historical Unit', current_date - 10, current_date - 5,
+      true, 'available', 'verified'
+    ) returning id
+  `);
+  const agreement = await database.query(`
+    insert into public.rental_agreements (
+      rental_request_id, agreement_number, status, customer_name,
+      customer_email, customer_phone, equipment_requested,
+      rental_start_date, rental_end_date, quote_amount, total_amount,
+      signature_status, acceptance_acknowledged,
+      credit_card_authorization_acknowledged, terms_version,
+      clause_snapshot, clause_snapshot_created_at, signed_at, locked_at
+    ) values (
+      $1, 'HISTORICAL-FINAL-1', 'ready', 'Finalized Historical',
+      'finalized-history@example.test', '8015550100', 'Historical Unit',
+      current_date - 10, current_date - 5, 500, 500,
+      'accepted', true, true, $2,
+      '[{"id":"legacy","title":"Historical","body":"Stored historical wording","display_order":0}]'::jsonb,
+      now() - interval '10 days', now() - interval '9 days', now() - interval '9 days'
+    ) returning id
+  `, [request.rows[0].id, `sha256:${"a".repeat(64)}`]);
+  await database.query(`
+    insert into public.agreement_items (
+      rental_agreement_id, display_order, equipment_name, start_date,
+      end_date, quantity, daily_rate, billable_days, line_total
+    ) values ($1, 0, 'Historical Unit', now() - interval '10 days',
+      now() - interval '5 days', 1, 100, 5, 500)
+  `, [agreement.rows[0].id]);
+
+  const remediation = await readFile(migrationUrls.at(-1), "utf8");
+  await database.exec(remediation);
+  await database.exec(remediation);
+
+  const preserved = await database.query(`
+    select snapshot_schema_version, current_snapshot_hash,
+      accepted_snapshot_hash, credit_card_authorization_terms,
+      clause_snapshot -> 0 ->> 'body' as clause_body, status,
+      locked_at is not null as locked
+    from public.rental_agreements where id = $1
+  `, [agreement.rows[0].id]);
+  assert.deepEqual(preserved.rows[0], {
+    snapshot_schema_version: null,
+    current_snapshot_hash: null,
+    accepted_snapshot_hash: null,
+    credit_card_authorization_terms: null,
+    clause_body: "Stored historical wording",
+    status: "ready",
+    locked: true,
+  });
 });

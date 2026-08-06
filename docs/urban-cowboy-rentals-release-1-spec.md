@@ -59,6 +59,8 @@ Credit-card authorization must be part of the agreement rather than the invoice.
 
 Until a third-party e-sign provider is selected, minimum signature/acceptance evidence is the signer’s typed legal name, an explicit agreement checkbox, timestamp, exact agreement version/snapshot reference, and staff attribution where applicable. Whether this evidence is legally sufficient requires client and attorney approval before public launch.
 
+Acceptance is bound to a deterministic SHA-256 hash of the complete stored material Agreement snapshot, separately from the legal-clause hash. Material pricing and snapshot fields are immutable after acceptance, and finalization must reproduce the accepted hash from stored Agreement data. Legacy Agreements without a verified clause/item/material snapshot remain explicitly unverified: they may still be viewed, but acceptance, finalization, and Agreement PDF generation are disabled. Release 1 never backfills finalized historical Agreements or substitutes current clauses into a historical PDF.
+
 Finalization is denied unless all required customer fields are present; there is at least one valid item; every item has valid dates, quantity greater than zero, nonnegative rate, the required serial count, and resolved availability; totals are valid; legal clauses exist; driver license and insurance are uploaded; insurance is verified; credit-card authorization is acknowledged; signature/acceptance evidence exists; and no blocking conflict remains. The gate must run in the data-access layer as well as the UI.
 
 Catalog behavior for this release:
@@ -137,7 +139,7 @@ Continue supporting the current Square payment-link field as a staff-managed ext
 - Preserve the `rental_request_id` and `rental_agreement_id` links and one-agreement/one-invoice lookup behavior.
 - Read normalized child items when present; otherwise adapt legacy `equipment_requested`, `rental_start_date`, `rental_end_date`, `rental_duration`, and existing totals into a single display line without changing the stored legacy row.
 - A legacy single-item record cannot reliably reconstruct an equipment ID, serial number, or historical daily rate. Its Agreement item therefore keeps those identifiers null, uses a zero daily-rate sentinel, and preserves `quote_amount` as the authoritative historical line total; the quote is never reinterpreted as a daily rate.
-- Continue rendering and generating PDFs for legacy single-item agreements and invoices.
+- Continue rendering legacy single-item agreements and invoices. Generate an Agreement PDF only when that record has a verified persisted legal/material snapshot; never use current clauses as a fallback. Legacy Invoice PDF behavior remains unchanged.
 - Keep existing scalar fields during Release 1. For new multi-item records, populate a human-readable scalar summary where existing dashboard/search code depends on it; item snapshots are authoritative for itemized rendering.
 - Archived catalog items remain visible on historical records and direct historical views, but disappear from new-request selectors.
 - No route removal, bulk backfill requirement, or destructive schema change is permitted.
@@ -148,7 +150,7 @@ Continue supporting the current Square payment-link field as a staff-managed ext
 - Private identity documents require correct row-level and storage policies; a public bucket is a release blocker.
 - Client-side-only finalization checks can be bypassed; protected writes need server/data-layer enforcement.
 - Multi-item availability can race between review and approval and must be rechecked at confirmation.
-- Browser PDFs are reproducible views, not immutable evidence; this limitation must be disclosed operationally.
+- Browser PDFs remain interim artifacts, but each Agreement PDF must render only persisted Agreement snapshot data; records without a verified snapshot cannot generate one.
 - Normalized child items require parent/child integrity, transaction boundaries, snapshot rules, and legacy adapters.
 - Browser-timestamp agreement/invoice numbers can collide or be forged; authoritative numbering is required.
 - Agreement/request/invoice statuses can drift unless transitions and terminology are aligned.
@@ -181,7 +183,7 @@ Continue supporting the current Square payment-link field as a staff-managed ext
 - Final agreements retain locked clause/item snapshots and render PDFs; invoice creation is idempotent, issue locks billing, and PDFs show every line/payment total.
 - Partial/full and invalid/duplicate payments preserve correct history and balances.
 - Approval is impossible until all configured gates pass, availability has been revalidated immediately beforehand, and the approval actor/time are recorded.
-- Existing single-item agreement/invoice fixtures still load and generate PDFs at the unchanged routes.
+- Existing single-item agreement/invoice fixtures still load at the unchanged routes; Agreement PDF generation additionally requires a verified persisted snapshot.
 - Archived items cannot be newly selected; historical references still render; catalog status, `featured`, and `most_popular` are independent; and the reusable badge renders only from metadata.
 - The three confirmed serialized units and their inspection references are associated correctly in agreements and historical views.
 - Production logging contains no document contents, raw card data, or signed storage URLs.

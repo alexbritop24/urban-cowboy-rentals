@@ -71,6 +71,18 @@ const toRentalAgreement = (
     availability_confirmation_status:
       agreement.availabilityConfirmationStatus,
     terms_version: agreement.termsVersion,
+    snapshot_schema_version: agreement.snapshotSchemaVersion,
+    current_snapshot_hash: agreement.currentSnapshotHash,
+    accepted_snapshot_hash: agreement.acceptedSnapshotHash,
+    credit_card_authorization_terms: agreement.creditCardAuthorizationTerms,
+    snapshot_availability:
+      agreement.snapshotAvailability.status === "verified"
+        ? {
+            status: "verified",
+            schema_version: agreement.snapshotAvailability.schemaVersion,
+            current_hash: agreement.snapshotAvailability.currentHash,
+          }
+        : agreement.snapshotAvailability,
     sent_at: agreement.sentAt,
     viewed_at: agreement.viewedAt,
     signed_at: agreement.signedAt,

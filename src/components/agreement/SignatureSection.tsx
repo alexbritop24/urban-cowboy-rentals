@@ -29,6 +29,8 @@ const SignatureSection = ({
 }: SignatureSectionProps) => {
   const isLocked = Boolean(agreement.locked_at);
   const evidenceRecorded = agreement.signature_status !== "pending";
+  const isReadOnly = isLocked || evidenceRecorded;
+  const hasVerifiedSnapshot = agreement.snapshot_availability.status === "verified";
 
   return (
     <section className="rounded-3xl border border-yellow-500/10 bg-black/25 p-8">
@@ -43,13 +45,19 @@ const SignatureSection = ({
         card number or CVV is collected or stored by this application.
       </p>
 
+      {agreement.credit_card_authorization_terms && (
+        <p className="mt-5 rounded-2xl border border-yellow-500/10 bg-black/30 p-5 text-sm leading-7 text-[#d4c8bb]">
+          {agreement.credit_card_authorization_terms}
+        </p>
+      )}
+
       <div className="mt-8 grid gap-5 lg:grid-cols-2">
         <label className="text-sm font-bold text-[#d8cfc4]">
           Signer legal name
           <input
             type="text"
             value={signerName}
-            disabled={isLocked}
+            disabled={isReadOnly || !hasVerifiedSnapshot}
             onChange={(event) => onSignerNameChange(event.target.value)}
             className="mt-2 w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-5 py-4 text-[#fff7ed] outline-none focus:border-yellow-500/40 disabled:opacity-60"
           />
@@ -59,7 +67,7 @@ const SignatureSection = ({
           <input
             type="text"
             value={signerTitle}
-            disabled={isLocked}
+            disabled={isReadOnly || !hasVerifiedSnapshot}
             onChange={(event) => onSignerTitleChange(event.target.value)}
             className="mt-2 w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-5 py-4 text-[#fff7ed] outline-none focus:border-yellow-500/40 disabled:opacity-60"
           />
@@ -71,7 +79,7 @@ const SignatureSection = ({
           <input
             type="checkbox"
             checked={agreementAccepted}
-            disabled={isLocked}
+            disabled={isReadOnly || !hasVerifiedSnapshot}
             onChange={(event) => onAgreementAcceptedChange(event.target.checked)}
             className="mt-1"
           />
@@ -83,7 +91,7 @@ const SignatureSection = ({
           <input
             type="checkbox"
             checked={cardAuthorizationAcknowledged}
-            disabled={isLocked}
+            disabled={isReadOnly || !hasVerifiedSnapshot}
             onChange={(event) => onCardAuthorizationChange(event.target.checked)}
             className="mt-1"
           />
@@ -95,18 +103,23 @@ const SignatureSection = ({
       <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-[#b8a99a]">
           <p>Evidence status: <strong className="text-[#fff7ed]">{agreement.signature_status}</strong></p>
-          <p className="mt-1 break-all">Terms reference: {agreement.terms_version}</p>
+          <p className="mt-1 break-all">
+            Clause reference: {agreement.terms_version || "Unavailable"}
+          </p>
+          <p className="mt-1 break-all">
+            Material snapshot: {agreement.accepted_snapshot_hash || agreement.current_snapshot_hash || "Unavailable"}
+          </p>
           {agreement.signed_at && (
             <p className="mt-1">Recorded: {new Date(agreement.signed_at).toLocaleString()}</p>
           )}
         </div>
         <button
           type="button"
-          disabled={isLocked || isSaving}
+          disabled={isReadOnly || !hasVerifiedSnapshot || isSaving}
           onClick={onSave}
           className="rounded-full border border-yellow-500 bg-yellow-500/10 px-6 py-4 text-sm font-black uppercase tracking-[0.08em] text-[#f4b000] transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isSaving ? "Recording..." : evidenceRecorded ? "Update Acceptance" : "Record Acceptance"}
+          {isSaving ? "Recording..." : evidenceRecorded ? "Acceptance Recorded" : "Record Acceptance"}
         </button>
       </div>
 
