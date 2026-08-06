@@ -9,7 +9,8 @@
     "check:domain": "node scripts/check-domain-cycles.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:persistence": "node --test tests/persistence/release-foundation.test.mjs"
+    "test:agreement": "node --test tests/persistence/agreement-foundation.test.mjs",
+    "test:persistence": "node --test tests/persistence/*.test.mjs"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.5.1",

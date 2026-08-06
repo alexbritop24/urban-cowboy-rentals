@@ -1,83 +1,154 @@
+import { createSupabaseRentalAgreementRepository } from "../domain/adapters/supabaseRentalAgreementRepository";
+import type {
+  AgreementAcceptanceCommand,
+  RentalAgreementAggregate,
+} from "../domain/models/rentalAgreement";
+import { createRentalAgreementWorkflowService } from "../domain/services/rentalAgreementWorkflowService";
 import { supabase } from "../lib/supabase";
 import type { RentalAgreement } from "../types/agreement";
-import { legacyItemFieldsFromSource } from "../domain/adapters/legacyItemAdapters";
+import type { AgreementClause } from "../types/agreementClause";
 
-interface RentalRequestForAgreement {
-  id: string;
-  full_name: string;
-  email: string;
-  phone: string;
-  equipment_requested: string;
-  rental_start_date: string;
-  rental_end_date: string;
-  rental_duration: string;
-  fulfillment_type: string;
-  quote_amount: number | null;
-}
+const workflow = createRentalAgreementWorkflowService(
+  createSupabaseRentalAgreementRepository(supabase)
+);
 
-const generateAgreementNumber = () => {
-  return `UCR-${Date.now()}`;
+const mapClause = (
+  clause: RentalAgreementAggregate["agreement"]["clauseSnapshot"][number]
+): AgreementClause => ({
+  id: clause.id,
+  title: clause.title,
+  body: clause.body,
+  display_order: clause.displayOrder,
+  enabled: clause.enabled,
+  category: clause.category,
+  equipment_category: clause.equipmentCategory,
+  state_code: clause.stateCode,
+  version: clause.version,
+  created_at: clause.createdAt,
+  updated_at: clause.updatedAt,
+});
+
+const toRentalAgreement = (
+  aggregate: RentalAgreementAggregate
+): RentalAgreement => {
+  const { agreement } = aggregate;
+  return {
+    id: agreement.id,
+    rental_request_id: agreement.rentalRequestId,
+    agreement_number: agreement.agreementNumber,
+    status: agreement.status,
+    customer_type: agreement.customerType,
+    customer_name: agreement.customerName,
+    business_name: agreement.businessName,
+    customer_email: agreement.customerEmail,
+    customer_phone: agreement.customerPhone,
+    billing_address: agreement.billingAddress,
+    service_address: agreement.serviceAddress,
+    equipment_requested: agreement.equipmentRequested,
+    rental_start_date: agreement.rentalStartDate,
+    rental_end_date: agreement.rentalEndDate,
+    rental_duration: agreement.rentalDuration,
+    fulfillment_type: agreement.fulfillmentType,
+    items: [...aggregate.items],
+    quote_amount: agreement.quoteAmount,
+    deposit_amount: agreement.depositAmount,
+    delivery_fee: agreement.deliveryFee,
+    tax_amount: agreement.taxAmount,
+    total_amount: agreement.totalAmount,
+    agreement_html: agreement.agreementHtml,
+    signed_pdf_url: agreement.signedPdfUrl,
+    effective_at: agreement.effectiveAt,
+    signature_status: agreement.signatureStatus,
+    acceptance_acknowledged: agreement.acceptanceAcknowledged,
+    authorized_signer_name: agreement.authorizedSignerName,
+    authorized_signer_title: agreement.authorizedSignerTitle,
+    accepted_terms_version: agreement.acceptedTermsVersion,
+    credit_card_authorization_acknowledged:
+      agreement.creditCardAuthorizationAcknowledged,
+    credit_card_authorization_acknowledged_at:
+      agreement.creditCardAuthorizationAcknowledgedAt,
+    insurance_verification_status: agreement.insuranceVerificationStatus,
+    availability_confirmation_status:
+      agreement.availabilityConfirmationStatus,
+    terms_version: agreement.termsVersion,
+    snapshot_schema_version: agreement.snapshotSchemaVersion,
+    current_snapshot_hash: agreement.currentSnapshotHash,
+    accepted_snapshot_hash: agreement.acceptedSnapshotHash,
+    credit_card_authorization_terms: agreement.creditCardAuthorizationTerms,
+    snapshot_availability:
+      agreement.snapshotAvailability.status === "verified"
+        ? {
+            status: "verified",
+            schema_version: agreement.snapshotAvailability.schemaVersion,
+            current_hash: agreement.snapshotAvailability.currentHash,
+          }
+        : agreement.snapshotAvailability,
+    sent_at: agreement.sentAt,
+    viewed_at: agreement.viewedAt,
+    signed_at: agreement.signedAt,
+    signed_by: agreement.signedBy,
+    created_at: agreement.createdAt,
+    updated_at: agreement.updatedAt,
+    clause_snapshot: agreement.clauseSnapshot.map(mapClause),
+    clause_snapshot_created_at: agreement.clauseSnapshotCreatedAt,
+    locked_at: agreement.lockedAt,
+  };
 };
 
 export const getRentalAgreementByRequestId = async (
   rentalRequestId: string
 ): Promise<RentalAgreement | null> => {
-  const { data, error } = await supabase
-    .from("rental_agreements")
-    .select("*")
-    .eq("rental_request_id", rentalRequestId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const aggregate = await workflow.getByRentalRequestId(rentalRequestId);
+  return aggregate ? toRentalAgreement(aggregate) : null;
+};
 
-  if (error) {
-    console.error("GET RENTAL AGREEMENT ERROR:", error);
-    return null;
-  }
-
-  return data;
+export const getRentalAgreementById = async (
+  agreementId: string
+): Promise<RentalAgreement | null> => {
+  const aggregate = await workflow.loadAgreement(agreementId);
+  return aggregate ? toRentalAgreement(aggregate) : null;
 };
 
 export const createRentalAgreement = async (
-  request: RentalRequestForAgreement
-): Promise<RentalAgreement | null> => {
-  const existingAgreement = await getRentalAgreementByRequestId(request.id);
+  rentalRequestId: string
+): Promise<RentalAgreement> =>
+  toRentalAgreement(await workflow.createOrOpen(rentalRequestId));
 
-  if (existingAgreement) {
-    return existingAgreement;
+export const updateRentalAgreementFinancials = async (
+  agreementId: string,
+  financials: {
+    depositAmount: number;
+    deliveryFee: number;
+    taxAmount: number;
   }
+): Promise<RentalAgreement> =>
+  toRentalAgreement(
+    await workflow.updateFinancials({ agreementId, ...financials })
+  );
 
-  const quoteAmount = Number(request.quote_amount) || 0;
-  const legacyItemFields = legacyItemFieldsFromSource(request);
+export type EditableAgreementFinancialField =
+  | "deposit_amount"
+  | "delivery_fee"
+  | "tax_amount";
 
-  const { data, error } = await supabase
-    .from("rental_agreements")
-    .insert({
-      rental_request_id: request.id,
-      agreement_number: generateAgreementNumber(),
-      status: "draft",
-      customer_name: request.full_name,
-      customer_email: request.email,
-      customer_phone: request.phone,
-      ...legacyItemFields,
-      rental_duration: request.rental_duration,
-      fulfillment_type: request.fulfillment_type,
-      quote_amount: quoteAmount,
-      deposit_amount: 0,
-      delivery_fee: 0,
-      tax_amount: 0,
-      total_amount: quoteAmount,
-      agreement_html: null,
-      signed_pdf_url: null,
-    })
-    .select("*")
-    .single();
+export const updateRentalAgreementFinancialField = async (
+  agreement: RentalAgreement,
+  field: EditableAgreementFinancialField,
+  value: number
+): Promise<RentalAgreement> =>
+  updateRentalAgreementFinancials(agreement.id, {
+    depositAmount:
+      field === "deposit_amount" ? value : agreement.deposit_amount,
+    deliveryFee: field === "delivery_fee" ? value : agreement.delivery_fee,
+    taxAmount: field === "tax_amount" ? value : agreement.tax_amount,
+  });
 
-  if (error) {
-    console.error("CREATE RENTAL AGREEMENT ERROR:", error);
-    alert(JSON.stringify(error, null, 2));
-    return null;
-  }
+export const recordRentalAgreementAcceptance = async (
+  command: AgreementAcceptanceCommand
+): Promise<RentalAgreement> =>
+  toRentalAgreement(await workflow.recordAcceptance(command));
 
-  return data;
-};
+export const finalizeRentalAgreement = async (
+  agreementId: string
+): Promise<RentalAgreement> =>
+  toRentalAgreement(await workflow.finalize(agreementId));

@@ -2,17 +2,18 @@ import { pdf } from "@react-pdf/renderer";
 
 import AgreementPdfDocument from "../components/agreement/pdf/AgreementPdfDocument";
 import type { RentalAgreement } from "../types/agreement";
-import type { AgreementClause } from "../types/agreementClause";
 
 export async function generateAgreementPdf(
-  agreement: RentalAgreement,
-  clauses: AgreementClause[]
+  agreement: RentalAgreement
 ) {
+  if (agreement.snapshot_availability.status !== "verified") {
+    throw new Error(
+      "An immutable Agreement snapshot is unavailable. PDF generation is disabled."
+    );
+  }
+
   const blob = await pdf(
-    <AgreementPdfDocument
-      agreement={agreement}
-      clauses={clauses}
-    />
+    <AgreementPdfDocument agreement={agreement} />
   ).toBlob();
 
   const url = URL.createObjectURL(blob);
