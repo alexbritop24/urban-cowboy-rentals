@@ -4,6 +4,7 @@ import MainLayout from "../components/layout/MainLayout";
 import PageTransition from "../components/ui/PageTransition";
 import SEO from "../components/seo/SEO";
 import { supabase } from "../lib/supabase";
+import { authorizeStaffSession } from "../services/authorizationService";
 import { useNavigate } from "react-router-dom";
 
 const AdminLoginPage = () => {
@@ -34,28 +35,26 @@ const AdminLoginPage = () => {
     }
 
     if (!data.session) {
+      setErrorMessage("Login failed. No session was created.");
+      setLoading(false);
+      return;
+    }
 
-  setErrorMessage("Login failed. No session was created.");
+    const authorization = authorizeStaffSession(data.session);
 
-  setLoading(false);
+    if (!authorization.authorized) {
+      await supabase.auth.signOut();
+      setErrorMessage("This account is not authorized for staff access.");
+      setLoading(false);
+      return;
+    }
 
-  return;
+    await supabase.auth.setSession({
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+    });
 
-}
-
-await supabase.auth.setSession({
-
-  access_token: data.session.access_token,
-
-  refresh_token: data.session.refresh_token,
-
-});
-
-navigate("/admin", { replace: true });
-
-    setTimeout(() => {
-  navigate("/admin", { replace: true });
-}, 300);
+    navigate("/admin", { replace: true });
   };
 
   return (
@@ -78,10 +77,10 @@ navigate("/admin", { replace: true });
               </h1>
 
               {errorMessage && (
-  <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300">
-    {errorMessage}
-  </div>
-)}
+                <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300">
+                  {errorMessage}
+                </div>
+              )}
 
               <form onSubmit={handleLogin} className="mt-8 space-y-5">
                 <div>

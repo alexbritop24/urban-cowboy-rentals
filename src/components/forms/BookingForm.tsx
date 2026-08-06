@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import { equipmentData } from "../../data/equipmentData";
+import { getBookableEquipment } from "../../data/equipmentSelectors";
 import { publicSupabase } from "../../lib/supabase";
 import BookingSuccess from "./BookingSuccess";
+import MultiItemBookingForm from "./MultiItemBookingForm";
+import { applicationFeatureFlags } from "../../config/featureFlags";
 
 import type { BookingRequest } from "../../types/booking";
 
@@ -20,13 +22,15 @@ const initialFormState = {
   agreementAccepted: false,
 };
 
-const BookingForm = () => {
+const activeEquipment = getBookableEquipment();
+
+const LegacyBookingForm = () => {
   const [searchParams] = useSearchParams();
 
   const equipmentQuery = searchParams.get("equipment");
 
   const defaultEquipment = useMemo(() => {
-    const foundEquipment = equipmentData.find(
+    const foundEquipment = activeEquipment.find(
       (item) => item.id === equipmentQuery
     );
 
@@ -83,27 +87,18 @@ const BookingForm = () => {
     returnDate: string
   ) => {
     const { data, error } = await publicSupabase
-      .from("rental_requests")
-      .select("*")
-      .eq("equipment_requested", equipmentRequested)
-      .neq("status", "cancelled");
+      .rpc("has_rental_request_conflict", {
+        requested_equipment_name: equipmentRequested,
+        requested_pickup: pickupDate,
+        requested_return: returnDate,
+      });
 
     if (error) {
       console.error("AVAILABILITY CHECK ERROR:", error);
       return false;
     }
 
-    const requestedPickup = new Date(pickupDate).getTime();
-    const requestedReturn = new Date(returnDate).getTime();
-
-    return data.some((request) => {
-      if (!request.pickup_date || !request.return_date) return false;
-
-      const existingPickup = new Date(request.pickup_date).getTime();
-      const existingReturn = new Date(request.return_date).getTime();
-
-      return requestedPickup < existingReturn && requestedReturn > existingPickup;
-    });
+    return Boolean(data);
   };
 
   const handleChange = (
@@ -306,7 +301,7 @@ const BookingForm = () => {
           >
             <option value="">Select equipment</option>
 
-            {equipmentData.map((item) => (
+            {activeEquipment.map((item) => (
               <option key={item.id} value={item.name}>
                 {item.name}
               </option>
@@ -436,5 +431,12 @@ const BookingForm = () => {
     </form>
   );
 };
+
+const BookingForm = () =>
+  applicationFeatureFlags.multiItemRentalRequests ? (
+    <MultiItemBookingForm />
+  ) : (
+    <LegacyBookingForm />
+  );
 
 export default BookingForm;

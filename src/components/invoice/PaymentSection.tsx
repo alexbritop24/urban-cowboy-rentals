@@ -5,6 +5,7 @@ import {
   type PaymentMethod,
 } from "../../services/paymentService";
 import type { Invoice } from "../../types/invoice";
+import { validatePaymentAmount } from "../../domain/validators/paymentValidators";
 
 interface PaymentSectionProps {
   invoice: Invoice;
@@ -34,15 +35,20 @@ export default function PaymentSection({
   const handleRecordPayment = async () => {
     const paymentAmount = Number(amount);
 
-    if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
-      setMessage("Enter a valid payment amount.");
-      return;
-    }
+    const paymentIssues = validatePaymentAmount(paymentAmount, balance);
 
-    if (paymentAmount > balance) {
-      setMessage(
-        `Payment cannot exceed the remaining balance of $${balance.toFixed(2)}.`
+    if (paymentIssues.length > 0) {
+      const exceedsBalance = paymentIssues.some(
+        (issue) => issue.code === "exceeds_balance"
       );
+
+      if (exceedsBalance) {
+        setMessage(
+          `Payment cannot exceed the remaining balance of $${balance.toFixed(2)}.`
+        );
+      } else {
+        setMessage("Enter a valid payment amount.");
+      }
       return;
     }
 

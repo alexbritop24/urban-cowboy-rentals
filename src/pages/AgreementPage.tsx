@@ -16,6 +16,7 @@ import {
   getAgreementClauses,
 } from "../services/agreementClauseService";
 import { createInvoiceFromAgreement } from "../services/invoiceService";
+import { calculateInvoiceTotal } from "../domain/pricing/rentalPricing";
 import type { RentalAgreement } from "../types/agreement";
 import type { AgreementClause } from "../types/agreementClause";
 
@@ -105,11 +106,12 @@ export default function AgreementPage() {
       [field]: value,
     };
 
-    const totalAmount =
-      Number(updatedAgreement.quote_amount || 0) +
-      Number(updatedAgreement.deposit_amount || 0) +
-      Number(updatedAgreement.delivery_fee || 0) +
-      Number(updatedAgreement.tax_amount || 0);
+    const totalAmount = calculateInvoiceTotal({
+      subtotal: Number(updatedAgreement.quote_amount || 0),
+      depositAmount: Number(updatedAgreement.deposit_amount || 0),
+      deliveryFee: Number(updatedAgreement.delivery_fee || 0),
+      taxAmount: Number(updatedAgreement.tax_amount || 0),
+    });
 
     setAgreement({
       ...updatedAgreement,

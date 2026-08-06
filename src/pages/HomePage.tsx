@@ -12,7 +12,7 @@ import FAQSection from "../components/ui/FAQSection";
 import PageTransition from "../components/ui/PageTransition";
 import SEO from "../components/seo/SEO";
 
-import { equipmentData } from "../data/equipmentData";
+import { getFeaturedEquipment } from "../data/equipmentSelectors";
 
 const categories = [
   "Heavy Equipment",
@@ -48,9 +48,7 @@ const steps = [
   },
 ];
 
-const featuredEquipment = equipmentData.filter(
-  (item) => item.featured
-);
+const featuredEquipment = getFeaturedEquipment();
 
 const HomePage = () => {
   return (

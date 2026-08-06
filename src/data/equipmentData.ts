@@ -14,13 +14,12 @@ import bauer65JDemolitionHammerImage from "../assets/equipment/bauer-65j-demolit
 import rawmaxxDtx24TiltDeckImage from "../assets/equipment/rawmaxx-dtx-24-tilt-deck.jpg";
 
 import type { EquipmentItem } from "../types/equipment";
+import { getCatalogMetadata } from "./catalogContract";
 
-export const equipmentData: EquipmentItem[] = [
+export const equipmentData: readonly EquipmentItem[] = [
   {
-    id: "bobcat-t550-skid-steer",
-    name: "2025 Bobcat T550 Skid Steer",
-    category: "Heavy Equipment",
-    startingPrice: 225,
+    ...getCatalogMetadata("bobcat-t550-skid-steer"),
+    startingPrice: 120,
     image: bobcatT550Image,
     description:
       "Compact track skid steer built for grading, loading, clearing, and heavy jobsite work.",
@@ -32,18 +31,14 @@ export const equipmentData: EquipmentItem[] = [
       "68” heavy duty grading bucket",
     ],
     rates: [
-      { label: "4hr", price: 225 },
-      { label: "1 Day", price: 275 },
+      { label: "1 Day", price: 120 },
       { label: "1 Week", price: 1000 },
       { label: "2 Weeks", price: 2000 },
       { label: "4 Weeks", price: 2800 },
     ],
-    featured: true,
   },
   {
-    id: "bobcat-e35r2-compact-excavator",
-    name: "2025 Bobcat E35R2 Compact Excavator",
-    category: "Heavy Equipment",
+    ...getCatalogMetadata("bobcat-e35r2-compact-excavator"),
     startingPrice: 225,
     image: miniExcavatorImage,
     description:
@@ -71,12 +66,9 @@ export const equipmentData: EquipmentItem[] = [
       '24” bucket with teeth: 1 Day $25 / 1 Week $65 / 4 Weeks $175',
       '48” grading bucket: 1 Day $30 / 1 Week $90 / 4 Weeks $220',
     ],
-    featured: true,
   },
   {
-    id: "lamar-telescopic-dump-9-ton",
-    name: "2025 Lamar Telescopic Dump 9 Ton Trailer",
-    category: "Trailers",
+    ...getCatalogMetadata("lamar-telescopic-dump-9-ton"),
     startingPrice: 130,
     image: dumpTrailerImage,
     description:
@@ -92,9 +84,7 @@ export const equipmentData: EquipmentItem[] = [
     ],
   },
   {
-    id: "rawmax-tilt-deck-22",
-    name: "2025 RawMax Tilt Deck 22’",
-    category: "Trailers",
+    ...getCatalogMetadata("rawmax-tilt-deck-22"),
     startingPrice: 125,
     image: equipmentTrailerImage,
     description:
@@ -113,12 +103,9 @@ export const equipmentData: EquipmentItem[] = [
       { label: "2 Weeks", price: 1200 },
       { label: "4 Weeks", price: 1800 },
     ],
-    featured: true,
   },
   {
-    id: "rawmaxx-dtx-24-tilt-deck",
-    name: "RawMaxx DTX 24’ Tilt Deck Trailer",
-    category: "Trailers",
+    ...getCatalogMetadata("rawmaxx-dtx-24-tilt-deck"),
     startingPrice: 150,
     image: rawmaxxDtx24TiltDeckImage,
     description:
@@ -138,12 +125,9 @@ export const equipmentData: EquipmentItem[] = [
       { label: "1 Week", price: 800 },
       { label: "4 Weeks", price: 2000 },
     ],
-    featured: true,
   },
   {
-    id: "utility-trailer",
-    name: "Utility Trailer",
-    category: "Trailers",
+    ...getCatalogMetadata("utility-trailer"),
     startingPrice: 75,
     image: utilityTrailerImage,
     description:
@@ -164,9 +148,7 @@ export const equipmentData: EquipmentItem[] = [
     ],
   },
   {
-    id: "scissor-lift",
-    name: "Electric Scissor Lift",
-    category: "Heavy Equipment",
+    ...getCatalogMetadata("scissor-lift"),
     startingPrice: 140,
     image: scissorLiftImage,
     description:
@@ -186,9 +168,7 @@ export const equipmentData: EquipmentItem[] = [
     ],
   },
   {
-    id: "hercules-sds-max-demolition-hammer",
-    name: "Hercules SDS-MAX Demolition Hammer",
-    category: "Tools",
+    ...getCatalogMetadata("hercules-sds-max-demolition-hammer"),
     startingPrice: 50,
     image: herculesHammerDrillImage,
     description:
@@ -211,12 +191,9 @@ export const equipmentData: EquipmentItem[] = [
       { label: "1 Week", price: 200 },
       { label: "4 Weeks", price: 600 },
     ],
-    featured: true,
   },
   {
-    id: "bauer-65j-demolition-hammer",
-    name: "Bauer 65J Demolition Hammer",
-    category: "Tools",
+    ...getCatalogMetadata("bauer-65j-demolition-hammer"),
     startingPrice: 50,
     image: bauer65JDemolitionHammerImage,
     description:
@@ -235,12 +212,9 @@ export const equipmentData: EquipmentItem[] = [
       { label: "1 Week", price: 200 },
       { label: "4 Weeks", price: 600 },
     ],
-    featured: true,
   },
   {
-    id: "plate-compactor",
-    name: "Central Machinery Plate Compactor",
-    category: "Tools",
+    ...getCatalogMetadata("plate-compactor"),
     startingPrice: 60,
     image: plateCompactorImage,
     description:
@@ -259,9 +233,7 @@ export const equipmentData: EquipmentItem[] = [
     ],
   },
   {
-    id: "wacker-rd12-roller",
-    name: "Wacker Neuson RD12 Roller",
-    category: "Heavy Equipment",
+    ...getCatalogMetadata("wacker-rd12-roller"),
     startingPrice: 180,
     image: wackerRd12RollerImage,
     description:
@@ -280,9 +252,7 @@ export const equipmentData: EquipmentItem[] = [
     ],
   },
   {
-    id: "kobalt-hand-tamper",
-    name: "Kobalt 10×10 Hand Tamper",
-    category: "Tools",
+    ...getCatalogMetadata("kobalt-hand-tamper"),
     startingPrice: 10,
     image: kobaltHandTamperImage,
     description:
@@ -301,9 +271,7 @@ export const equipmentData: EquipmentItem[] = [
     ],
   },
   {
-    id: "harley-road-glide-2003",
-    name: "2003 Harley Davidson Road Glide",
-    category: "Motorcycles",
+    ...getCatalogMetadata("harley-road-glide-2003"),
     startingPrice: 180,
     image: harleyRoadGlideImage,
     description:
@@ -326,9 +294,7 @@ export const equipmentData: EquipmentItem[] = [
     ],
   },
   {
-    id: "harley-fld-switchback-2012",
-    name: "2012 Harley Davidson FLD Switchback",
-    category: "Motorcycles",
+    ...getCatalogMetadata("harley-fld-switchback-2012"),
     startingPrice: 130,
     image: harleySwitchbackImage,
     description:

@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase";
 import type { RentalAgreement } from "../types/agreement";
+import { legacyItemFieldsFromSource } from "../domain/adapters/legacyItemAdapters";
 
 interface RentalRequestForAgreement {
   id: string;
@@ -47,6 +48,7 @@ export const createRentalAgreement = async (
   }
 
   const quoteAmount = Number(request.quote_amount) || 0;
+  const legacyItemFields = legacyItemFieldsFromSource(request);
 
   const { data, error } = await supabase
     .from("rental_agreements")
@@ -57,9 +59,7 @@ export const createRentalAgreement = async (
       customer_name: request.full_name,
       customer_email: request.email,
       customer_phone: request.phone,
-      equipment_requested: request.equipment_requested,
-      rental_start_date: request.rental_start_date,
-      rental_end_date: request.rental_end_date,
+      ...legacyItemFields,
       rental_duration: request.rental_duration,
       fulfillment_type: request.fulfillment_type,
       quote_amount: quoteAmount,

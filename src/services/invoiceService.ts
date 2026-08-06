@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
 import type { Invoice } from "../types/invoice";
 import type { RentalAgreement } from "../types/agreement";
+import { legacyItemFieldsFromSource } from "../domain/adapters/legacyItemAdapters";
 
 function generateInvoiceNumber() {
   return `INV-${Date.now()}`;
@@ -23,6 +24,8 @@ export async function createInvoiceFromAgreement(
     return existingInvoice as Invoice;
   }
 
+  const legacyItemFields = legacyItemFieldsFromSource(agreement);
+
   const invoice: Omit<
     Invoice,
     "id" | "created_at" | "updated_at"
@@ -38,10 +41,10 @@ export async function createInvoiceFromAgreement(
     customer_email: agreement.customer_email,
     customer_phone: agreement.customer_phone,
 
-    equipment_requested: agreement.equipment_requested,
+    equipment_requested: legacyItemFields.equipment_requested ?? "",
 
-    rental_start_date: agreement.rental_start_date,
-    rental_end_date: agreement.rental_end_date,
+    rental_start_date: legacyItemFields.rental_start_date,
+    rental_end_date: legacyItemFields.rental_end_date,
 
     subtotal: Number(agreement.quote_amount || 0),
 

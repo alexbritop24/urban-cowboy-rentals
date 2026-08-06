@@ -1,5 +1,7 @@
 import { supabase } from "../lib/supabase";
 import type { Invoice } from "../types/invoice";
+import { calculateBalanceDue } from "../domain/pricing/rentalPricing";
+import { assertValidPaymentAmount } from "../domain/validators/paymentValidators";
 
 export type PaymentMethod =
   | "cash"
@@ -34,9 +36,7 @@ export async function recordPayment({
     throw new Error("Invoice ID is required.");
   }
 
-  if (!Number.isFinite(amount) || amount <= 0) {
-    throw new Error("Payment amount must be greater than zero.");
-  }
+  assertValidPaymentAmount(amount);
 
   const { data: currentInvoice, error: invoiceError } = await supabase
     .from("invoices")
@@ -66,16 +66,12 @@ export async function recordPayment({
     throw new Error("This invoice has already been paid.");
   }
 
-  if (amount > currentBalanceDue) {
-    throw new Error(
-      `Payment cannot exceed the remaining balance of $${currentBalanceDue.toFixed(
-        2
-      )}.`
-    );
-  }
+  assertValidPaymentAmount(amount, currentBalanceDue);
 
   const newAmountPaid = currentAmountPaid + amount;
-  const newBalanceDue = Math.max(totalAmount - newAmountPaid, 0);
+  const newBalanceDue = calculateBalanceDue(totalAmount, newAmountPaid, {
+    minimumZero: true,
+  });
 
   const newPaymentStatus =
     newBalanceDue === 0 ? "paid" : "partially_paid";

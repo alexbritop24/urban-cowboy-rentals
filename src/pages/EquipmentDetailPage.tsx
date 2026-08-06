@@ -4,17 +4,18 @@ import { motion } from "framer-motion";
 
 
 import MainLayout from "../components/layout/MainLayout";
+import MostPopularBadge from "../components/equipment/MostPopularBadge";
 import PricingTable from "../components/equipment/PricingTable";
 import CTASection from "../components/ui/CTASection";
 import PageTransition from "../components/ui/PageTransition";
 import SEO from "../components/seo/SEO";
 
-import { equipmentData } from "../data/equipmentData";
+import { getEquipmentById } from "../data/equipmentSelectors";
 
 const EquipmentDetailPage = () => {
   const { id } = useParams();
 
-  const equipment = equipmentData.find((item) => item.id === id);
+  const equipment = getEquipmentById(id);
 
   if (!equipment) {
     return (
@@ -39,6 +40,8 @@ const EquipmentDetailPage = () => {
       </PageTransition>
     );
   }
+
+  const isAvailable = equipment.status === "active";
 
   return (
     <PageTransition>
@@ -77,6 +80,10 @@ const EquipmentDetailPage = () => {
   <div className="absolute left-6 top-6 rounded-full bg-black/60 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#f4b000] backdrop-blur-xl">
     {equipment.category}
   </div>
+
+  {equipment.mostPopular && (
+    <MostPopularBadge className="absolute right-6 top-6" />
+  )}
 </div>
 
               <div className="mt-8 grid gap-5 md:grid-cols-2">
@@ -141,12 +148,18 @@ const EquipmentDetailPage = () => {
                 </div>
 
                 <div className="mt-8 grid gap-3">
-                  <Link
-                    to={`/book?equipment=${equipment.id}`}
-                    className="rounded-full bg-[#f4b000] px-8 py-5 text-center font-black uppercase tracking-[0.1em] text-black transition hover:scale-[1.02] hover:bg-[#f59e0b]"
-                  >
-                    Request This Rental
-                  </Link>
+                  {isAvailable ? (
+                    <Link
+                      to={`/book?equipment=${equipment.id}`}
+                      className="rounded-full bg-[#f4b000] px-8 py-5 text-center font-black uppercase tracking-[0.1em] text-black transition hover:scale-[1.02] hover:bg-[#f59e0b]"
+                    >
+                      Request This Rental
+                    </Link>
+                  ) : (
+                    <div className="rounded-full border border-yellow-500/20 bg-black/30 px-8 py-5 text-center font-black uppercase tracking-[0.1em] text-[#8f8577]">
+                      Archived — Not Available
+                    </div>
+                  )}
 
                   <a
                     href="tel:8019039380"
@@ -236,15 +249,17 @@ const EquipmentDetailPage = () => {
         </div>
       </section>
 
-      <CTASection
-        eyebrow="Request this rental"
-        title={`Ready to rent the ${equipment.name}?`}
-        description="Submit a request with your preferred dates and Urban Cowboy Rentals will confirm availability, pricing, and next steps."
-        primaryLabel="Request Rental"
-        primaryHref={`/book?equipment=${equipment.id}`}
-        secondaryLabel="View All Equipment"
-        secondaryHref="/equipment"
-      />
+      {isAvailable && (
+        <CTASection
+          eyebrow="Request this rental"
+          title={`Ready to rent the ${equipment.name}?`}
+          description="Submit a request with your preferred dates and Urban Cowboy Rentals will confirm availability, pricing, and next steps."
+          primaryLabel="Request Rental"
+          primaryHref={`/book?equipment=${equipment.id}`}
+          secondaryLabel="View All Equipment"
+          secondaryHref="/equipment"
+        />
+      )}
     </MainLayout>
     </PageTransition>
   );
