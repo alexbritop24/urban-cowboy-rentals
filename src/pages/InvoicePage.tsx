@@ -4,25 +4,14 @@ import { useNavigate, useParams } from "react-router-dom";
 import InvoiceDetails from "../components/invoice/InvoiceDetails";
 import InvoiceFinancialSummary from "../components/invoice/InvoiceFinancialSummary";
 import InvoiceHeader from "../components/invoice/InvoiceHeader";
+import InvoiceItemsTable from "../components/invoice/InvoiceItemsTable";
 import MainLayout from "../components/layout/MainLayout";
 import SEO from "../components/seo/SEO";
 import PageTransition from "../components/ui/PageTransition";
-import { supabase } from "../lib/supabase";
-import { issueInvoice } from "../services/issueInvoiceService";
-import { updateInvoiceField } from "../services/updateInvoiceService";
-import {
-  calculateBalanceDue,
-  calculateInvoiceTotal,
-} from "../domain/pricing/rentalPricing";
+import { getInvoiceById, issueInvoice } from "../services/invoiceService";
 import type { Invoice } from "../types/invoice";
 import PaymentSection from "../components/invoice/PaymentSection";
 import PaymentHistory from "../components/invoice/PaymentHistory";
-
-type EditableInvoiceField =
-  | "subtotal"
-  | "deposit_amount"
-  | "delivery_fee"
-  | "tax_amount";
 
 export default function InvoicePage() {
   const { id } = useParams();
@@ -30,7 +19,6 @@ export default function InvoicePage() {
 
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
   const [isIssuing, setIsIssuing] = useState(false);
   const [paymentRefreshKey, setPaymentRefreshKey] = useState(0);
   const [notice, setNotice] = useState("");
@@ -42,84 +30,19 @@ export default function InvoicePage() {
         return;
       }
 
-      const { data, error } = await supabase
-        .from("invoices")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      if (error) {
+      try {
+        const data = await getInvoiceById(id);
+        setInvoice(data);
+      } catch (error) {
         console.error("LOAD INVOICE ERROR:", error);
         setInvoice(null);
+      } finally {
         setLoading(false);
-        return;
       }
-
-      setInvoice(data as Invoice);
-      setLoading(false);
     };
 
     loadInvoice();
   }, [id]);
-
-  const handleFieldChange = async (
-    field: EditableInvoiceField,
-    value: number
-  ) => {
-    if (!invoice) return;
-
-    if (invoice.status !== "draft") {
-      setNotice("Issued invoices cannot be edited.");
-      return;
-    }
-
-    const optimisticInvoice: Invoice = {
-      ...invoice,
-      [field]: value,
-    };
-
-    const totalAmount = calculateInvoiceTotal({
-      subtotal: Number(optimisticInvoice.subtotal || 0),
-      depositAmount: Number(optimisticInvoice.deposit_amount || 0),
-      deliveryFee: Number(optimisticInvoice.delivery_fee || 0),
-      taxAmount: Number(optimisticInvoice.tax_amount || 0),
-    });
-
-    const balanceDue = calculateBalanceDue(
-      totalAmount,
-      Number(optimisticInvoice.amount_paid || 0)
-    );
-
-    setInvoice({
-      ...optimisticInvoice,
-      total_amount: totalAmount,
-      balance_due: balanceDue,
-    });
-
-    setIsSaving(true);
-    setNotice("");
-
-    try {
-      const result = await updateInvoiceField(invoice.id, field, value);
-
-      setInvoice((currentInvoice) =>
-        currentInvoice
-          ? {
-              ...currentInvoice,
-              total_amount: result.total,
-              balance_due: result.balanceDue,
-            }
-          : currentInvoice
-      );
-
-      setNotice("Invoice saved.");
-    } catch (error) {
-      console.error("UPDATE INVOICE ERROR:", error);
-      setNotice("Could not save the invoice.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const handleIssueInvoice = async () => {
     if (!invoice) return;
@@ -192,12 +115,9 @@ export default function InvoicePage() {
 
               <InvoiceDetails invoice={invoice} />
 
-              <InvoiceFinancialSummary
-                invoice={invoice}
-                isSaving={isSaving}
-                notice={notice}
-                onFieldChange={handleFieldChange}
-              />
+              <InvoiceItemsTable invoice={invoice} />
+
+              <InvoiceFinancialSummary invoice={invoice} />
 
               <PaymentSection
                invoice={invoice}
@@ -239,7 +159,7 @@ export default function InvoicePage() {
                   <button
                     type="button"
                     onClick={handleIssueInvoice}
-                    disabled={!isDraft || isIssuing || isSaving}
+                    disabled={!isDraft || isIssuing}
                     className="rounded-full bg-[#f4b000] px-6 py-4 text-sm font-black uppercase tracking-[0.1em] text-black transition hover:bg-[#f59e0b] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {!isDraft

@@ -44,5 +44,6 @@ export const agreementItemsToInvoiceItems = (
     origin: item.origin,
     invoiceId: input.invoiceId,
     agreementItemId: item.origin === "normalized" ? item.id : null,
+    rentalRequestItemId: item.rentalRequestItemId,
     createdAt: null,
   }));

@@ -127,6 +127,273 @@ export type Database = {
           },
         ];
       };
+      invoice_items: {
+        Row: {
+          id: string;
+          invoice_id: string;
+          agreement_item_id: string | null;
+          rental_request_item_id: string | null;
+          display_order: number;
+          equipment_id: string | null;
+          equipment_name: string;
+          serial_number: string | null;
+          start_date: string;
+          end_date: string;
+          quantity: number;
+          daily_rate: number;
+          billable_days: number;
+          line_total: number;
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          invoice_id: string;
+          agreement_item_id?: string | null;
+          rental_request_item_id?: string | null;
+          display_order: number;
+          equipment_id?: string | null;
+          equipment_name: string;
+          serial_number?: string | null;
+          start_date: string;
+          end_date: string;
+          quantity: number;
+          daily_rate: number;
+          billable_days: number;
+          line_total: number;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          invoice_id?: string;
+          agreement_item_id?: string | null;
+          rental_request_item_id?: string | null;
+          display_order?: number;
+          equipment_id?: string | null;
+          equipment_name?: string;
+          serial_number?: string | null;
+          start_date?: string;
+          end_date?: string;
+          quantity?: number;
+          daily_rate?: number;
+          billable_days?: number;
+          line_total?: number;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "invoice_items_invoice_fk";
+            columns: ["invoice_id"];
+            isOneToOne: false;
+            referencedRelation: "invoices";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoice_items_agreement_item_fk";
+            columns: ["agreement_item_id"];
+            isOneToOne: false;
+            referencedRelation: "agreement_items";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoice_items_request_item_fk";
+            columns: ["rental_request_item_id"];
+            isOneToOne: false;
+            referencedRelation: "rental_request_items";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      invoices: {
+        Row: {
+          id: string;
+          rental_agreement_id: string | null;
+          rental_request_id: string | null;
+          invoice_number: string | null;
+          invoice_type: string;
+          status: string;
+          customer_type: string | null;
+          customer_name: string | null;
+          business_name: string | null;
+          customer_email: string | null;
+          customer_phone: string | null;
+          billing_address: string | null;
+          service_address: string | null;
+          equipment_requested: string | null;
+          rental_start_date: string | null;
+          rental_end_date: string | null;
+          source_agreement_snapshot_hash: string | null;
+          currency: string;
+          payment_terms: string;
+          subtotal: number;
+          deposit_amount: number;
+          delivery_fee: number;
+          tax_amount: number;
+          other_charges_amount: number;
+          total_amount: number;
+          amount_paid: number;
+          balance_due: number;
+          payment_status: string;
+          payment_link: string | null;
+          notes: string | null;
+          issue_date: string | null;
+          issued_at: string | null;
+          due_at: string | null;
+          paid_at: string | null;
+          voided_at: string | null;
+          created_by: string | null;
+          issued_by: string | null;
+          pdf_url: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          rental_agreement_id?: string | null;
+          rental_request_id?: string | null;
+          invoice_number?: string | null;
+          invoice_type?: string;
+          status?: string;
+          customer_type?: string | null;
+          customer_name?: string | null;
+          business_name?: string | null;
+          customer_email?: string | null;
+          customer_phone?: string | null;
+          billing_address?: string | null;
+          service_address?: string | null;
+          equipment_requested?: string | null;
+          rental_start_date?: string | null;
+          rental_end_date?: string | null;
+          source_agreement_snapshot_hash?: string | null;
+          currency?: string;
+          payment_terms?: string;
+          subtotal?: number;
+          deposit_amount?: number;
+          delivery_fee?: number;
+          tax_amount?: number;
+          other_charges_amount?: number;
+          total_amount?: number;
+          amount_paid?: number;
+          balance_due?: number;
+          payment_status?: string;
+          payment_link?: string | null;
+          notes?: string | null;
+          issue_date?: string | null;
+          issued_at?: string | null;
+          due_at?: string | null;
+          paid_at?: string | null;
+          voided_at?: string | null;
+          created_by?: string | null;
+          issued_by?: string | null;
+          pdf_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          rental_agreement_id?: string | null;
+          rental_request_id?: string | null;
+          invoice_number?: string | null;
+          invoice_type?: string;
+          status?: string;
+          customer_type?: string | null;
+          customer_name?: string | null;
+          business_name?: string | null;
+          customer_email?: string | null;
+          customer_phone?: string | null;
+          billing_address?: string | null;
+          service_address?: string | null;
+          equipment_requested?: string | null;
+          rental_start_date?: string | null;
+          rental_end_date?: string | null;
+          source_agreement_snapshot_hash?: string | null;
+          currency?: string;
+          payment_terms?: string;
+          subtotal?: number;
+          deposit_amount?: number;
+          delivery_fee?: number;
+          tax_amount?: number;
+          other_charges_amount?: number;
+          total_amount?: number;
+          amount_paid?: number;
+          balance_due?: number;
+          payment_status?: string;
+          payment_link?: string | null;
+          notes?: string | null;
+          issue_date?: string | null;
+          issued_at?: string | null;
+          due_at?: string | null;
+          paid_at?: string | null;
+          voided_at?: string | null;
+          created_by?: string | null;
+          issued_by?: string | null;
+          pdf_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "invoices_rental_agreement_fk";
+            columns: ["rental_agreement_id"];
+            isOneToOne: false;
+            referencedRelation: "rental_agreements";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoices_rental_request_fk";
+            columns: ["rental_request_id"];
+            isOneToOne: false;
+            referencedRelation: "rental_requests";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      payments: {
+        Row: {
+          id: string;
+          invoice_id: string | null;
+          amount: number | null;
+          payment_method: string | null;
+          reference_number: string | null;
+          notes: string | null;
+          received_at: string;
+          recorded_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          invoice_id?: string | null;
+          amount?: number | null;
+          payment_method?: string | null;
+          reference_number?: string | null;
+          notes?: string | null;
+          received_at?: string;
+          recorded_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          invoice_id?: string | null;
+          amount?: number | null;
+          payment_method?: string | null;
+          reference_number?: string | null;
+          notes?: string | null;
+          received_at?: string;
+          recorded_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "payments_invoice_fk";
+            columns: ["invoice_id"];
+            isOneToOne: false;
+            referencedRelation: "invoices";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       rental_agreements: {
         Row: {
           id: string;
@@ -509,6 +776,28 @@ export type Database = {
       finalize_rental_agreement: {
         Args: {
           target_agreement_id: string;
+        };
+        Returns: string;
+      };
+      create_invoice_for_agreement: {
+        Args: {
+          target_rental_agreement_id: string;
+        };
+        Returns: string;
+      };
+      issue_invoice: {
+        Args: {
+          target_invoice_id: string;
+        };
+        Returns: string;
+      };
+      record_invoice_payment: {
+        Args: {
+          target_invoice_id: string;
+          payment_amount: number;
+          payment_method_value: string;
+          reference_number_value?: string | null;
+          notes_value?: string | null;
         };
         Returns: string;
       };

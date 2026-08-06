@@ -115,6 +115,7 @@ export const adaptLegacyInvoiceItem = (
     ...calculated,
     invoiceId,
     agreementItemId: null,
+    rentalRequestItemId: null,
     createdAt: null,
   };
 };
