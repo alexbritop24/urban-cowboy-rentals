@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 
 import type { EquipmentItem } from "../../types/equipment";
+import MostPopularBadge from "./MostPopularBadge";
 
 interface EquipmentCardProps {
   equipment: EquipmentItem;
@@ -39,6 +40,10 @@ const EquipmentCard = ({ equipment }: EquipmentCardProps) => {
         <div className="absolute left-5 top-5 rounded-full bg-black/60 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#f4b000] backdrop-blur-xl">
           {equipment.category}
         </div>
+
+        {equipment.mostPopular && (
+          <MostPopularBadge className="absolute right-5 top-5" />
+        )}
       </div>
 
       <div className="relative p-7">

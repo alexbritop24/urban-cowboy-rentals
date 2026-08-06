@@ -9,16 +9,24 @@ export interface EquipmentRate {
   price: number;
 }
 
-export interface EquipmentItem {
+export type EquipmentCatalogStatus = "active" | "archived";
+
+export interface EquipmentCatalogMetadata {
   id: string;
   name: string;
   category: EquipmentCategory;
+  status: EquipmentCatalogStatus;
+  catalogOrder: number;
+  dailyRate: number;
+  featured: boolean;
+  mostPopular: boolean;
+}
+
+export interface EquipmentItem extends EquipmentCatalogMetadata {
   startingPrice: number;
   image: string;
   description: string;
   specs: string[];
   rates: EquipmentRate[];
   addOns?: string[];
-  featured?: boolean;
-  status?: "active" | "archived";
 }

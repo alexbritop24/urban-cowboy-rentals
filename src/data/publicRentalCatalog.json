@@ -1,0 +1,16 @@
+[
+  { "id": "bobcat-t550-skid-steer", "name": "2024 Bobcat T550 Track Loader", "category": "Heavy Equipment", "status": "active", "catalogOrder": 20, "dailyRate": 120, "featured": true, "mostPopular": true },
+  { "id": "bobcat-e35r2-compact-excavator", "name": "2025 Bobcat E35 Compact Excavator", "category": "Heavy Equipment", "status": "active", "catalogOrder": 30, "dailyRate": 275, "featured": false, "mostPopular": false },
+  { "id": "lamar-telescopic-dump-9-ton", "name": "2025 Lamar Telescopic Dump 9 Ton Trailer", "category": "Trailers", "status": "active", "catalogOrder": 110, "dailyRate": 175, "featured": false, "mostPopular": false },
+  { "id": "rawmax-tilt-deck-22", "name": "2025 RawMax Tilt Deck 22’", "category": "Trailers", "status": "archived", "catalogOrder": 120, "dailyRate": 150, "featured": false, "mostPopular": false },
+  { "id": "rawmaxx-dtx-24-tilt-deck", "name": "RawMaxx DTX 24’ Tilt Deck Trailer", "category": "Trailers", "status": "active", "catalogOrder": 130, "dailyRate": 150, "featured": false, "mostPopular": false },
+  { "id": "utility-trailer", "name": "Utility Trailer", "category": "Trailers", "status": "archived", "catalogOrder": 140, "dailyRate": 100, "featured": false, "mostPopular": false },
+  { "id": "scissor-lift", "name": "Electric Scissor Lift", "category": "Heavy Equipment", "status": "active", "catalogOrder": 40, "dailyRate": 140, "featured": false, "mostPopular": false },
+  { "id": "hercules-sds-max-demolition-hammer", "name": "Hercules SDS-MAX Demolition Hammer", "category": "Tools", "status": "active", "catalogOrder": 210, "dailyRate": 50, "featured": false, "mostPopular": false },
+  { "id": "bauer-65j-demolition-hammer", "name": "Bauer 65J Demolition Hammer", "category": "Tools", "status": "active", "catalogOrder": 220, "dailyRate": 50, "featured": false, "mostPopular": false },
+  { "id": "plate-compactor", "name": "Central Machinery Plate Compactor", "category": "Tools", "status": "active", "catalogOrder": 230, "dailyRate": 60, "featured": false, "mostPopular": false },
+  { "id": "wacker-rd12-roller", "name": "Wacker Neuson RD12 Roller", "category": "Heavy Equipment", "status": "active", "catalogOrder": 10, "dailyRate": 180, "featured": true, "mostPopular": true },
+  { "id": "kobalt-hand-tamper", "name": "Kobalt 10×10 Hand Tamper", "category": "Tools", "status": "active", "catalogOrder": 240, "dailyRate": 10, "featured": false, "mostPopular": false },
+  { "id": "harley-road-glide-2003", "name": "2003 Harley Davidson Road Glide", "category": "Motorcycles", "status": "active", "catalogOrder": 310, "dailyRate": 180, "featured": false, "mostPopular": false },
+  { "id": "harley-fld-switchback-2012", "name": "2012 Harley Davidson FLD Switchback", "category": "Motorcycles", "status": "active", "catalogOrder": 320, "dailyRate": 130, "featured": false, "mostPopular": false }
+]

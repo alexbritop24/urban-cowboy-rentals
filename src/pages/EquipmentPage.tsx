@@ -6,11 +6,14 @@ import EquipmentGrid from "../components/equipment/EquipmentGrid";
 import PageTransition from "../components/ui/PageTransition";
 import SEO from "../components/seo/SEO";
 
-import { equipmentCategories, equipmentData } from "../data/equipmentData";
+import { equipmentCategories } from "../data/equipmentData";
+import { getBookableEquipment } from "../data/equipmentSelectors";
 
 import type { EquipmentCategory } from "../types/equipment";
 
 type FilterCategory = "All" | EquipmentCategory;
+
+const activeEquipment = getBookableEquipment();
 
 const EquipmentPage = () => {
   const [activeCategory, setActiveCategory] =
@@ -18,10 +21,10 @@ const EquipmentPage = () => {
 
   const filteredEquipment = useMemo(() => {
     if (activeCategory === "All") {
-      return equipmentData;
+      return activeEquipment;
     }
 
-    return equipmentData.filter(
+    return activeEquipment.filter(
       (item) => item.category === activeCategory
     );
   }, [activeCategory]);

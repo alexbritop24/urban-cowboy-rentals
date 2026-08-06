@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "check:domain": "node scripts/check-domain-cycles.mjs",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:persistence": "node --test tests/persistence/release-foundation.test.mjs"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.5.1",
@@ -19,6 +21,7 @@
     "react-router-dom": "^7.15.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.4",
     "@eslint/js": "^10.0.1",
     "@rolldown/binding-linux-x64-gnu": "^1.1.3",
     "@tailwindcss/vite": "^4.3.0",

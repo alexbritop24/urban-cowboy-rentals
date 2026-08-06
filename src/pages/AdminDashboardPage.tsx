@@ -9,6 +9,7 @@ import PageTransition from "../components/ui/PageTransition";
 import { supabase } from "../lib/supabase";
 import { createRentalAgreement } from "../services/agreementService";
 import { applicationFeatureFlags } from "../config/featureFlags";
+import { getCurrentStaffAuthorization } from "../services/authorizationService";
 
 interface RentalRequest {
   id: string;
@@ -147,14 +148,19 @@ const AdminDashboardPage = () => {
 
   useEffect(() => {
   const initializeAdmin = async () => {
-    const { data, error } = await supabase.auth.getSession();
-
-    if (error || !data.session) {
+    try {
+      const authorization = await getCurrentStaffAuthorization();
+      if (!authorization.authorized) {
+        navigate("/admin-login");
+        return null;
+      }
+    } catch (error) {
+      console.error("ADMIN AUTHORIZATION ERROR:", error);
       navigate("/admin-login");
-      return;
+      return null;
     }
 
-    fetchRequests();
+    void fetchRequests();
 
     const channel = supabase
       .channel("rental-requests-realtime")

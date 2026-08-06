@@ -171,6 +171,14 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      has_rental_request_conflict: {
+        Args: {
+          requested_equipment_name: string;
+          requested_pickup: string;
+          requested_return: string;
+        };
+        Returns: boolean;
+      };
       get_rental_request_item_editability: {
         Args: {
           target_rental_request_id: string;
