@@ -12,6 +12,15 @@ const migrationUrls = [
   new URL("../../supabase/migrations/20260806000100_agreement_legal_integrity_remediation.sql", import.meta.url),
 ];
 
+const createSupabaseLikeDatabase = async () => {
+  const database = new PGlite({ extensions: { pgcrypto } });
+  await database.exec(`
+    create schema if not exists extensions;
+    create extension if not exists pgcrypto with schema extensions;
+  `);
+  return database;
+};
+
 const isoDaysFromNow = (days) => {
   const date = new Date();
   date.setUTCDate(date.getUTCDate() + days);
@@ -49,7 +58,7 @@ const normalizedItems = () => [
 ];
 
 const createDatabase = async () => {
-  const database = new PGlite({ extensions: { pgcrypto } });
+  const database = await createSupabaseLikeDatabase();
   await database.exec("create role anon nologin; create role authenticated nologin;");
   for (const migrationUrl of migrationUrls) {
     await database.exec(await readFile(migrationUrl, "utf8"));
@@ -168,7 +177,10 @@ test("normalized Agreement creation is authoritative, unique, immutable, and ful
     select agreement_number, customer_type, customer_name, business_name,
       billing_address, service_address, quote_amount::text, total_amount::text,
       insurance_verification_status, availability_confirmation_status,
-      terms_version, jsonb_array_length(clause_snapshot) as clause_count
+      terms_version, snapshot_schema_version, current_snapshot_hash,
+      terms_version = private.agreement_clause_snapshot_hash(clause_snapshot)
+        as clause_hash_verified,
+      jsonb_array_length(clause_snapshot) as clause_count
     from public.rental_agreements where id = $1
   `, [agreementId]);
   assert.match(aggregate.rows[0].agreement_number, /^UCR-\d{4}-\d{6}$/);
@@ -183,6 +195,8 @@ test("normalized Agreement creation is authoritative, unique, immutable, and ful
       total_amount: aggregate.rows[0].total_amount,
       insurance: aggregate.rows[0].insurance_verification_status,
       availability: aggregate.rows[0].availability_confirmation_status,
+      snapshot_schema_version: aggregate.rows[0].snapshot_schema_version,
+      clause_hash_verified: aggregate.rows[0].clause_hash_verified,
       clause_count: aggregate.rows[0].clause_count,
     },
     {
@@ -195,10 +209,13 @@ test("normalized Agreement creation is authoritative, unique, immutable, and ful
       total_amount: "780.00",
       insurance: "verified",
       availability: "available",
+      snapshot_schema_version: 1,
+      clause_hash_verified: true,
       clause_count: 1,
     }
   );
   assert.match(aggregate.rows[0].terms_version, /^sha256:[0-9a-f]{64}$/);
+  assert.match(aggregate.rows[0].current_snapshot_hash, /^sha256:[0-9a-f]{64}$/);
 
   const items = await database.query(`
     select rental_request_item_id, equipment_name, serial_number,
@@ -926,7 +943,7 @@ test("Agreement PDF preparation is persisted-snapshot-only", async () => {
 });
 
 test("remediation migration preserves finalized historical Agreements without silent backfill", async (t) => {
-  const database = new PGlite({ extensions: { pgcrypto } });
+  const database = await createSupabaseLikeDatabase();
   t.after(() => database.close());
   await database.exec("create role anon nologin; create role authenticated nologin;");
   for (const migrationUrl of migrationUrls.slice(0, -1)) {

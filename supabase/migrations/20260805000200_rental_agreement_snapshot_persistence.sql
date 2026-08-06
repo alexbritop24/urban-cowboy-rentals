@@ -1,3 +1,23 @@
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
+
+do $$
+declare
+  pgcrypto_schema text;
+begin
+  select namespaces.nspname into pgcrypto_schema
+  from pg_catalog.pg_extension installed_extensions
+  join pg_catalog.pg_namespace namespaces
+    on namespaces.oid = installed_extensions.extnamespace
+  where installed_extensions.extname = 'pgcrypto';
+
+  if pgcrypto_schema is distinct from 'extensions' then
+    raise exception using errcode = '55000',
+      message = 'pgcrypto must be installed in the extensions schema before applying Agreement migrations.';
+  end if;
+end;
+$$;
+
 create schema if not exists private;
 revoke all on schema private from public, anon, authenticated;
 
@@ -592,8 +612,11 @@ begin
       message = 'At least one enabled legal clause is required.';
   end if;
 
-  terms_version_value := 'sha256:' || encode(
-    public.digest(convert_to(clause_snapshot_value::text, 'UTF8'), 'sha256'),
+  terms_version_value := 'sha256:' || pg_catalog.encode(
+    extensions.digest(
+      pg_catalog.convert_to(clause_snapshot_value::text, 'UTF8'),
+      'sha256'
+    ),
     'hex'
   );
 
@@ -987,8 +1010,11 @@ begin
       raise exception using errcode = '55000',
         message = 'At least one enabled legal clause is required.';
     end if;
-    terms_version_value := 'sha256:' || encode(
-      public.digest(convert_to(clause_snapshot_value::text, 'UTF8'), 'sha256'),
+    terms_version_value := 'sha256:' || pg_catalog.encode(
+      extensions.digest(
+        pg_catalog.convert_to(clause_snapshot_value::text, 'UTF8'),
+        'sha256'
+      ),
       'hex'
     );
   end if;

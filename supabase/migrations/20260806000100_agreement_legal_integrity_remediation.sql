@@ -377,8 +377,11 @@ immutable
 security definer
 set search_path = pg_catalog, public, private
 as $$
-  select 'sha256:' || encode(
-    public.digest(convert_to(clause_snapshot_value::text, 'UTF8'), 'sha256'),
+  select 'sha256:' || pg_catalog.encode(
+    extensions.digest(
+      pg_catalog.convert_to(clause_snapshot_value::text, 'UTF8'),
+      'sha256'
+    ),
     'hex'
   );
 $$;
@@ -564,9 +567,12 @@ stable
 security definer
 set search_path = pg_catalog, public, private
 as $$
-  select 'sha256:' || encode(
-    public.digest(
-      convert_to(private.rental_agreement_material_snapshot(target_agreement_id)::text, 'UTF8'),
+  select 'sha256:' || pg_catalog.encode(
+    extensions.digest(
+      pg_catalog.convert_to(
+        private.rental_agreement_material_snapshot(target_agreement_id)::text,
+        'UTF8'
+      ),
       'sha256'
     ),
     'hex'

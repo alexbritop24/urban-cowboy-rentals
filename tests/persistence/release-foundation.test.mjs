@@ -14,6 +14,15 @@ const migrationUrls = [
 const sqlTestUrl = new URL("../../supabase/tests/multi_item_hardening.sql", import.meta.url);
 const publicCatalogUrl = new URL("../../src/data/publicRentalCatalog.json", import.meta.url);
 
+const createSupabaseLikeDatabase = async () => {
+  const database = new PGlite({ extensions: { pgcrypto } });
+  await database.exec(`
+    create schema if not exists extensions;
+    create extension if not exists pgcrypto with schema extensions;
+  `);
+  return database;
+};
+
 const requestPayload = {
   customer_type: "individual",
   full_name: "Release Foundation Test",
@@ -41,7 +50,7 @@ const bobcatItem = () => ({
 });
 
 const createDatabase = async () => {
-  const database = new PGlite({ extensions: { pgcrypto } });
+  const database = await createSupabaseLikeDatabase();
   await database.exec("create role anon nologin; create role authenticated nologin;");
   return database;
 };
@@ -78,6 +87,31 @@ const createRequest = (database, payload = requestPayload, items = [bobcatItem()
 test("Release 1 migrations are secure at every step and rerunnable", async (t) => {
   const database = await createDatabase();
   t.after(() => database.close());
+
+  const sqlSources = await Promise.all(
+    [...migrationUrls, sqlTestUrl].map((url) => readFile(url, "utf8"))
+  );
+  const sqlCorpus = sqlSources.join("\n");
+  assert.doesNotMatch(sqlCorpus, /\bpublic\.digest\s*\(/i);
+  assert.doesNotMatch(sqlCorpus, /(^|[^.\w])digest\s*\(/im);
+  assert.match(sqlCorpus, /extensions\.digest\s*\(/i);
+
+  const agreementMigrationSql = sqlSources[2].toLowerCase();
+  const pgcryptoSetupIndex = agreementMigrationSql.indexOf(
+    "create extension if not exists pgcrypto with schema extensions"
+  );
+  const firstDigestUseIndex = agreementMigrationSql.indexOf("extensions.digest(");
+  assert.ok(pgcryptoSetupIndex >= 0);
+  assert.ok(firstDigestUseIndex > pgcryptoSetupIndex);
+
+  const pgcryptoNamespace = await database.query(`
+    select namespaces.nspname as schema_name
+    from pg_catalog.pg_extension installed_extensions
+    join pg_catalog.pg_namespace namespaces
+      on namespaces.oid = installed_extensions.extnamespace
+    where installed_extensions.extname = 'pgcrypto'
+  `);
+  assert.equal(pgcryptoNamespace.rows[0].schema_name, "extensions");
 
   await applyMigration(database, 0);
 
@@ -151,6 +185,7 @@ test("Release 1 migrations are secure at every step and rerunnable", async (t) =
 
   await applyMigration(database, 1);
   await applyMigration(database, 2);
+  await applyMigration(database, 3);
 
   const itemSecurity = await database.query(`
     select
@@ -218,9 +253,9 @@ test("Release 1 migrations are secure at every step and rerunnable", async (t) =
   await expectDatabaseError(() => createRequest(database), "not enabled");
   await resetRole(database);
 
-  await applyMigration(database, 0);
-  await applyMigration(database, 1);
-  await applyMigration(database, 2);
+  for (let index = 0; index < migrationUrls.length; index += 1) {
+    await applyMigration(database, index);
+  }
   const gate = await database.query(
     "select enabled from private.release_feature_flags where feature_key = 'multi_item_rental_requests'"
   );
