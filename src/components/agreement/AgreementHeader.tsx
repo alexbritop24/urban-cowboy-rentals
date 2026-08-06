@@ -36,6 +36,10 @@ const AgreementHeader = ({ agreement }: AgreementHeaderProps) => {
           <div className="mt-5 inline-flex rounded-full border border-yellow-500/20 bg-[#f4b000]/10 px-5 py-2 text-sm font-black uppercase tracking-[0.12em] text-[#f4b000]">
             {agreement.status}
           </div>
+
+          <p className="mt-3 text-xs text-[#8f8577]">
+            Effective {new Date(agreement.effective_at).toLocaleString()}
+          </p>
         </div>
       </div>
     </header>

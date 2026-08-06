@@ -8,6 +8,7 @@ import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 const migrationUrls = [
   new URL("../../supabase/migrations/20260805000000_rental_requests_compatibility_baseline.sql", import.meta.url),
   new URL("../../supabase/migrations/20260805000100_rental_request_items_persistence.sql", import.meta.url),
+  new URL("../../supabase/migrations/20260805000200_rental_agreement_snapshot_persistence.sql", import.meta.url),
 ];
 const sqlTestUrl = new URL("../../supabase/tests/multi_item_hardening.sql", import.meta.url);
 const publicCatalogUrl = new URL("../../src/data/publicRentalCatalog.json", import.meta.url);
@@ -148,6 +149,7 @@ test("Release 1 migrations are secure at every step and rerunnable", async (t) =
   }
 
   await applyMigration(database, 1);
+  await applyMigration(database, 2);
 
   const itemSecurity = await database.query(`
     select
@@ -217,6 +219,7 @@ test("Release 1 migrations are secure at every step and rerunnable", async (t) =
 
   await applyMigration(database, 0);
   await applyMigration(database, 1);
+  await applyMigration(database, 2);
   const gate = await database.query(
     "select enabled from private.release_feature_flags where feature_key = 'multi_item_rental_requests'"
   );
@@ -228,6 +231,7 @@ test("RPCs enforce catalog, lifecycle, RLS, and transaction boundaries", async (
   t.after(() => database.close());
   await applyMigration(database, 0);
   await applyMigration(database, 1);
+  await applyMigration(database, 2);
   await database.exec(`
     update private.release_feature_flags
     set enabled = true
@@ -325,10 +329,6 @@ test("RPCs enforce catalog, lifecycle, RLS, and transaction boundaries", async (
   }
 
   await database.exec(`
-    create table public.rental_agreements (
-      id uuid primary key default gen_random_uuid(),
-      rental_request_id uuid not null references public.rental_requests(id)
-    );
     create table public.invoices (
       id uuid primary key default gen_random_uuid(),
       rental_request_id uuid references public.rental_requests(id)
@@ -339,7 +339,13 @@ test("RPCs enforce catalog, lifecycle, RLS, and transaction boundaries", async (
       full_name, phone, email, equipment_requested, agreement_accepted
     ) values ('Locked', '8015550100', 'locked@example.test', 'Plate', true) returning id
   `);
-  await database.query("insert into public.rental_agreements (rental_request_id) values ($1)", [locked.rows[0].id]);
+  await database.query(`
+    insert into public.rental_agreements (
+      rental_request_id, agreement_number, customer_name, customer_email,
+      customer_phone, equipment_requested
+    ) values ($1, 'TEST-LOCKED', 'Locked', 'locked@example.test',
+      '8015550100', 'Plate')
+  `, [locked.rows[0].id]);
   await setRole(database, "authenticated", { app_metadata: { role: "admin" } });
   await expectDatabaseError(
     () => database.query(
@@ -436,6 +442,7 @@ test("public catalog projection matches the authoritative server seed", async (t
   t.after(() => database.close());
   await applyMigration(database, 0);
   await applyMigration(database, 1);
+  await applyMigration(database, 2);
 
   const publicCatalog = JSON.parse(await readFile(publicCatalogUrl, "utf8"));
   assert.equal(publicCatalog.some((item) => "serialNumber" in item || "serial_number" in item), false);

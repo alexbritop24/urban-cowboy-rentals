@@ -1,4 +1,4 @@
-// Generated from the version-controlled Supabase migrations for Sprint 2A.5.
+// Generated from the version-controlled Supabase Release 1 migrations.
 // Regenerate with `supabase gen types typescript --local` when the Supabase CLI
 // runtime is available.
 
@@ -13,6 +13,266 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      agreement_clauses: {
+        Row: {
+          id: string;
+          clause_key: string | null;
+          title: string;
+          body: string;
+          display_order: number;
+          enabled: boolean;
+          category: string;
+          equipment_category: string | null;
+          state_code: string;
+          version: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          clause_key?: string | null;
+          title: string;
+          body: string;
+          display_order?: number;
+          enabled?: boolean;
+          category?: string;
+          equipment_category?: string | null;
+          state_code?: string;
+          version?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          clause_key?: string | null;
+          title?: string;
+          body?: string;
+          display_order?: number;
+          enabled?: boolean;
+          category?: string;
+          equipment_category?: string | null;
+          state_code?: string;
+          version?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      agreement_items: {
+        Row: {
+          id: string;
+          rental_agreement_id: string;
+          rental_request_item_id: string | null;
+          display_order: number;
+          equipment_id: string | null;
+          equipment_name: string;
+          serial_number: string | null;
+          start_date: string;
+          end_date: string;
+          quantity: number;
+          daily_rate: number;
+          billable_days: number;
+          line_total: number;
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          rental_agreement_id: string;
+          rental_request_item_id?: string | null;
+          display_order: number;
+          equipment_id?: string | null;
+          equipment_name: string;
+          serial_number?: string | null;
+          start_date: string;
+          end_date: string;
+          quantity: number;
+          daily_rate: number;
+          billable_days: number;
+          line_total: number;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          rental_agreement_id?: string;
+          rental_request_item_id?: string | null;
+          display_order?: number;
+          equipment_id?: string | null;
+          equipment_name?: string;
+          serial_number?: string | null;
+          start_date?: string;
+          end_date?: string;
+          quantity?: number;
+          daily_rate?: number;
+          billable_days?: number;
+          line_total?: number;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "agreement_items_agreement_fk";
+            columns: ["rental_agreement_id"];
+            isOneToOne: false;
+            referencedRelation: "rental_agreements";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "agreement_items_request_item_fk";
+            columns: ["rental_request_item_id"];
+            isOneToOne: false;
+            referencedRelation: "rental_request_items";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      rental_agreements: {
+        Row: {
+          id: string;
+          rental_request_id: string;
+          agreement_number: string;
+          status: string;
+          customer_type: string;
+          customer_name: string;
+          business_name: string | null;
+          customer_email: string;
+          customer_phone: string;
+          billing_address: string | null;
+          service_address: string | null;
+          equipment_requested: string;
+          rental_start_date: string | null;
+          rental_end_date: string | null;
+          rental_duration: string | null;
+          fulfillment_type: string | null;
+          quote_amount: number;
+          deposit_amount: number;
+          delivery_fee: number;
+          tax_amount: number;
+          total_amount: number;
+          agreement_html: string | null;
+          signed_pdf_url: string | null;
+          effective_at: string;
+          signature_status: string;
+          acceptance_acknowledged: boolean;
+          authorized_signer_name: string | null;
+          authorized_signer_title: string | null;
+          accepted_terms_version: string | null;
+          credit_card_authorization_acknowledged: boolean;
+          credit_card_authorization_acknowledged_at: string | null;
+          insurance_verification_status: string;
+          availability_confirmation_status: string;
+          terms_version: string | null;
+          clause_snapshot: Json;
+          clause_snapshot_created_at: string | null;
+          sent_at: string | null;
+          viewed_at: string | null;
+          signed_at: string | null;
+          signed_by: string | null;
+          locked_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          rental_request_id: string;
+          agreement_number: string;
+          status?: string;
+          customer_type?: string;
+          customer_name: string;
+          business_name?: string | null;
+          customer_email: string;
+          customer_phone: string;
+          billing_address?: string | null;
+          service_address?: string | null;
+          equipment_requested: string;
+          rental_start_date?: string | null;
+          rental_end_date?: string | null;
+          rental_duration?: string | null;
+          fulfillment_type?: string | null;
+          quote_amount?: number;
+          deposit_amount?: number;
+          delivery_fee?: number;
+          tax_amount?: number;
+          total_amount?: number;
+          agreement_html?: string | null;
+          signed_pdf_url?: string | null;
+          effective_at?: string;
+          signature_status?: string;
+          acceptance_acknowledged?: boolean;
+          authorized_signer_name?: string | null;
+          authorized_signer_title?: string | null;
+          accepted_terms_version?: string | null;
+          credit_card_authorization_acknowledged?: boolean;
+          credit_card_authorization_acknowledged_at?: string | null;
+          insurance_verification_status?: string;
+          availability_confirmation_status?: string;
+          terms_version?: string | null;
+          clause_snapshot?: Json;
+          clause_snapshot_created_at?: string | null;
+          sent_at?: string | null;
+          viewed_at?: string | null;
+          signed_at?: string | null;
+          signed_by?: string | null;
+          locked_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          rental_request_id?: string;
+          agreement_number?: string;
+          status?: string;
+          customer_type?: string;
+          customer_name?: string;
+          business_name?: string | null;
+          customer_email?: string;
+          customer_phone?: string;
+          billing_address?: string | null;
+          service_address?: string | null;
+          equipment_requested?: string;
+          rental_start_date?: string | null;
+          rental_end_date?: string | null;
+          rental_duration?: string | null;
+          fulfillment_type?: string | null;
+          quote_amount?: number;
+          deposit_amount?: number;
+          delivery_fee?: number;
+          tax_amount?: number;
+          total_amount?: number;
+          agreement_html?: string | null;
+          signed_pdf_url?: string | null;
+          effective_at?: string;
+          signature_status?: string;
+          acceptance_acknowledged?: boolean;
+          authorized_signer_name?: string | null;
+          authorized_signer_title?: string | null;
+          accepted_terms_version?: string | null;
+          credit_card_authorization_acknowledged?: boolean;
+          credit_card_authorization_acknowledged_at?: string | null;
+          insurance_verification_status?: string;
+          availability_confirmation_status?: string;
+          terms_version?: string | null;
+          clause_snapshot?: Json;
+          clause_snapshot_created_at?: string | null;
+          sent_at?: string | null;
+          viewed_at?: string | null;
+          signed_at?: string | null;
+          signed_by?: string | null;
+          locked_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "rental_agreements_rental_request_fk";
+            columns: ["rental_request_id"];
+            isOneToOne: true;
+            referencedRelation: "rental_requests";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       rental_request_items: {
         Row: {
           id: string;
@@ -76,6 +336,9 @@ export type Database = {
           updated_at: string;
           customer_type: string;
           business_name: string | null;
+          billing_address: string | null;
+          service_address: string | null;
+          insurance_verification_status: string;
           full_name: string;
           phone: string;
           email: string;
@@ -108,6 +371,9 @@ export type Database = {
           updated_at?: string;
           customer_type?: string;
           business_name?: string | null;
+          billing_address?: string | null;
+          service_address?: string | null;
+          insurance_verification_status?: string;
           full_name: string;
           phone: string;
           email: string;
@@ -140,6 +406,9 @@ export type Database = {
           updated_at?: string;
           customer_type?: string;
           business_name?: string | null;
+          billing_address?: string | null;
+          service_address?: string | null;
+          insurance_verification_status?: string;
           full_name?: string;
           phone?: string;
           email?: string;
@@ -199,6 +468,37 @@ export type Database = {
           legacy_fields: Json;
         };
         Returns: undefined;
+      };
+      create_rental_agreement_for_request: {
+        Args: {
+          target_rental_request_id: string;
+        };
+        Returns: string;
+      };
+      update_rental_agreement_financials: {
+        Args: {
+          target_agreement_id: string;
+          deposit_amount_value: number;
+          delivery_fee_value: number;
+          tax_amount_value: number;
+        };
+        Returns: string;
+      };
+      record_rental_agreement_acceptance: {
+        Args: {
+          target_agreement_id: string;
+          signer_legal_name: string;
+          signer_title: string | null;
+          agreement_accepted: boolean;
+          card_authorization_acknowledged: boolean;
+        };
+        Returns: string;
+      };
+      finalize_rental_agreement: {
+        Args: {
+          target_agreement_id: string;
+        };
+        Returns: string;
       };
     };
     Enums: Record<string, never>;

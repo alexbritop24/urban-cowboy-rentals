@@ -136,6 +136,7 @@ Continue supporting the current Square payment-link field as a staff-managed ext
 - Preserve `/admin/agreement/:id` and `/invoice/:id`, their authentication behavior, and current record identifiers.
 - Preserve the `rental_request_id` and `rental_agreement_id` links and one-agreement/one-invoice lookup behavior.
 - Read normalized child items when present; otherwise adapt legacy `equipment_requested`, `rental_start_date`, `rental_end_date`, `rental_duration`, and existing totals into a single display line without changing the stored legacy row.
+- A legacy single-item record cannot reliably reconstruct an equipment ID, serial number, or historical daily rate. Its Agreement item therefore keeps those identifiers null, uses a zero daily-rate sentinel, and preserves `quote_amount` as the authoritative historical line total; the quote is never reinterpreted as a daily rate.
 - Continue rendering and generating PDFs for legacy single-item agreements and invoices.
 - Keep existing scalar fields during Release 1. For new multi-item records, populate a human-readable scalar summary where existing dashboard/search code depends on it; item snapshots are authoritative for itemized rendering.
 - Archived catalog items remain visible on historical records and direct historical views, but disappear from new-request selectors.

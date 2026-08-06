@@ -39,6 +39,7 @@ interface RentalRequest {
   availability_status: string | null;
   availability_notes: string | null;
   payment_link: string | null;
+  insurance_verification_status: string | null;
 }
 
 const statusOptions = [
@@ -93,6 +94,8 @@ const availabilityStatusOptions = [
   "unavailable",
   "approved",
 ];
+
+const insuranceVerificationStatusOptions = ["pending", "verified", "rejected"];
 
 const formatLabel = (value: string) => value.replaceAll("_", " ");
 
@@ -591,13 +594,16 @@ const hasDateConflict = (
   };
 
   const handleCreateRentalAgreement = async (request: RentalRequest) => {
-  const agreement = await createRentalAgreement(request);
-
-  if (!agreement) return;
-
-navigate(`/admin/agreement/${agreement.id}`);
-
-  setAdminNotice(`Rental agreement created: ${agreement.agreement_number}`);
+    try {
+      const agreement = await createRentalAgreement(request.id);
+      navigate(`/admin/agreement/${agreement.id}`);
+      setAdminNotice(`Rental agreement created: ${agreement.agreement_number}`);
+    } catch (error) {
+      console.error("CREATE RENTAL AGREEMENT ERROR:", error);
+      setAdminNotice(
+        error instanceof Error ? error.message : "Could not create the Agreement."
+      );
+    }
   };
 
   const handleLogout = async () => {
@@ -1201,6 +1207,30 @@ navigate(`/admin/agreement/${agreement.id}`);
       </option>
              ))}
       </select>
+       </div>
+
+       <div>
+         <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
+           Insurance Verification
+         </label>
+
+         <select
+           value={request.insurance_verification_status || "pending"}
+           onChange={(event) =>
+             updateRequestField(
+               request.id,
+               "insurance_verification_status",
+               event.target.value
+             )
+           }
+           className="w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 text-[#fff7ed] outline-none focus:border-yellow-500/40"
+         >
+           {insuranceVerificationStatusOptions.map((status) => (
+             <option key={status} value={status}>
+               {formatLabel(status)}
+             </option>
+           ))}
+         </select>
        </div>
 
            <div className="md:col-span-2">
