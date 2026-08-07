@@ -1,87 +1,72 @@
+import { createSupabaseInvoiceRepository } from "../domain/adapters/supabaseInvoiceRepository";
+import type { InvoiceAggregate } from "../domain/models/invoice";
+import { createInvoiceWorkflowService } from "../domain/services/invoiceWorkflowService";
 import { supabase } from "../lib/supabase";
 import type { Invoice } from "../types/invoice";
-import type { RentalAgreement } from "../types/agreement";
-import { legacyItemFieldsFromSource } from "../domain/adapters/legacyItemAdapters";
 
-function generateInvoiceNumber() {
-  return `INV-${Date.now()}`;
-}
+const workflow = createInvoiceWorkflowService(
+  createSupabaseInvoiceRepository(supabase)
+);
 
-export async function createInvoiceFromAgreement(
-  agreement: RentalAgreement
-): Promise<Invoice> {
-  const { data: existingInvoice, error: existingError } = await supabase
-    .from("invoices")
-    .select("*")
-    .eq("rental_agreement_id", agreement.id)
-    .maybeSingle();
-
-  if (existingError) {
-    throw existingError;
-  }
-
-  if (existingInvoice) {
-    return existingInvoice as Invoice;
-  }
-
-  const legacyItemFields = legacyItemFieldsFromSource(agreement);
-
-  const invoice: Omit<
-    Invoice,
-    "id" | "created_at" | "updated_at"
-  > = {
-    rental_agreement_id: agreement.id,
-    rental_request_id: agreement.rental_request_id,
-
-    invoice_number: generateInvoiceNumber(),
-
-    status: "draft",
-
-    customer_name: agreement.customer_name,
-    customer_email: agreement.customer_email,
-    customer_phone: agreement.customer_phone,
-
-    equipment_requested: legacyItemFields.equipment_requested ?? "",
-
-    rental_start_date: legacyItemFields.rental_start_date,
-    rental_end_date: legacyItemFields.rental_end_date,
-
-    subtotal: Number(agreement.quote_amount || 0),
-
-    deposit_amount: Number(agreement.deposit_amount || 0),
-
-    delivery_fee: Number(agreement.delivery_fee || 0),
-
-    tax_amount: Number(agreement.tax_amount || 0),
-
-    total_amount: Number(agreement.total_amount || 0),
-
-    amount_paid: 0,
-
-    balance_due: Number(agreement.total_amount || 0),
-
-    payment_link: null,
-
-    notes: null,
-
-    issued_at: null,
-
-    due_at: null,
-
-    paid_at: null,
-
-    pdf_url: null,
+export const toInvoice = (aggregate: InvoiceAggregate): Invoice => {
+  const { invoice } = aggregate;
+  return {
+    id: invoice.id,
+    rental_agreement_id: invoice.rentalAgreementId,
+    rental_request_id: invoice.rentalRequestId,
+    invoice_number: invoice.invoiceNumber,
+    invoice_type: invoice.invoiceType,
+    status: invoice.status,
+    customer_type: invoice.customerType,
+    customer_name: invoice.customerName,
+    business_name: invoice.businessName,
+    customer_email: invoice.customerEmail,
+    customer_phone: invoice.customerPhone,
+    billing_address: invoice.billingAddress,
+    service_address: invoice.serviceAddress,
+    equipment_requested: invoice.equipmentRequested,
+    rental_start_date: invoice.rentalStartDate,
+    rental_end_date: invoice.rentalEndDate,
+    source_agreement_snapshot_hash: invoice.sourceAgreementSnapshotHash,
+    currency: invoice.currency,
+    payment_terms: invoice.paymentTerms,
+    items: [...aggregate.items],
+    item_source: aggregate.itemSource,
+    subtotal: invoice.subtotal,
+    deposit_amount: invoice.depositAmount,
+    delivery_fee: invoice.deliveryFee,
+    tax_amount: invoice.taxAmount,
+    other_charges_amount: invoice.otherChargesAmount,
+    total_amount: invoice.totalAmount,
+    amount_paid: invoice.amountPaid,
+    balance_due: invoice.balanceDue,
+    payment_status: invoice.paymentStatus,
+    payment_link: invoice.paymentLink,
+    notes: invoice.notes,
+    issue_date: invoice.issueDate,
+    issued_at: invoice.issuedAt,
+    due_at: invoice.dueAt,
+    paid_at: invoice.paidAt,
+    voided_at: invoice.voidedAt,
+    pdf_url: invoice.pdfUrl,
+    created_at: invoice.createdAt,
+    updated_at: invoice.updatedAt,
   };
+};
 
-  const { data, error } = await supabase
-    .from("invoices")
-    .insert(invoice)
-    .select()
-    .single();
+export const getInvoiceById = async (
+  invoiceId: string
+): Promise<Invoice | null> => {
+  const aggregate = await workflow.loadInvoice(invoiceId);
+  return aggregate ? toInvoice(aggregate) : null;
+};
 
-  if (error) {
-    throw error;
-  }
+export const createInvoiceFromAgreement = async (
+  rentalAgreementId: string
+): Promise<Invoice> =>
+  toInvoice(await workflow.createOrOpen(rentalAgreementId));
 
-  return data as Invoice;
-}
+export const issueInvoice = async (invoiceId: string): Promise<Invoice> =>
+  toInvoice(await workflow.issue(invoiceId));
+
+export { workflow as invoiceWorkflow };

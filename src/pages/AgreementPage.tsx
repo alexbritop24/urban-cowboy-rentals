@@ -158,7 +158,7 @@ export default function AgreementPage() {
     setIsCreatingInvoice(true);
     setNotice("");
     try {
-      const invoice = await createInvoiceFromAgreement(agreement);
+      const invoice = await createInvoiceFromAgreement(agreement.id);
       navigate(`/invoice/${invoice.id}`);
     } catch (error) {
       console.error("CREATE OR OPEN INVOICE ERROR:", error);

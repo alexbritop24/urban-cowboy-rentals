@@ -56,6 +56,7 @@ const mapInvoiceItemRow = (row: DatabaseRow): InvoiceItem => ({
   ...mapBaseRow(row),
   invoiceId: requiredString(row, "invoice_id"),
   agreementItemId: nullableString(row.agreement_item_id),
+  rentalRequestItemId: nullableString(row.rental_request_item_id),
   billableDays: numberValue(row, "billable_days"),
   lineTotal: numberValue(row, "line_total"),
   createdAt: nullableString(row.created_at),

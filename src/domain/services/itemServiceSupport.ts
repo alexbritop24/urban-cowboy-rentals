@@ -2,9 +2,8 @@ import type { LegacyItemFields } from "../models/legacyItemFields";
 import { DomainValidationError } from "../errors/DomainValidationError";
 import type { MultiItemFeatureFlags } from "../featureFlags/multiItemFeatureFlags";
 import type { ItemResolution } from "../models/itemResolution";
-import type { RentalItem } from "../models/rentalItem";
 
-interface ResolveItemsInput<TItem extends RentalItem> {
+interface ResolveItemsInput<TItem> {
   flags: Readonly<MultiItemFeatureFlags>;
   repositoryAvailable: boolean;
   loadNormalizedItems: () => Promise<readonly TItem[]>;
@@ -13,7 +12,7 @@ interface ResolveItemsInput<TItem extends RentalItem> {
   assertValidNormalizedItems: (items: readonly TItem[]) => void;
 }
 
-export const resolveItems = async <TItem extends RentalItem>({
+export const resolveItems = async <TItem>({
   flags,
   repositoryAvailable,
   loadNormalizedItems,

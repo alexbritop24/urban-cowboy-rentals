@@ -25,23 +25,34 @@ export interface LegacyItemDefaults {
 const legacyItemId = (parentType: string, parentId: string): string =>
   `legacy:${parentType}:${parentId}`;
 
-const createLegacyBaseItem = (
+type LegacyBaseItemFields = Omit<RentalItem, "quantity">;
+
+const createLegacyBaseItemFields = (
   parentType: string,
   parentId: string,
   legacy: LegacyItemFields,
   defaults: LegacyItemDefaults
-): RentalItem => ({
+): LegacyBaseItemFields => ({
   id: legacyItemId(parentType, parentId),
   displayOrder: DEFAULT_DISPLAY_ORDER,
   equipmentId: defaults.equipmentId ?? null,
   equipmentName: legacy.equipment_requested ?? "",
   startDate: legacy.rental_start_date ?? "",
   endDate: legacy.rental_end_date ?? "",
-  quantity: DEFAULT_ITEM_QUANTITY,
   dailyRate: defaults.dailyRate ?? DEFAULT_DAILY_RATE,
   serialNumber: defaults.serialNumber ?? null,
   notes: defaults.notes ?? null,
   origin: "legacy",
+});
+
+const createLegacyBaseItem = (
+  parentType: string,
+  parentId: string,
+  legacy: LegacyItemFields,
+  defaults: LegacyItemDefaults
+): RentalItem => ({
+  ...createLegacyBaseItemFields(parentType, parentId, legacy, defaults),
+  quantity: DEFAULT_ITEM_QUANTITY,
 });
 
 const calculateLegacyAmounts = (
@@ -107,20 +118,39 @@ export const adaptLegacyInvoiceItem = (
   legacy: LegacyItemFields,
   defaults: LegacyItemDefaults & { lineTotal?: number } = {}
 ): InvoiceItem => {
-  const baseItem = createLegacyBaseItem("invoice", invoiceId, legacy, defaults);
-  const calculated = calculateLegacyAmounts(baseItem, defaults.lineTotal ?? 0);
+  const baseItem = createLegacyBaseItemFields(
+    "invoice",
+    invoiceId,
+    legacy,
+    defaults
+  );
+  let billableDays = 1;
+
+  try {
+    billableDays = calculateRentalDays(baseItem.startDate, baseItem.endDate);
+  } catch {
+    // Legacy dates may be absent or malformed; do not reconstruct missing facts.
+  }
 
   return {
     ...baseItem,
-    ...calculated,
+    quantity: null,
+    billableDays,
+    lineTotal: defaults.lineTotal ?? 0,
     invoiceId,
     agreementItemId: null,
+    rentalRequestItemId: null,
     createdAt: null,
   };
 };
 
+type LegacySummaryItem = Pick<
+  RentalItem,
+  "displayOrder" | "equipmentName" | "startDate" | "endDate"
+>;
+
 export const summarizeItemsForLegacy = (
-  items: readonly RentalItem[]
+  items: readonly LegacySummaryItem[]
 ): LegacyItemFields => {
   const orderedItems = [...items].sort(
     (left, right) => left.displayOrder - right.displayOrder

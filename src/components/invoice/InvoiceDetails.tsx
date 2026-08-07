@@ -1,4 +1,5 @@
 import type { Invoice } from "../../types/invoice";
+import { formatInvoiceDate } from "../../utils/invoicePresentation";
 
 interface InvoiceDetailsProps {
   invoice: Invoice;
@@ -23,6 +24,17 @@ const InvoiceDetails = ({ invoice }: InvoiceDetailsProps) => {
             </p>
           </div>
 
+          {invoice.customer_type === "business" && (
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-[#8f8577]">
+                Business
+              </p>
+              <p className="mt-1 text-[#d8cfc4]">
+                {invoice.business_name || "Not recorded"}
+              </p>
+            </div>
+          )}
+
           <div>
             <p className="text-xs font-black uppercase tracking-[0.12em] text-[#8f8577]">
               Email
@@ -42,6 +54,15 @@ const InvoiceDetails = ({ invoice }: InvoiceDetailsProps) => {
               {invoice.customer_phone || "Not provided"}
             </p>
           </div>
+
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#8f8577]">
+              Billing Address
+            </p>
+            <p className="mt-1 whitespace-pre-line text-[#d8cfc4]">
+              {invoice.billing_address || "Not provided"}
+            </p>
+          </div>
         </div>
       </section>
 
@@ -57,7 +78,16 @@ const InvoiceDetails = ({ invoice }: InvoiceDetailsProps) => {
             </p>
 
             <p className="mt-1 text-xl font-bold text-[#fff7ed]">
-              {invoice.equipment_requested}
+              {invoice.equipment_requested || "See itemized snapshot below"}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#8f8577]">
+              Source Agreement
+            </p>
+            <p className="mt-1 break-all text-[#d8cfc4]">
+              {invoice.rental_agreement_id || "Not recorded on this historical Invoice"}
             </p>
           </div>
 
@@ -68,7 +98,7 @@ const InvoiceDetails = ({ invoice }: InvoiceDetailsProps) => {
               </p>
 
               <p className="mt-1 text-[#d8cfc4]">
-                {invoice.rental_start_date || "Not set"}
+                {formatInvoiceDate(invoice.rental_start_date, "Not set")}
               </p>
             </div>
 
@@ -78,9 +108,18 @@ const InvoiceDetails = ({ invoice }: InvoiceDetailsProps) => {
               </p>
 
               <p className="mt-1 text-[#d8cfc4]">
-                {invoice.rental_end_date || "Not set"}
+                {formatInvoiceDate(invoice.rental_end_date, "Not set")}
               </p>
             </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#8f8577]">
+              Service / Delivery Address
+            </p>
+            <p className="mt-1 whitespace-pre-line text-[#d8cfc4]">
+              {invoice.service_address || "Not provided"}
+            </p>
           </div>
         </div>
       </section>
