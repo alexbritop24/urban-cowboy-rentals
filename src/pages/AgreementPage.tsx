@@ -7,6 +7,7 @@ import EquipmentSection from "../components/agreement/EquipmentSection";
 import LegalClauses from "../components/agreement/LegalClauses";
 import PricingSummary from "../components/agreement/PricingSummary";
 import SignatureSection from "../components/agreement/SignatureSection";
+import RentalDocumentWorkflowSection from "../components/documents/RentalDocumentWorkflowSection";
 import MainLayout from "../components/layout/MainLayout";
 import SEO from "../components/seo/SEO";
 import PageTransition from "../components/ui/PageTransition";
@@ -18,6 +19,7 @@ import {
   type EditableAgreementFinancialField,
 } from "../services/agreementService";
 import { createInvoiceFromAgreement } from "../services/invoiceService";
+import type { RentalDocumentWorkflowState } from "../domain/models/rentalDocument";
 import type { RentalAgreement } from "../types/agreement";
 
 const errorMessage = (error: unknown, fallback: string): string =>
@@ -28,6 +30,8 @@ export default function AgreementPage() {
   const navigate = useNavigate();
 
   const [agreement, setAgreement] = useState<RentalAgreement | null>(null);
+  const [documentState, setDocumentState] =
+    useState<RentalDocumentWorkflowState | null>(null);
   const [signerName, setSignerName] = useState("");
   const [signerTitle, setSignerTitle] = useState("");
   const [agreementAccepted, setAgreementAccepted] = useState(false);
@@ -197,6 +201,18 @@ export default function AgreementPage() {
   const isFinalized = Boolean(agreement.locked_at);
   const isAccepted = agreement.signature_status !== "pending";
   const hasVerifiedSnapshot = agreement.snapshot_availability.status === "verified";
+  const hasCurrentDriverLicense = documentState?.documents.some(
+    (document) => document.documentType === "driver_license" && document.isCurrent
+  ) ?? false;
+  const hasCurrentInsurance = documentState?.documents.some(
+    (document) => document.documentType === "insurance" && document.isCurrent
+  ) ?? false;
+  const currentInsuranceStatus =
+    documentState?.insuranceVerificationStatus ?? agreement.insurance_verification_status;
+  const documentPrerequisitesSatisfied =
+    hasCurrentDriverLicense &&
+    hasCurrentInsurance &&
+    currentInsuranceStatus === "verified";
 
   return (
     <PageTransition>
@@ -225,7 +241,9 @@ export default function AgreementPage() {
                     Agreement Preconditions
                   </p>
                   <div className="mt-6 space-y-4 text-sm text-[#d8cfc4]">
-                    <StatusRow label="Insurance verification" value={agreement.insurance_verification_status} />
+                    <StatusRow label="Driver license" value={hasCurrentDriverLicense ? "uploaded" : "missing"} />
+                    <StatusRow label="Insurance document" value={hasCurrentInsurance ? "uploaded" : "missing"} />
+                    <StatusRow label="Insurance verification" value={currentInsuranceStatus} />
                     <StatusRow label="Availability confirmation" value={agreement.availability_confirmation_status} />
                     <StatusRow label="Signature evidence" value={agreement.signature_status} />
                     <StatusRow label="Card authorization" value={agreement.credit_card_authorization_acknowledged ? "acknowledged" : "pending"} />
@@ -233,6 +251,12 @@ export default function AgreementPage() {
                 </section>
                 <EquipmentSection agreement={agreement} />
               </div>
+
+              <RentalDocumentWorkflowSection
+                rentalRequestId={agreement.rental_request_id}
+                locked={isFinalized}
+                onStateChange={setDocumentState}
+              />
 
               <PricingSummary
                 agreement={agreement}
@@ -290,6 +314,7 @@ export default function AgreementPage() {
                     disabled={
                       isFinalized ||
                       !hasVerifiedSnapshot ||
+                      !documentPrerequisitesSatisfied ||
                       isFinalizing ||
                       isSaving ||
                       isSavingAcceptance

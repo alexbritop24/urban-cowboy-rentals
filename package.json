@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:agreement": "node --test tests/persistence/agreement-foundation.test.mjs",
+    "test:documents": "node --test tests/persistence/document-*.test.mjs",
     "test:persistence": "node --test tests/persistence/*.test.mjs"
   },
   "dependencies": {
