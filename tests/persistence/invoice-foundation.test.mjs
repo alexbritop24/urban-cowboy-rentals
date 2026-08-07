@@ -11,6 +11,7 @@ const migrationUrls = [
   new URL("../../supabase/migrations/20260805000200_rental_agreement_snapshot_persistence.sql", import.meta.url),
   new URL("../../supabase/migrations/20260806000100_agreement_legal_integrity_remediation.sql", import.meta.url),
   new URL("../../supabase/migrations/20260806000200_immutable_multi_item_invoice_persistence.sql", import.meta.url),
+  new URL("../../supabase/migrations/20260806000300_invoice_snapshot_integrity_remediation.sql", import.meta.url),
 ];
 
 const createDatabase = async (migrationCount = migrationUrls.length) => {
@@ -20,6 +21,7 @@ const createDatabase = async (migrationCount = migrationUrls.length) => {
     create extension if not exists pgcrypto with schema extensions;
     create role anon nologin;
     create role authenticated nologin;
+    create role service_role nologin bypassrls;
   `);
   for (const migrationUrl of migrationUrls.slice(0, migrationCount)) {
     await database.exec(await readFile(migrationUrl, "utf8"));
@@ -136,6 +138,14 @@ const prepareFinalizedAgreement = async (database) => {
   return { agreementId, requestId };
 };
 
+const appendInvoiceItemDirectly = (database, invoiceId, displayOrder) =>
+  database.query(`
+    insert into public.invoice_items (
+      invoice_id, display_order, equipment_name, start_date, end_date,
+      quantity, daily_rate, billable_days, line_total
+    ) values ($1, $2, 'Late Invoice Item', now(), now(), 1, 1, 1, 1)
+  `, [invoiceId, displayOrder]);
+
 test("original Invoice creation is Agreement-derived, idempotent, traceable, and immutable", async (t) => {
   const database = await createDatabase();
   t.after(() => database.close());
@@ -164,6 +174,18 @@ test("original Invoice creation is Agreement-derived, idempotent, traceable, and
   const invoiceId = created[0].rows[0].id;
   assert.equal(created[1].rows[0].id, invoiceId);
   await resetRole(database);
+
+  await setRole(database, "service_role", { role: "service_role" });
+  await expectDatabaseError(
+    () => appendInvoiceItemDirectly(database, invoiceId, 89),
+    "permission denied"
+  );
+  await resetRole(database);
+
+  await expectDatabaseError(
+    () => appendInvoiceItemDirectly(database, invoiceId, 88),
+    "transactional Invoice creation workflow"
+  );
 
   const invoice = await database.query(`
     select invoice_number, invoice_type, status, rental_request_id,
@@ -212,6 +234,7 @@ test("original Invoice creation is Agreement-derived, idempotent, traceable, and
   assert.deepEqual(items.rows.map((item) => ({
     name: item.equipment_name,
     serial: item.serial_number,
+    quantity: item.quantity,
     rate: item.daily_rate,
     days: item.billable_days,
     total: item.line_total,
@@ -221,15 +244,23 @@ test("original Invoice creation is Agreement-derived, idempotent, traceable, and
   })), [
     {
       name: "2024 Bobcat T550 Track Loader", serial: "B57T133070",
-      rate: "120.00", days: 2, total: "240.00", order: 0,
+      quantity: 1, rate: "120.00", days: 2, total: "240.00", order: 0,
       agreementLineage: true, requestLineage: true,
     },
     {
       name: "Wacker Neuson RD12 Roller", serial: "WNCRD12AEPUM06214",
-      rate: "180.00", days: 3, total: "540.00", order: 1,
+      quantity: 1, rate: "180.00", days: 3, total: "540.00", order: 1,
       agreementLineage: true, requestLineage: true,
     },
   ]);
+  assert.equal(
+    Number(invoice.rows[0].subtotal)
+      + Number(invoice.rows[0].deposit_amount)
+      + Number(invoice.rows[0].delivery_fee)
+      + Number(invoice.rows[0].tax_amount),
+    Number(invoice.rows[0].total_amount)
+  );
+  assert.equal(Number(invoice.rows[0].amount_paid), 0);
 
   await database.exec(`
     update private.rental_equipment_catalog set equipment_name = 'Changed Catalog', daily_rate = 999
@@ -251,6 +282,10 @@ test("original Invoice creation is Agreement-derived, idempotent, traceable, and
     "immutable"
   );
   await expectDatabaseError(
+    () => database.query("delete from public.invoice_items where invoice_id = $1", [invoiceId]),
+    "immutable"
+  );
+  await expectDatabaseError(
     () => database.query(`
       insert into public.agreement_items (
         rental_agreement_id, display_order, equipment_name, start_date,
@@ -266,6 +301,15 @@ test("original Invoice creation is Agreement-derived, idempotent, traceable, and
   await expectDatabaseError(
     () => database.query("delete from public.invoices where id = $1", [invoiceId]),
     "cannot be hard-deleted"
+  );
+  await expectDatabaseError(
+    () => database.query(`
+      insert into public.invoices (
+        invoice_number, customer_name, subtotal, deposit_amount,
+        total_amount, amount_paid, balance_due
+      ) values ('INV-NEGATIVE-DEPOSIT', 'Negative Deposit', 100, -1, 99, 0, 99)
+    `),
+    "check constraint"
   );
   await expectDatabaseError(
     () => database.query(`
@@ -306,6 +350,20 @@ test("issuance and Payment recording are staff-only, transactional, and balance-
   assert.deepEqual(issued.rows[0], { status: "issued", issued: true, issue_date: true });
   await resetRole(database);
 
+  await expectDatabaseError(
+    () => appendInvoiceItemDirectly(database, invoiceId, 90),
+    "cannot be added"
+  );
+  for (const field of ["issue_date", "issued_at", "due_at"]) {
+    await expectDatabaseError(
+      () => database.query(
+        `update public.invoices set ${field} = ${field} + interval '1 day' where id = $1`,
+        [invoiceId]
+      ),
+      "dates and attribution are immutable"
+    );
+  }
+
   await database.exec(`
     create function public.reject_invoice_payment_update_fixture()
     returns trigger language plpgsql as $$
@@ -345,6 +403,12 @@ test("issuance and Payment recording are staff-only, transactional, and balance-
     status: "partially_paid", payment_status: "partially_paid",
     amount_paid: "400.00", balance_due: "555.00",
   });
+  await resetRole(database);
+  await expectDatabaseError(
+    () => appendInvoiceItemDirectly(database, invoiceId, 91),
+    "cannot be added"
+  );
+  await setRole(database, "authenticated", staffClaims);
   await expectDatabaseError(
     () => database.query(
       "select public.record_invoice_payment($1::uuid, 556, 'cash', null, null)",
@@ -366,7 +430,15 @@ test("issuance and Payment recording are staff-only, transactional, and balance-
   });
   await resetRole(database);
   await expectDatabaseError(
+    () => appendInvoiceItemDirectly(database, invoiceId, 92),
+    "cannot be added"
+  );
+  await expectDatabaseError(
     () => database.query("update public.payments set amount = 1 where invoice_id = $1", [invoiceId]),
+    "append-only"
+  );
+  await expectDatabaseError(
+    () => database.query("delete from public.payments where invoice_id = $1", [invoiceId]),
     "append-only"
   );
 
@@ -542,6 +614,99 @@ test("Invoice creation rejects unfinalized, unverifiable, empty, and inconsisten
   }
 });
 
+test("Invoice creation independently requires acceptance evidence and an accepted snapshot hash", async (t) => {
+  const database = await createDatabase();
+  t.after(() => database.close());
+  const { agreementId } = await prepareFinalizedAgreement(database);
+
+  await database.exec(
+    "alter table public.rental_agreements disable trigger rental_agreements_protect_snapshot"
+  );
+  await database.query(
+    "update public.rental_agreements set acceptance_acknowledged = false where id = $1",
+    [agreementId]
+  );
+  await database.exec(
+    "alter table public.rental_agreements enable trigger rental_agreements_protect_snapshot"
+  );
+  await setRole(database, "authenticated", staffClaims);
+  await expectDatabaseError(
+    () => database.query("select public.create_invoice_for_agreement($1::uuid)", [agreementId]),
+    "Verified Agreement acceptance"
+  );
+  await resetRole(database);
+
+  await database.exec(
+    "alter table public.rental_agreements disable trigger rental_agreements_protect_snapshot"
+  );
+  await database.query(`
+    update public.rental_agreements set
+      acceptance_acknowledged = true,
+      accepted_snapshot_hash = null
+    where id = $1
+  `, [agreementId]);
+  await database.exec(
+    "alter table public.rental_agreements enable trigger rental_agreements_protect_snapshot"
+  );
+  await setRole(database, "authenticated", staffClaims);
+  await expectDatabaseError(
+    () => database.query("select public.create_invoice_for_agreement($1::uuid)", [agreementId]),
+    "matching snapshot hashes"
+  );
+  await resetRole(database);
+  assert.equal(
+    (await database.query(
+      "select count(*)::integer as count from public.invoices where rental_agreement_id = $1",
+      [agreementId]
+    )).rows[0].count,
+    0
+  );
+});
+
+test("Invoice aggregate creation rolls back its header when item persistence fails", async (t) => {
+  const database = await createDatabase();
+  t.after(() => database.close());
+  const { agreementId } = await prepareFinalizedAgreement(database);
+
+  await database.exec(`
+    create function public.reject_invoice_item_insert_fixture()
+    returns trigger language plpgsql as $$
+    begin raise exception 'forced Invoice item persistence failure'; end;
+    $$;
+    create trigger reject_invoice_item_insert_fixture
+    before insert on public.invoice_items
+    for each row execute function public.reject_invoice_item_insert_fixture();
+  `);
+  await setRole(database, "authenticated", staffClaims);
+  await expectDatabaseError(
+    () => database.query("select public.create_invoice_for_agreement($1::uuid)", [agreementId]),
+    "forced Invoice item persistence failure"
+  );
+  await resetRole(database);
+  assert.equal(
+    (await database.query(
+      "select count(*)::integer as count from public.invoices where rental_agreement_id = $1",
+      [agreementId]
+    )).rows[0].count,
+    0
+  );
+
+  await database.exec("drop trigger reject_invoice_item_insert_fixture on public.invoice_items");
+  await setRole(database, "authenticated", staffClaims);
+  const created = await database.query(
+    "select public.create_invoice_for_agreement($1::uuid) as id",
+    [agreementId]
+  );
+  await resetRole(database);
+  assert.equal(
+    (await database.query(
+      "select count(*)::integer as count from public.invoice_items where invoice_id = $1",
+      [created.rows[0].id]
+    )).rows[0].count,
+    2
+  );
+});
+
 test("forward migration preserves historical single-item Invoices and is rerunnable", async (t) => {
   const database = await createDatabase(4);
   t.after(() => database.close());
@@ -600,9 +765,12 @@ test("forward migration preserves historical single-item Invoices and is rerunna
     ) returning id
   `, [request.rows[0].id]);
 
-  const invoiceMigration = await readFile(migrationUrls.at(-1), "utf8");
+  const invoiceMigration = await readFile(migrationUrls.at(-2), "utf8");
+  const remediationMigration = await readFile(migrationUrls.at(-1), "utf8");
   await database.exec(invoiceMigration);
+  await database.exec(remediationMigration);
   await database.exec(invoiceMigration);
+  await database.exec(remediationMigration);
 
   const preserved = await database.query(`
     select invoice_number, status, equipment_requested, subtotal::text,
@@ -646,6 +814,7 @@ test("Invoice migration exposes only least-privilege staff RPC boundaries", asyn
       has_table_privilege('authenticated', 'public.invoices', 'insert') as invoice_insert,
       has_table_privilege('authenticated', 'public.invoices', 'update') as invoice_update,
       has_table_privilege('authenticated', 'public.invoice_items', 'insert') as item_insert,
+      has_table_privilege('service_role', 'public.invoice_items', 'insert') as service_item_insert,
       has_table_privilege('authenticated', 'public.payments', 'insert') as payment_insert,
       has_function_privilege('anon', 'public.create_invoice_for_agreement(uuid)', 'execute') as anon_create,
       has_function_privilege('authenticated', 'public.create_invoice_for_agreement(uuid)', 'execute') as auth_create,
@@ -654,8 +823,37 @@ test("Invoice migration exposes only least-privilege staff RPC boundaries", asyn
   `);
   assert.deepEqual(privileges.rows[0], {
     invoice_insert: false, invoice_update: false, item_insert: false,
+    service_item_insert: false,
     payment_insert: false, anon_create: false, auth_create: true,
     auth_issue: true, auth_payment: true,
+  });
+
+  const insertGuard = await database.query(`
+    select trigger_name
+    from information_schema.triggers
+    where event_object_schema = 'public'
+      and event_object_table = 'invoice_items'
+      and event_manipulation = 'INSERT'
+      and trigger_name = 'invoice_items_prevent_non_draft_insert'
+  `);
+  assert.equal(insertGuard.rows.length, 1);
+
+  const guardFunction = await database.query(`
+    select p.prosecdef as security_definer, p.proconfig,
+      has_function_privilege(
+        'authenticated',
+        'private.prevent_non_draft_invoice_item_insert()',
+        'execute'
+      ) as authenticated_execute
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'private'
+      and p.proname = 'prevent_non_draft_invoice_item_insert'
+  `);
+  assert.deepEqual(guardFunction.rows[0], {
+    security_definer: true,
+    proconfig: ["search_path=pg_catalog"],
+    authenticated_execute: false,
   });
 
   const gates = await database.query(`
@@ -687,4 +885,42 @@ test("Invoice PDF rendering is snapshot-only", async () => {
   assert.match(pdfSource, /item_source/);
   assert.doesNotMatch(combined, /supabase|rental_request_items|equipmentData|agreementService/);
   assert.doesNotMatch(combined, /\.from\s*\(/);
+});
+
+test("Invoice presentation preserves deposit and legacy-quantity semantics", async () => {
+  const [adapterSource, browserItemsSource, browserSummarySource, pdfSource,
+    headerSource, detailsSource, presentationSource] = await Promise.all([
+    readFile(new URL("../../src/domain/adapters/legacyItemAdapters.ts", import.meta.url), "utf8"),
+    readFile(new URL("../../src/components/invoice/InvoiceItemsTable.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../src/components/invoice/InvoiceFinancialSummary.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../src/components/agreement/pdf/InvoicePdfDocument.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../src/components/invoice/InvoiceHeader.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../src/components/invoice/InvoiceDetails.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../src/utils/invoicePresentation.ts", import.meta.url), "utf8"),
+  ]);
+  const invoicePresentationCorpus = [
+    browserItemsSource,
+    browserSummarySource,
+    pdfSource,
+    headerSource,
+    detailsSource,
+    presentationSource,
+  ].join("\n");
+
+  assert.match(adapterSource, /adaptLegacyInvoiceItem[\s\S]*quantity:\s*null/);
+  assert.match(browserItemsSource, /isLegacy\s*\?\s*"N\/A"\s*:\s*item\.quantity/);
+  assert.match(pdfSource, /legacy\s*\?\s*"N\/A"\s*:\s*item\.quantity/);
+  assert.match(browserSummarySource, /label="Deposit required"/);
+  assert.match(pdfSource, /label="Deposit required"/);
+  for (const forbiddenLabel of [
+    "Deposit" + " / " + "credit",
+    "Deposit" + " credit",
+  ]) {
+    assert.equal(invoicePresentationCorpus.includes(forbiddenLabel), false);
+  }
+  assert.match(headerSource, /formatInvoiceStatus\(invoice\.status\)/);
+  assert.doesNotMatch(headerSource, />\s*\{invoice\.status\}\s*</);
+  assert.match(detailsSource, /formatInvoiceDate\(invoice\.rental_start_date/);
+  assert.match(detailsSource, /formatInvoiceDate\(invoice\.rental_end_date/);
+  assert.match(presentationSource, /partially_paid:\s*"Partially Paid"/);
 });

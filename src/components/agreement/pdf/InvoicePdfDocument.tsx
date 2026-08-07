@@ -142,7 +142,7 @@ export default function InvoicePdfDocument({ invoice }: { invoice: Invoice }) {
           {legacy && (
             <Text style={styles.warning}>
               Historical Invoice: normalized item snapshots are unavailable. Missing rates,
-              serial numbers, and dates have not been reconstructed.
+              quantities, serial numbers, and dates have not been reconstructed.
             </Text>
           )}
           {invoice.items.length === 0 ? (
@@ -173,7 +173,7 @@ export default function InvoicePdfDocument({ invoice }: { invoice: Invoice }) {
                     {date(item.startDate, true)} - {date(item.endDate, true)}
                   </Text>
                   <Text style={[styles.cell, styles.quantityCell]}>
-                    {item.quantity || "-"}
+                    {legacy ? "N/A" : item.quantity}
                   </Text>
                   <Text style={[styles.cell, styles.rateCell]}>
                     {legacy ? "-" : money(item.dailyRate, invoice.currency)}
@@ -195,7 +195,7 @@ export default function InvoicePdfDocument({ invoice }: { invoice: Invoice }) {
           <View style={styles.charges}>
             <ChargeRow label="Rental subtotal" value={money(invoice.subtotal, invoice.currency)} />
             <ChargeRow
-              label={invoice.deposit_amount < 0 ? "Deposit credit" : "Deposit required"}
+              label="Deposit required"
               value={money(invoice.deposit_amount, invoice.currency)}
             />
             <ChargeRow label="Delivery" value={money(invoice.delivery_fee, invoice.currency)} />

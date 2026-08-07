@@ -96,20 +96,38 @@ export const validateRentalPeriod = (
   return issues;
 };
 
+type ValidatableRentalItem = Omit<RentalItem, "quantity"> & {
+  quantity: number | null;
+};
+
 const validateBaseItem = (
-  item: RentalItem,
+  item: ValidatableRentalItem,
   path: string,
   options: ItemValidationOptions
 ): DomainValidationIssue[] => {
+  const quantityIssues =
+    item.quantity === null
+      ? [
+          {
+            code: "positive_integer_required",
+            path: `${path}.quantity`,
+            message: `${path}.quantity must be a positive integer.`,
+          } satisfies DomainValidationIssue,
+        ]
+      : validatePositiveInteger(item.quantity, `${path}.quantity`);
   const issues: DomainValidationIssue[] = [
     ...validateRequiredText(item.id, `${path}.id`),
     ...validateRequiredText(item.equipmentName, `${path}.equipmentName`),
-    ...validatePositiveInteger(item.quantity, `${path}.quantity`),
+    ...quantityIssues,
     ...validateNonNegativeAmount(item.dailyRate, `${path}.dailyRate`),
     ...validateRentalPeriod(item.startDate, item.endDate, `${path}.rentalPeriod`),
   ];
 
-  if (item.serialNumber?.trim() && item.quantity !== 1) {
+  if (
+    item.serialNumber?.trim() &&
+    item.quantity !== null &&
+    item.quantity !== 1
+  ) {
     issues.push({
       code: "serialized_quantity_must_be_one",
       path: `${path}.quantity`,
@@ -132,7 +150,7 @@ const validateBaseItem = (
   return issues;
 };
 
-const validateCollection = <TItem extends RentalItem>(
+const validateCollection = <TItem extends Pick<RentalItem, "displayOrder">>(
   items: readonly TItem[],
   validateItem: (item: TItem, path: string) => readonly DomainValidationIssue[]
 ): DomainValidationIssue[] => {

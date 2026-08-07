@@ -1,4 +1,5 @@
 import type { Invoice } from "../../types/invoice";
+import { formatInvoiceDate } from "../../utils/invoicePresentation";
 
 interface InvoiceDetailsProps {
   invoice: Invoice;
@@ -97,7 +98,7 @@ const InvoiceDetails = ({ invoice }: InvoiceDetailsProps) => {
               </p>
 
               <p className="mt-1 text-[#d8cfc4]">
-                {invoice.rental_start_date || "Not set"}
+                {formatInvoiceDate(invoice.rental_start_date, "Not set")}
               </p>
             </div>
 
@@ -107,7 +108,7 @@ const InvoiceDetails = ({ invoice }: InvoiceDetailsProps) => {
               </p>
 
               <p className="mt-1 text-[#d8cfc4]">
-                {invoice.rental_end_date || "Not set"}
+                {formatInvoiceDate(invoice.rental_end_date, "Not set")}
               </p>
             </div>
           </div>

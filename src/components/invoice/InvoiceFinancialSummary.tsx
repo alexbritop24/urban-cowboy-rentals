@@ -29,7 +29,7 @@ const InvoiceFinancialSummary = ({ invoice }: InvoiceFinancialSummaryProps) => {
 
       <div className="mt-8 space-y-4">
         <SummaryRow label="Rental subtotal" value={amount(invoice.subtotal)} />
-        <SummaryRow label="Deposit / credit" value={amount(invoice.deposit_amount)} />
+        <SummaryRow label="Deposit required" value={amount(invoice.deposit_amount)} />
         <SummaryRow label="Delivery" value={amount(invoice.delivery_fee)} />
         <SummaryRow label="Sales tax" value={amount(invoice.tax_amount)} />
         {invoice.other_charges_amount > 0 && (

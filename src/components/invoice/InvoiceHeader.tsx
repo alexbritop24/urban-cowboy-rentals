@@ -1,4 +1,5 @@
 import type { Invoice } from "../../types/invoice";
+import { formatInvoiceStatus } from "../../utils/invoicePresentation";
 
 interface Props {
   invoice: Invoice;
@@ -23,7 +24,7 @@ export default function InvoiceHeader({ invoice }: Props) {
         </div>
 
         <div className="rounded-full border border-yellow-500/20 bg-[#f4b000]/10 px-5 py-3 text-sm font-black uppercase tracking-[0.12em] text-[#f4b000]">
-          {invoice.status}
+          {formatInvoiceStatus(invoice.status)}
         </div>
       </div>
     </header>

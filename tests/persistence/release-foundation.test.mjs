@@ -11,6 +11,7 @@ const migrationUrls = [
   new URL("../../supabase/migrations/20260805000200_rental_agreement_snapshot_persistence.sql", import.meta.url),
   new URL("../../supabase/migrations/20260806000100_agreement_legal_integrity_remediation.sql", import.meta.url),
   new URL("../../supabase/migrations/20260806000200_immutable_multi_item_invoice_persistence.sql", import.meta.url),
+  new URL("../../supabase/migrations/20260806000300_invoice_snapshot_integrity_remediation.sql", import.meta.url),
 ];
 const sqlTestUrl = new URL("../../supabase/tests/multi_item_hardening.sql", import.meta.url);
 const publicCatalogUrl = new URL("../../src/data/publicRentalCatalog.json", import.meta.url);

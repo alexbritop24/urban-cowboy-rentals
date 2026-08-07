@@ -1,16 +1,11 @@
 import type { Invoice } from "../../types/invoice";
+import { formatInvoiceDate } from "../../utils/invoicePresentation";
 
 const currency = (value: number, currencyCode: string) =>
   new Intl.NumberFormat(undefined, {
     style: "currency",
     currency: currencyCode || "USD",
   }).format(value);
-
-const displayDate = (value: string): string => {
-  if (!value) return "Not recorded";
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString();
-};
 
 export default function InvoiceItemsTable({ invoice }: { invoice: Invoice }) {
   const isLegacy = invoice.item_source !== "normalized";
@@ -32,8 +27,8 @@ export default function InvoiceItemsTable({ invoice }: { invoice: Invoice }) {
       {isLegacy && (
         <p className="mt-5 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm leading-6 text-amber-100">
           This historical Invoice has no normalized item snapshot. Only stored
-          legacy information is shown; unavailable rates, serial numbers, and
-          dates are not reconstructed.
+          legacy information is shown; unavailable quantities, rates, serial
+          numbers, and dates are not reconstructed.
         </p>
       )}
 
@@ -81,10 +76,11 @@ export default function InvoiceItemsTable({ invoice }: { invoice: Invoice }) {
                     {item.serialNumber || "Not recorded"}
                   </td>
                   <td className="px-3 py-4 text-xs leading-5">
-                    {displayDate(item.startDate)} → {displayDate(item.endDate)}
+                    {formatInvoiceDate(item.startDate)} →{" "}
+                    {formatInvoiceDate(item.endDate)}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-right">
-                    {item.quantity || "Not recorded"}
+                    {isLegacy ? "N/A" : item.quantity}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-right">
                     {isLegacy ? "Not recorded" : currency(item.dailyRate, invoice.currency)}
