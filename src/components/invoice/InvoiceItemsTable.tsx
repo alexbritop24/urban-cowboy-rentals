@@ -42,8 +42,17 @@ export default function InvoiceItemsTable({ invoice }: { invoice: Invoice }) {
           Historical item details are unavailable for this Invoice.
         </p>
       ) : (
-        <div className="mt-6 overflow-x-auto">
-          <table className="w-full min-w-[1050px] text-left text-sm">
+        <div className="mt-6 max-w-full overflow-x-auto pb-2">
+          <table className="w-full min-w-[900px] table-fixed text-left text-sm">
+            <colgroup>
+              <col className="w-[26%]" />
+              <col className="w-[15%]" />
+              <col className="w-[20%]" />
+              <col className="w-[7%]" />
+              <col className="w-[10%]" />
+              <col className="w-[7%]" />
+              <col className="w-[15%]" />
+            </colgroup>
             <thead className="border-b border-yellow-500/20 text-xs uppercase tracking-[0.1em] text-[#8f8577]">
               <tr>
                 <th className="px-3 py-3">Equipment</th>
@@ -52,28 +61,38 @@ export default function InvoiceItemsTable({ invoice }: { invoice: Invoice }) {
                 <th className="px-3 py-3 text-right">Qty</th>
                 <th className="px-3 py-3 text-right">Daily rate</th>
                 <th className="px-3 py-3 text-right">Days</th>
-                <th className="px-3 py-3 text-right">Line total</th>
+                <th className="px-3 py-3 text-right">Amount</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-yellow-500/10">
               {invoice.items.map((item) => (
                 <tr key={item.id} className="align-top text-[#d8cfc4]">
-                  <td className="px-3 py-4">
-                    <p className="font-bold text-[#fff7ed]">{item.equipmentName}</p>
-                    {item.notes && <p className="mt-1 text-xs text-[#8f8577]">{item.notes}</p>}
+                  <td className="break-words px-3 py-4">
+                    <p className="font-bold leading-5 text-[#fff7ed]">
+                      {item.equipmentName}
+                    </p>
+                    {item.notes && (
+                      <p className="mt-1 break-words text-xs leading-5 text-[#8f8577]">
+                        {item.notes}
+                      </p>
+                    )}
                   </td>
-                  <td className="px-3 py-4">{item.serialNumber || "Not recorded"}</td>
-                  <td className="px-3 py-4">
+                  <td className="break-all px-3 py-4 text-xs leading-5">
+                    {item.serialNumber || "Not recorded"}
+                  </td>
+                  <td className="px-3 py-4 text-xs leading-5">
                     {displayDate(item.startDate)} → {displayDate(item.endDate)}
                   </td>
-                  <td className="px-3 py-4 text-right">{item.quantity || "Not recorded"}</td>
-                  <td className="px-3 py-4 text-right">
+                  <td className="whitespace-nowrap px-3 py-4 text-right">
+                    {item.quantity || "Not recorded"}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-4 text-right">
                     {isLegacy ? "Not recorded" : currency(item.dailyRate, invoice.currency)}
                   </td>
-                  <td className="px-3 py-4 text-right">
+                  <td className="whitespace-nowrap px-3 py-4 text-right">
                     {isLegacy ? "Not recorded" : item.billableDays}
                   </td>
-                  <td className="px-3 py-4 text-right font-bold text-[#fff7ed]">
+                  <td className="whitespace-nowrap px-3 py-4 text-right font-bold text-[#fff7ed]">
                     {currency(item.lineTotal, invoice.currency)}
                   </td>
                 </tr>

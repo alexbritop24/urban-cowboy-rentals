@@ -3,34 +3,108 @@ import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import type { Invoice } from "../../../types/invoice";
 
 const styles = StyleSheet.create({
-  page: { padding: 36, fontSize: 9, fontFamily: "Helvetica", lineHeight: 1.45 },
-  title: { fontSize: 25, fontWeight: "bold", marginBottom: 3 },
-  subtitle: { fontSize: 12, marginBottom: 20, color: "#555" },
-  section: { marginBottom: 18 },
-  heading: { fontSize: 14, fontWeight: "bold", marginBottom: 8 },
-  detailGrid: { flexDirection: "row", gap: 24 },
+  page: {
+    paddingTop: 38,
+    paddingRight: 32,
+    paddingBottom: 42,
+    paddingLeft: 32,
+    fontSize: 8.5,
+    fontFamily: "Helvetica",
+    lineHeight: 1.3,
+    color: "#211d18",
+  },
+  documentHeader: { marginBottom: 22 },
+  companyName: { fontSize: 24, fontWeight: "bold", lineHeight: 1.15 },
+  documentName: {
+    marginTop: 9,
+    fontSize: 12,
+    lineHeight: 1.25,
+    color: "#555",
+  },
+  section: { marginBottom: 16 },
+  heading: { fontSize: 13, fontWeight: "bold", marginBottom: 7 },
+  detailGrid: { flexDirection: "row", gap: 20 },
   detailColumn: { flexGrow: 1, flexBasis: 0 },
   muted: { color: "#666" },
-  warning: { padding: 8, marginBottom: 10, backgroundColor: "#fff7df", color: "#6b4b00" },
-  table: { borderWidth: 1, borderColor: "#d8d0c6" },
-  tableHeader: { flexDirection: "row", backgroundColor: "#f3eee8", fontWeight: "bold" },
-  tableRow: { flexDirection: "row", borderTopWidth: 1, borderTopColor: "#e5ded6" },
-  equipmentCell: { width: "26%", padding: 5 },
-  periodCell: { width: "20%", padding: 5 },
-  serialCell: { width: "16%", padding: 5 },
-  numberCell: { width: "9.5%", padding: 5, textAlign: "right" },
+  warning: {
+    padding: 8,
+    marginBottom: 10,
+    backgroundColor: "#fff7df",
+    color: "#6b4b00",
+  },
+  table: { width: "100%", borderWidth: 1, borderColor: "#d8d0c6" },
+  tableHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 25,
+    backgroundColor: "#f3eee8",
+    fontSize: 7,
+    fontWeight: "bold",
+    lineHeight: 1.1,
+  },
+  tableRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    borderTopWidth: 1,
+    borderTopColor: "#e5ded6",
+    fontSize: 7.4,
+    lineHeight: 1.18,
+  },
+  cell: { paddingVertical: 5, paddingHorizontal: 4 },
+  equipmentCell: { width: "26%" },
+  serialCell: { width: "16%" },
+  periodCell: { width: "19%" },
+  quantityCell: { width: "6%", textAlign: "right" },
+  rateCell: { width: "11%", textAlign: "right" },
+  daysCell: { width: "7%", textAlign: "right" },
+  amountCell: { width: "15%", textAlign: "right" },
+  equipmentName: { fontSize: 7.7, fontWeight: "bold", lineHeight: 1.18 },
+  equipmentNotes: { marginTop: 2, fontSize: 6.6, lineHeight: 1.18, color: "#666" },
+  charges: { width: 280, alignSelf: "flex-end" },
   row: { flexDirection: "row", justifyContent: "space-between", marginBottom: 5 },
-  total: { marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#aaa", fontSize: 15, fontWeight: "bold" },
+  chargeLabel: { flexGrow: 1, paddingRight: 12 },
+  chargeValue: { width: 90, textAlign: "right" },
+  total: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#aaa",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
   footer: { marginTop: 24, fontSize: 8, color: "#777" },
 });
 
 const money = (value: number, currency: string) =>
-  `${currency || "USD"} ${Number(value).toFixed(2)}`;
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: currency || "USD",
+    currencyDisplay: "narrowSymbol",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(value));
 
-const date = (value: string): string => {
+const date = (value: string | null, compact = false): string => {
   if (!value) return "Not recorded";
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString();
+  if (Number.isNaN(parsed.getTime())) return value;
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: compact ? "numeric" : "short",
+    day: "numeric",
+    year: compact ? "2-digit" : "numeric",
+  }).format(parsed);
+};
+
+const statusLabel = (status: Invoice["status"]): string =>
+  status
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+
+const serial = (value: string | null): string => {
+  if (!value) return "Not recorded";
+  return value.match(/.{1,6}/g)?.join(" ") ?? value;
 };
 
 export default function InvoicePdfDocument({ invoice }: { invoice: Invoice }) {
@@ -39,14 +113,16 @@ export default function InvoicePdfDocument({ invoice }: { invoice: Invoice }) {
   return (
     <Document>
       <Page size="LETTER" style={styles.page}>
-        <Text style={styles.title}>Urban Cowboy Rentals</Text>
-        <Text style={styles.subtitle}>Equipment Rental Invoice</Text>
+        <View style={styles.documentHeader}>
+          <Text style={styles.companyName}>Urban Cowboy Rentals</Text>
+          <Text style={styles.documentName}>Equipment Rental Invoice</Text>
+        </View>
 
         <View style={[styles.section, styles.detailGrid]}>
           <View style={styles.detailColumn}>
             <Text style={styles.heading}>Invoice</Text>
             <Text>Invoice #: {invoice.invoice_number}</Text>
-            <Text>Status: {invoice.status.replaceAll("_", " ")}</Text>
+            <Text>Status: {statusLabel(invoice.status)}</Text>
             <Text>Issued: {invoice.issued_at ? date(invoice.issued_at) : "Draft"}</Text>
             <Text>Due: {invoice.due_at ? date(invoice.due_at) : "Not issued"}</Text>
             <Text>Payment terms: {invoice.payment_terms}</Text>
@@ -73,27 +149,41 @@ export default function InvoicePdfDocument({ invoice }: { invoice: Invoice }) {
             <Text style={styles.muted}>Historical item details are unavailable.</Text>
           ) : (
             <View style={styles.table}>
-              <View style={styles.tableHeader}>
-                <Text style={styles.equipmentCell}>Equipment</Text>
-                <Text style={styles.serialCell}>Serial</Text>
-                <Text style={styles.periodCell}>Rental period</Text>
-                <Text style={styles.numberCell}>Qty</Text>
-                <Text style={styles.numberCell}>Rate</Text>
-                <Text style={styles.numberCell}>Days</Text>
-                <Text style={styles.numberCell}>Amount</Text>
+              <View style={styles.tableHeader} fixed>
+                <Text style={[styles.cell, styles.equipmentCell]}>Equipment</Text>
+                <Text style={[styles.cell, styles.serialCell]}>Serial</Text>
+                <Text style={[styles.cell, styles.periodCell]}>Rental period</Text>
+                <Text style={[styles.cell, styles.quantityCell]}>Qty</Text>
+                <Text style={[styles.cell, styles.rateCell]}>Daily rate</Text>
+                <Text style={[styles.cell, styles.daysCell]}>Days</Text>
+                <Text style={[styles.cell, styles.amountCell]}>Amount</Text>
               </View>
               {invoice.items.map((item) => (
                 <View key={item.id} style={styles.tableRow} wrap={false}>
-                  <View style={styles.equipmentCell}>
-                    <Text>{item.equipmentName}</Text>
-                    {item.notes && <Text style={styles.muted}>{item.notes}</Text>}
+                  <View style={[styles.cell, styles.equipmentCell]}>
+                    <Text style={styles.equipmentName}>{item.equipmentName}</Text>
+                    {item.notes && (
+                      <Text style={styles.equipmentNotes}>{item.notes}</Text>
+                    )}
                   </View>
-                  <Text style={styles.serialCell}>{item.serialNumber || "Not recorded"}</Text>
-                  <Text style={styles.periodCell}>{date(item.startDate)} - {date(item.endDate)}</Text>
-                  <Text style={styles.numberCell}>{item.quantity || "-"}</Text>
-                  <Text style={styles.numberCell}>{legacy ? "-" : money(item.dailyRate, invoice.currency)}</Text>
-                  <Text style={styles.numberCell}>{legacy ? "-" : item.billableDays}</Text>
-                  <Text style={styles.numberCell}>{money(item.lineTotal, invoice.currency)}</Text>
+                  <Text style={[styles.cell, styles.serialCell]}>
+                    {serial(item.serialNumber)}
+                  </Text>
+                  <Text style={[styles.cell, styles.periodCell]}>
+                    {date(item.startDate, true)} - {date(item.endDate, true)}
+                  </Text>
+                  <Text style={[styles.cell, styles.quantityCell]}>
+                    {item.quantity || "-"}
+                  </Text>
+                  <Text style={[styles.cell, styles.rateCell]}>
+                    {legacy ? "-" : money(item.dailyRate, invoice.currency)}
+                  </Text>
+                  <Text style={[styles.cell, styles.daysCell]}>
+                    {legacy ? "-" : item.billableDays}
+                  </Text>
+                  <Text style={[styles.cell, styles.amountCell]}>
+                    {money(item.lineTotal, invoice.currency)}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -102,16 +192,28 @@ export default function InvoicePdfDocument({ invoice }: { invoice: Invoice }) {
 
         <View style={styles.section}>
           <Text style={styles.heading}>Charges</Text>
-          <View style={styles.row}><Text>Rental subtotal</Text><Text>{money(invoice.subtotal, invoice.currency)}</Text></View>
-          <View style={styles.row}><Text>Deposit / credit</Text><Text>{money(invoice.deposit_amount, invoice.currency)}</Text></View>
-          <View style={styles.row}><Text>Delivery</Text><Text>{money(invoice.delivery_fee, invoice.currency)}</Text></View>
-          <View style={styles.row}><Text>Sales tax</Text><Text>{money(invoice.tax_amount, invoice.currency)}</Text></View>
-          {invoice.other_charges_amount > 0 && (
-            <View style={styles.row}><Text>Other approved charges</Text><Text>{money(invoice.other_charges_amount, invoice.currency)}</Text></View>
-          )}
-          <View style={[styles.row, styles.total]}><Text>Total</Text><Text>{money(invoice.total_amount, invoice.currency)}</Text></View>
-          <View style={styles.row}><Text>Paid</Text><Text>{money(invoice.amount_paid, invoice.currency)}</Text></View>
-          <View style={styles.row}><Text>Balance due</Text><Text>{money(invoice.balance_due, invoice.currency)}</Text></View>
+          <View style={styles.charges}>
+            <ChargeRow label="Rental subtotal" value={money(invoice.subtotal, invoice.currency)} />
+            <ChargeRow
+              label={invoice.deposit_amount < 0 ? "Deposit credit" : "Deposit required"}
+              value={money(invoice.deposit_amount, invoice.currency)}
+            />
+            <ChargeRow label="Delivery" value={money(invoice.delivery_fee, invoice.currency)} />
+            <ChargeRow label="Sales tax" value={money(invoice.tax_amount, invoice.currency)} />
+            {invoice.other_charges_amount > 0 && (
+              <ChargeRow
+                label="Other approved charges"
+                value={money(invoice.other_charges_amount, invoice.currency)}
+              />
+            )}
+            <ChargeRow
+              label="Total"
+              value={money(invoice.total_amount, invoice.currency)}
+              total
+            />
+            <ChargeRow label="Paid" value={money(invoice.amount_paid, invoice.currency)} />
+            <ChargeRow label="Balance due" value={money(invoice.balance_due, invoice.currency)} />
+          </View>
         </View>
 
         <View style={styles.footer}>
@@ -120,5 +222,22 @@ export default function InvoicePdfDocument({ invoice }: { invoice: Invoice }) {
         </View>
       </Page>
     </Document>
+  );
+}
+
+function ChargeRow({
+  label,
+  value,
+  total = false,
+}: {
+  label: string;
+  value: string;
+  total?: boolean;
+}) {
+  return (
+    <View style={total ? [styles.row, styles.total] : styles.row} wrap={false}>
+      <Text style={styles.chargeLabel}>{label}</Text>
+      <Text style={styles.chargeValue}>{value}</Text>
+    </View>
   );
 }
