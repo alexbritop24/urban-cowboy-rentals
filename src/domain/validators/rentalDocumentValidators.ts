@@ -1,4 +1,4 @@
-import type { RentalDocumentFile } from "../models/rentalDocument";
+import type { RentalDocumentFile } from "../models/rentalDocument.ts";
 
 export const DEFAULT_RENTAL_DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
 
