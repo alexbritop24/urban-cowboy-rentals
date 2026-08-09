@@ -12,6 +12,7 @@ const migrationUrls = [
   new URL("../../supabase/migrations/20260806000100_agreement_legal_integrity_remediation.sql", import.meta.url),
   new URL("../../supabase/migrations/20260806000200_immutable_multi_item_invoice_persistence.sql", import.meta.url),
   new URL("../../supabase/migrations/20260806000300_invoice_snapshot_integrity_remediation.sql", import.meta.url),
+  new URL("../../supabase/migrations/20260807000100_private_rental_document_workflow.sql", import.meta.url),
 ];
 const sqlTestUrl = new URL("../../supabase/tests/multi_item_hardening.sql", import.meta.url);
 const publicCatalogUrl = new URL("../../src/data/publicRentalCatalog.json", import.meta.url);
@@ -21,6 +22,25 @@ const createSupabaseLikeDatabase = async () => {
   await database.exec(`
     create schema if not exists extensions;
     create extension if not exists pgcrypto with schema extensions;
+    create schema if not exists storage;
+    create table if not exists storage.buckets (
+      id text primary key,
+      name text not null,
+      public boolean not null default false,
+      file_size_limit bigint,
+      allowed_mime_types text[]
+    );
+    create table if not exists storage.objects (
+      id uuid primary key default gen_random_uuid(),
+      bucket_id text not null,
+      name text not null,
+      metadata jsonb,
+      created_at timestamptz not null default now(),
+      unique (bucket_id, name)
+    );
+    -- Hosted Supabase owns storage.objects and enables RLS before application
+    -- migrations run. The harness models that platform-owned prerequisite.
+    alter table storage.objects enable row level security;
   `);
   return database;
 };
@@ -94,6 +114,16 @@ test("Release 1 migrations are secure at every step and rerunnable", async (t) =
     [...migrationUrls, sqlTestUrl].map((url) => readFile(url, "utf8"))
   );
   const sqlCorpus = sqlSources.join("\n");
+  const migrationSqlCorpus = sqlSources.slice(0, migrationUrls.length).join("\n");
+  assert.doesNotMatch(
+    migrationSqlCorpus,
+    /\balter\s+table\s+storage\.objects\s+enable\s+row\s+level\s+security\b/i
+  );
+  assert.doesNotMatch(
+    migrationSqlCorpus,
+    /\balter\s+(?:table|function|schema|sequence|view)\s+(?:storage|auth|realtime)\.[^;]*\bowner\s+to\b/i
+  );
+  assert.doesNotMatch(migrationSqlCorpus, /\bset\s+role\s+supabase_storage_admin\b/i);
   assert.doesNotMatch(sqlCorpus, /\bpublic\.digest\s*\(/i);
   assert.doesNotMatch(sqlCorpus, /(^|[^.\w])digest\s*\(/im);
   assert.match(sqlCorpus, /extensions\.digest\s*\(/i);

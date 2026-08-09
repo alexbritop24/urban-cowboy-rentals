@@ -552,6 +552,85 @@ export type Database = {
           },
         ];
       };
+      rental_documents: {
+        Row: {
+          id: string;
+          rental_request_id: string;
+          document_type: string;
+          storage_bucket: string;
+          storage_path: string;
+          original_filename: string;
+          mime_type: string;
+          size_bytes: number;
+          uploaded_by: string;
+          uploaded_at: string;
+          is_current: boolean;
+          replaces_document_id: string | null;
+          replaced_by_document_id: string | null;
+          replaced_at: string | null;
+          replaced_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          rental_request_id: string;
+          document_type: string;
+          storage_bucket: string;
+          storage_path: string;
+          original_filename: string;
+          mime_type: string;
+          size_bytes: number;
+          uploaded_by: string;
+          uploaded_at?: string;
+          is_current?: boolean;
+          replaces_document_id?: string | null;
+          replaced_by_document_id?: string | null;
+          replaced_at?: string | null;
+          replaced_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          rental_request_id?: string;
+          document_type?: string;
+          storage_bucket?: string;
+          storage_path?: string;
+          original_filename?: string;
+          mime_type?: string;
+          size_bytes?: number;
+          uploaded_by?: string;
+          uploaded_at?: string;
+          is_current?: boolean;
+          replaces_document_id?: string | null;
+          replaced_by_document_id?: string | null;
+          replaced_at?: string | null;
+          replaced_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "rental_documents_request_fk";
+            columns: ["rental_request_id"];
+            isOneToOne: false;
+            referencedRelation: "rental_requests";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "rental_documents_replaces_fk";
+            columns: ["replaces_document_id"];
+            isOneToOne: true;
+            referencedRelation: "rental_documents";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "rental_documents_replaced_by_document_fk";
+            columns: ["replaced_by_document_id"];
+            isOneToOne: true;
+            referencedRelation: "rental_documents";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       rental_request_items: {
         Row: {
           id: string;
@@ -618,6 +697,10 @@ export type Database = {
           billing_address: string | null;
           service_address: string | null;
           insurance_verification_status: string;
+          insurance_reviewed_document_id: string | null;
+          insurance_reviewed_by: string | null;
+          insurance_reviewed_at: string | null;
+          insurance_review_note: string | null;
           full_name: string;
           phone: string;
           email: string;
@@ -653,6 +736,10 @@ export type Database = {
           billing_address?: string | null;
           service_address?: string | null;
           insurance_verification_status?: string;
+          insurance_reviewed_document_id?: string | null;
+          insurance_reviewed_by?: string | null;
+          insurance_reviewed_at?: string | null;
+          insurance_review_note?: string | null;
           full_name: string;
           phone: string;
           email: string;
@@ -688,6 +775,10 @@ export type Database = {
           billing_address?: string | null;
           service_address?: string | null;
           insurance_verification_status?: string;
+          insurance_reviewed_document_id?: string | null;
+          insurance_reviewed_by?: string | null;
+          insurance_reviewed_at?: string | null;
+          insurance_review_note?: string | null;
           full_name?: string;
           phone?: string;
           email?: string;
@@ -714,7 +805,15 @@ export type Database = {
           availability_notes?: string | null;
           payment_link?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "rental_requests_insurance_reviewed_document_fk";
+            columns: ["insurance_reviewed_document_id"];
+            isOneToOne: false;
+            referencedRelation: "rental_documents";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
     Views: Record<string, never>;
@@ -776,6 +875,26 @@ export type Database = {
       finalize_rental_agreement: {
         Args: {
           target_agreement_id: string;
+        };
+        Returns: string;
+      };
+      register_rental_document: {
+        Args: {
+          target_rental_request_id: string;
+          document_type_value: string;
+          storage_bucket_value: string;
+          storage_path_value: string;
+          original_filename_value: string;
+          mime_type_value: string;
+          size_bytes_value: number;
+        };
+        Returns: string;
+      };
+      review_rental_insurance: {
+        Args: {
+          target_rental_request_id: string;
+          verification_status_value: string;
+          review_note_value?: string | null;
         };
         Returns: string;
       };

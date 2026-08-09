@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import AutomationLogs from "../components/admin/AutomationLogs";
 import AdminRentalRequestItemsEditor from "../components/admin/AdminRentalRequestItemsEditor";
+import RentalDocumentWorkflowSection from "../components/documents/RentalDocumentWorkflowSection";
 import MainLayout from "../components/layout/MainLayout";
 import SEO from "../components/seo/SEO";
 import PageTransition from "../components/ui/PageTransition";
@@ -94,8 +95,6 @@ const availabilityStatusOptions = [
   "unavailable",
   "approved",
 ];
-
-const insuranceVerificationStatusOptions = ["pending", "verified", "rejected"];
 
 const formatLabel = (value: string) => value.replaceAll("_", " ");
 
@@ -1001,6 +1000,25 @@ const hasDateConflict = (
                         </div>
                       </div>
 
+                      <div className="mt-6">
+                        <RentalDocumentWorkflowSection
+                          rentalRequestId={request.id}
+                          onStateChange={(documentState) =>
+                            setRequests((currentRequests) =>
+                              currentRequests.map((currentRequest) =>
+                                currentRequest.id === request.id
+                                  ? {
+                                      ...currentRequest,
+                                      insurance_verification_status:
+                                        documentState.insuranceVerificationStatus,
+                                    }
+                                  : currentRequest
+                              )
+                            )
+                          }
+                        />
+                      </div>
+
                       <div className="mt-6 rounded-2xl border border-yellow-500/10 bg-black/25 p-4 sm:p-5">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                           <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
@@ -1210,27 +1228,12 @@ const hasDateConflict = (
        </div>
 
        <div>
-         <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
+         <p className="mb-2 text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
            Insurance Verification
-         </label>
-
-         <select
-           value={request.insurance_verification_status || "pending"}
-           onChange={(event) =>
-             updateRequestField(
-               request.id,
-               "insurance_verification_status",
-               event.target.value
-             )
-           }
-           className="w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 text-[#fff7ed] outline-none focus:border-yellow-500/40"
-         >
-           {insuranceVerificationStatusOptions.map((status) => (
-             <option key={status} value={status}>
-               {formatLabel(status)}
-             </option>
-           ))}
-         </select>
+         </p>
+         <p className="rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 font-black uppercase tracking-[0.08em] text-[#fff7ed]">
+           {formatLabel(request.insurance_verification_status || "pending")}
+         </p>
        </div>
 
            <div className="md:col-span-2">
