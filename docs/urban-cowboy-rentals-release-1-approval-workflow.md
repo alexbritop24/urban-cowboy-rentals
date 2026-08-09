@@ -6,6 +6,8 @@ Rental Approval is a dedicated operational decision attached to `rental_requests
 
 `rental_approval_events` is the append-only Approval/reversal history. `rental_availability_checks` is the append-only initial/final availability history. Direct inserts, updates, and deletes are blocked by grants, RLS, and database triggers. Trusted RPC transaction contexts are required even for roles that bypass RLS, so service-role access cannot silently rewrite history.
 
+Every newly inserted request must begin with `approval_status = pending` and null Approval/reversal evidence. This is enforced by the database trigger even for privileged inserts. An Approved request cannot be changed directly to legacy `cancelled`; staff must first use the audited reversal workflow. An authoritative Approved request continues blocking its resources regardless of legacy status as defense in depth.
+
 ## Checklist Sources
 
 The checklist is produced by `get_rental_approval_checklist()` and derives its state from existing authoritative records:
@@ -23,7 +25,7 @@ The React checklist is informative. `approve_rental_request()` independently rep
 
 The schedule fingerprint is SHA-256 with the repository-standard `sha256:` prefix and hosted-Supabase `extensions.digest()` qualification. Its canonical JSON contains resource identity, equipment ID, serial snapshot where present, UTC start/end timestamps, and quantity in deterministic order. Names, notes, and prices are intentionally excluded because they do not change physical availability.
 
-Availability uses the Agreement workflow's inclusive overlap convention: two schedules conflict when each starts on or before the other ends. A serialized unit uses its normalized serial snapshot as the resource key. Other Release 1 items use the stable equipment ID because normalized inventory capacity is deferred. Missing safe resource identity fails closed.
+Availability uses inclusive UTC calendar-date ranges: two schedules conflict when each starts on or before the other ends. The ending calendar date remains occupied, so an August 10–12 rental conflicts with a rental beginning August 12 and permits the same unit to begin next on August 13. The legacy availability RPC, browser advisory check, initial check, and final Approval check share this rule. A serialized unit uses its normalized serial snapshot as the resource key. Other Release 1 items use the stable equipment ID because normalized inventory capacity is deferred. Missing safe resource identity fails closed.
 
 An initial check remains historical when the schedule changes, but its hash no longer matches and the checklist reports `stale`. A conflict result never satisfies the initial gate. Final availability is not reusable preapproval evidence; it is created only inside the Approval transaction.
 
@@ -32,13 +34,15 @@ An initial check remains historical when the schedule changes, but its hash no l
 Approval performs the following sequence in one database transaction:
 
 1. Authenticate trusted `app_metadata` staff/admin and require a valid actor UUID.
-2. Lock the request, finalized Agreement, and original Invoice rows.
-3. Revalidate every non-availability checklist gate, including the configured payment policy.
-4. Resolve resource keys exclusively from the stored authoritative schedule.
-5. Acquire transaction-scoped PostgreSQL advisory locks for distinct resource keys in sorted order.
-6. Re-run the canonical overlap query after all locks are held.
-7. Append the final availability check.
-8. If available, append the Approval event and update current Approval state before commit.
+2. Lock the target request.
+3. Hold a shared row lock on the protected global payment policy so it cannot change during evaluation.
+4. Lock the finalized Agreement and original Invoice rows.
+5. Revalidate every non-availability checklist gate, including that locked payment policy.
+6. Resolve resource keys exclusively from the stored authoritative schedule.
+7. Acquire transaction-scoped PostgreSQL advisory locks for distinct resource keys in sorted order.
+8. Re-run the canonical overlap query after all locks are held.
+9. Append the final availability check.
+10. If available, append the Approval event with the evaluated payment-policy snapshot and update current Approval state before commit.
 
 Competing approvals for the same physical resource therefore serialize. The waiter rechecks after the first transaction commits and observes its Approval. `SELECT ... FOR UPDATE` alone is not used as the resource lock because it cannot lock an absent conflicting row. PGlite verifies lock ordering and transactional sequencing, but a true multi-session concurrency test on hosted PostgreSQL remains a production-activation requirement.
 
@@ -52,6 +56,8 @@ The protected Release 1 payment policy defaults to `unconfigured`, which fails c
 - `invoice_paid`: the original Invoice must be issued, paid in full, and have coherent zero-balance/payment state.
 
 Selecting the production policy remains a client decision and is required before activation.
+
+Ordinary anonymous, customer, and staff roles cannot update the global policy. Successful Approved events permanently snapshot `deposit_required` or `invoice_paid`; reversal events contain no payment policy, and `unconfigured` can never appear on a successful Approved event.
 
 ## Reversal and Compatibility
 

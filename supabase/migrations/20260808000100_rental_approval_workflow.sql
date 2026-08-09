@@ -116,6 +116,7 @@ create table if not exists public.rental_approval_events (
   occurred_at timestamptz not null default now(),
   note text,
   availability_check_id uuid,
+  payment_policy text,
   created_at timestamptz not null default now(),
   constraint rental_approval_events_request_fk
     foreign key (rental_request_id) references public.rental_requests(id)
@@ -131,9 +132,36 @@ create table if not exists public.rental_approval_events (
       (event_type = 'approved' and availability_check_id is not null)
       or (event_type = 'reversed' and availability_check_id is null)
     ),
+  constraint rental_approval_events_payment_policy_check
+    check (
+      (event_type = 'approved'
+        and payment_policy in ('deposit_required', 'invoice_paid'))
+      or (event_type = 'reversed' and payment_policy is null)
+    ),
   constraint rental_approval_events_note_length_check
     check (note is null or length(note) <= 2000)
 );
+
+alter table public.rental_approval_events
+  add column if not exists payment_policy text;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_catalog.pg_constraint
+    where conrelid = 'public.rental_approval_events'::pg_catalog.regclass
+      and conname = 'rental_approval_events_payment_policy_check'
+  ) then
+    alter table public.rental_approval_events
+      add constraint rental_approval_events_payment_policy_check
+      check (
+        (event_type = 'approved'
+          and payment_policy in ('deposit_required', 'invoice_paid'))
+        or (event_type = 'reversed' and payment_policy is null)
+      ) not valid;
+  end if;
+end;
+$$;
 
 create index if not exists rental_approval_events_request_idx
   on public.rental_approval_events (
@@ -176,6 +204,26 @@ security definer
 set search_path = pg_catalog, private
 as $$
 begin
+  if tg_op = 'INSERT' then
+    if new.approval_status <> 'pending'
+      or new.approved_by is not null
+      or new.approved_at is not null
+      or new.approval_reversed_by is not null
+      or new.approval_reversed_at is not null
+      or new.approval_reversal_note is not null then
+      raise exception using errcode = '42501',
+        message = 'Rental requests must begin with neutral pending Approval state.';
+    end if;
+    return new;
+  end if;
+
+  if old.approval_status = 'approved'
+    and old.status is distinct from new.status
+    and new.status = 'cancelled' then
+    raise exception using errcode = '55000',
+      message = 'Reverse rental approval before cancelling this rental.';
+  end if;
+
   if old.approval_status is distinct from new.approval_status
     or old.approved_by is distinct from new.approved_by
     or old.approved_at is distinct from new.approved_at
@@ -197,7 +245,7 @@ $$;
 drop trigger if exists rental_requests_protect_approval_state
   on public.rental_requests;
 create trigger rental_requests_protect_approval_state
-before update on public.rental_requests
+before insert or update on public.rental_requests
 for each row execute function private.protect_rental_approval_state();
 
 create or replace function private.protect_rental_availability_check_history()
@@ -281,6 +329,81 @@ revoke all on public.rental_approval_events
   from public, anon, authenticated;
 grant select on public.rental_availability_checks to authenticated;
 grant select on public.rental_approval_events to authenticated;
+
+do $$
+begin
+  if exists (
+    select 1 from pg_catalog.pg_roles where rolname = 'service_role'
+  ) then
+    execute 'revoke insert on public.rental_requests from service_role';
+    execute 'revoke all on private.rental_approval_configuration from service_role';
+    execute 'revoke all on private.rental_approval_transition_contexts from service_role';
+  end if;
+end;
+$$;
+
+create or replace function private.rental_calendar_ranges_overlap(
+  new_start timestamptz,
+  new_end timestamptz,
+  existing_start timestamptz,
+  existing_end timestamptz
+)
+returns boolean
+language sql
+immutable
+security definer
+set search_path = pg_catalog, private
+as $$
+  select
+    (new_start at time zone 'UTC')::date
+      <= (existing_end at time zone 'UTC')::date
+    and (existing_start at time zone 'UTC')::date
+      <= (new_end at time zone 'UTC')::date;
+$$;
+
+create or replace function public.has_rental_request_conflict(
+  requested_equipment_name text,
+  requested_pickup timestamptz,
+  requested_return timestamptz
+)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = pg_catalog, private
+as $$
+begin
+  if nullif(pg_catalog.btrim(requested_equipment_name), '') is null
+    or pg_catalog.length(requested_equipment_name) > 300
+    or requested_pickup is null
+    or requested_return is null
+    or requested_return <= requested_pickup then
+    raise exception using errcode = '22023',
+      message = 'A valid equipment name and date range are required.';
+  end if;
+
+  return exists (
+    select 1
+    from public.rental_requests requests
+    where requests.equipment_requested = requested_equipment_name
+      and (
+        requests.approval_status = 'approved'
+        or (
+          requests.approval_status = 'pending'
+          and requests.status <> 'cancelled'
+        )
+      )
+      and requests.pickup_date is not null
+      and requests.return_date is not null
+      and private.rental_calendar_ranges_overlap(
+        requested_pickup,
+        requested_return,
+        requests.pickup_date,
+        requests.return_date
+      )
+  );
+end;
+$$;
 
 create or replace function private.rental_approval_schedule_items(
   target_rental_request_id uuid
@@ -476,12 +599,12 @@ as $$
     select requests.id
     from public.rental_requests requests
     where requests.id <> target_rental_request_id
-      and requests.status <> 'cancelled'
       and requests.approval_status <> 'reversed'
       and (
         requests.approval_status = 'approved'
         or (
           requests.approval_status = 'pending'
+          and requests.status <> 'cancelled'
           and not exists (
             select 1 from public.rental_approval_events events
             where events.rental_request_id = requests.id
@@ -516,8 +639,12 @@ as $$
     from current_items current_item
     join blocking_items blocking_item
       on blocking_item.resource_key = current_item.resource_key
-     and current_item.start_date <= blocking_item.end_date
-     and blocking_item.start_date <= current_item.end_date
+     and private.rental_calendar_ranges_overlap(
+       current_item.start_date,
+       current_item.end_date,
+       blocking_item.start_date,
+       blocking_item.end_date
+     )
   );
 $$;
 
@@ -1030,6 +1157,7 @@ declare
   schedule_hash_value text;
   final_check_id uuid;
   approval_event_id uuid;
+  evaluated_payment_policy text;
   gate_key text;
   gate_reason text;
 begin
@@ -1062,6 +1190,15 @@ begin
     raise exception using errcode = '55000',
       message = 'The rental request lifecycle does not permit approval.';
   end if;
+
+  select configuration_value into evaluated_payment_policy
+  from private.rental_approval_configuration
+  where configuration_key = 'payment_policy'
+  for share;
+  evaluated_payment_policy := coalesce(
+    evaluated_payment_policy,
+    'unconfigured'
+  );
 
   select * into agreement_record
   from public.rental_agreements
@@ -1139,10 +1276,11 @@ begin
 
   insert into public.rental_approval_events (
     rental_request_id, event_type, actor_id, occurred_at,
-    note, availability_check_id
+    note, availability_check_id, payment_policy
   ) values (
     target_rental_request_id, 'approved', actor_id, now(),
-    nullif(btrim(note_value), ''), final_check_id
+    nullif(btrim(note_value), ''), final_check_id,
+    evaluated_payment_policy
   ) returning id into approval_event_id;
 
   update public.rental_requests
@@ -1257,6 +1395,9 @@ revoke all on function private.protect_rental_availability_check_history()
   from public, anon, authenticated;
 revoke all on function private.protect_rental_approval_event_history()
   from public, anon, authenticated;
+revoke all on function private.rental_calendar_ranges_overlap(
+  timestamptz, timestamptz, timestamptz, timestamptz
+) from public, anon, authenticated;
 revoke all on function private.rental_approval_schedule_items(uuid)
   from public, anon, authenticated;
 revoke all on function private.rental_approval_schedule_hash(uuid)
@@ -1288,6 +1429,12 @@ revoke all on function public.reverse_rental_approval(uuid, text)
   from public, anon, authenticated;
 grant execute on function public.reverse_rental_approval(uuid, text)
   to authenticated;
+revoke all on function public.has_rental_request_conflict(
+  text, timestamptz, timestamptz
+) from public, anon, authenticated;
+grant execute on function public.has_rental_request_conflict(
+  text, timestamptz, timestamptz
+) to anon, authenticated;
 
 alter table public.rental_requests
   validate constraint rental_requests_approval_status_check;
@@ -1295,6 +1442,8 @@ alter table public.rental_requests
   validate constraint rental_requests_approval_evidence_check;
 alter table public.rental_requests
   validate constraint rental_requests_approval_reversal_note_length_check;
+alter table public.rental_approval_events
+  validate constraint rental_approval_events_payment_policy_check;
 
 comment on table public.rental_availability_checks is
   'Append-only initial and final availability evidence bound to a deterministic authoritative schedule hash.';

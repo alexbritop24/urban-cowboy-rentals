@@ -684,6 +684,7 @@ export type Database = {
           occurred_at: string;
           note: string | null;
           availability_check_id: string | null;
+          payment_policy: string | null;
           created_at: string;
         };
         Insert: {
@@ -694,6 +695,7 @@ export type Database = {
           occurred_at?: string;
           note?: string | null;
           availability_check_id?: string | null;
+          payment_policy?: string | null;
           created_at?: string;
         };
         Update: {
@@ -704,6 +706,7 @@ export type Database = {
           occurred_at?: string;
           note?: string | null;
           availability_check_id?: string | null;
+          payment_policy?: string | null;
           created_at?: string;
         };
         Relationships: [

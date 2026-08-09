@@ -5,6 +5,7 @@ import AutomationLogs from "../components/admin/AutomationLogs";
 import AdminRentalRequestItemsEditor from "../components/admin/AdminRentalRequestItemsEditor";
 import RentalApprovalChecklist from "../components/approval/RentalApprovalChecklist";
 import RentalDocumentWorkflowSection from "../components/documents/RentalDocumentWorkflowSection";
+import { rentalDateRangesOverlapInclusive } from "../domain/availability/rentalAvailability";
 import MainLayout from "../components/layout/MainLayout";
 import SEO from "../components/seo/SEO";
 import PageTransition from "../components/ui/PageTransition";
@@ -42,6 +43,7 @@ interface RentalRequest {
   availability_notes: string | null;
   payment_link: string | null;
   insurance_verification_status: string | null;
+  approval_status: string;
 }
 
 const statusOptions = [
@@ -331,6 +333,13 @@ const hasDateConflict = (
 ) => {
   return requests.some((request) => {
     if (request.id === currentRequestId) return false;
+    if (request.approval_status === "reversed") return false;
+    if (
+      request.approval_status !== "approved" &&
+      request.status === "cancelled"
+    ) {
+      return false;
+    }
 
     if (request.equipment_requested !== equipmentRequested) {
       return false;
@@ -340,13 +349,12 @@ const hasDateConflict = (
       return false;
     }
 
-    const existingPickup = new Date(request.pickup_date).getTime();
-    const existingReturn = new Date(request.return_date).getTime();
-
-    const newPickup = new Date(pickupDate).getTime();
-    const newReturn = new Date(returnDate).getTime();
-
-    return newPickup < existingReturn && newReturn > existingPickup;
+    return rentalDateRangesOverlapInclusive(
+      pickupDate,
+      returnDate,
+      request.pickup_date,
+      request.return_date
+    );
      });
     };
 
@@ -901,11 +909,17 @@ const hasDateConflict = (
 
                             className="rounded-2xl border border-yellow-500/10 bg-black/40 px-5 py-4 text-sm font-black uppercase tracking-[0.08em] text-[#fff7ed] outline-none transition focus:border-yellow-500/40 disabled:opacity-50"
                           >
-                            {statusOptions.map((status) => (
-                              <option key={status} value={status}>
-                                {formatLabel(status)}
-                              </option>
-                            ))}
+                            {statusOptions
+                              .filter(
+                                (status) =>
+                                  status !== "cancelled" ||
+                                  request.approval_status !== "approved"
+                              )
+                              .map((status) => (
+                                <option key={status} value={status}>
+                                  {formatLabel(status)}
+                                </option>
+                              ))}
                           </select>
                         </div>
                       </div>
@@ -1001,6 +1015,7 @@ const hasDateConflict = (
                       <div className="mt-6">
                         <RentalApprovalChecklist
                           rentalRequestId={request.id}
+                          onStateChange={() => void fetchRequests()}
                         />
                       </div>
 

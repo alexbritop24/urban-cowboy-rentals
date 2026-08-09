@@ -16,6 +16,10 @@ const migrationUrls = [
   new URL("../../supabase/migrations/20260807000100_private_rental_document_workflow.sql", import.meta.url),
   new URL("../../supabase/migrations/20260808000100_rental_approval_workflow.sql", import.meta.url),
 ];
+const adminDashboardUrl = new URL(
+  "../../src/pages/AdminDashboardPage.tsx",
+  import.meta.url
+);
 
 const staffId = "10000000-0000-4000-8000-000000000001";
 const adminId = "10000000-0000-4000-8000-000000000002";
@@ -27,6 +31,7 @@ const createDatabase = async () => {
     create extension pgcrypto with schema extensions;
     create role anon nologin;
     create role authenticated nologin;
+    create role service_role nologin bypassrls;
     create schema storage;
     create table storage.buckets (
       id text primary key,
@@ -280,6 +285,98 @@ const reverse = (database, requestId, actorId = staffId, role = "staff") =>
     role
   ).then((result) => result.rows[0].result);
 
+const legacyHasConflict = async (
+  database,
+  equipmentName,
+  startDate,
+  endDate
+) => {
+  await setRole(database, "anon");
+  const result = await database.query(
+    `select public.has_rental_request_conflict(
+      $1::text, $2::timestamptz, $3::timestamptz
+    ) as conflict`,
+    [equipmentName, startDate, endDate]
+  );
+  await resetRole(database);
+  return result.rows[0].conflict;
+};
+
+test("rental requests must be inserted with neutral Approval state", async (t) => {
+  const database = await createDatabase();
+  t.after(() => database.close());
+
+  await expectDatabaseError(
+    () => database.query(
+      `insert into public.rental_requests (
+        full_name, phone, email, equipment_requested, agreement_accepted,
+        approval_status, approved_by, approved_at
+      ) values (
+        'Fabricated Approval', '8015550199', 'fabricated@example.test',
+        'Fabricated equipment', true, 'approved', $1, now()
+      )`,
+      [staffId]
+    ),
+    "neutral pending Approval state"
+  );
+
+  await expectDatabaseError(
+    () => database.query(
+      `insert into public.rental_requests (
+        full_name, phone, email, equipment_requested, agreement_accepted,
+        approval_status, approved_by
+      ) values (
+        'Fabricated Actor', '8015550198', 'fabricated-actor@example.test',
+        'Fabricated equipment', true, 'pending', $1
+      )`,
+      [staffId]
+    ),
+    "neutral pending Approval state"
+  );
+
+  const neutral = await database.query(`
+    insert into public.rental_requests (
+      full_name, phone, email, equipment_requested, agreement_accepted
+    ) values (
+      'Neutral Approval', '8015550197', 'neutral@example.test',
+      'Neutral equipment', true
+    ) returning id, approval_status, approved_by, approved_at
+  `);
+  assert.deepEqual(neutral.rows[0], {
+    id: neutral.rows[0].id,
+    approval_status: "pending",
+    approved_by: null,
+    approved_at: null,
+  });
+
+  const normalRequestId = await createRequest(
+    database,
+    "Normal Request Compatibility",
+    item(equipment.bobcat, 5, 6)
+  );
+  assert.ok(normalRequestId);
+  assert.equal(
+    Number((await database.query(
+      "select count(*) as count from public.rental_approval_events"
+    )).rows[0].count),
+    0
+  );
+
+  const privileges = await database.query(`
+    select
+      has_table_privilege(
+        'service_role', 'public.rental_requests', 'insert'
+      ) as service_request_insert,
+      has_table_privilege(
+        'service_role', 'private.rental_approval_configuration', 'update'
+      ) as service_policy_update
+  `);
+  assert.deepEqual(privileges.rows[0], {
+    service_request_insert: false,
+    service_policy_update: false,
+  });
+});
+
 test("Approval checklist is server-derived, authorized, and invalidates stale schedules", async (t) => {
   const database = await createDatabase();
   t.after(() => database.close());
@@ -434,6 +531,29 @@ test("Payment policy fails closed and Approval/reversal history is append-only",
   );
   await resetRole(database);
 
+  for (const authorization of [
+    { role: "anon", claims: {} },
+    {
+      role: "authenticated",
+      claims: { sub: staffId, app_metadata: { role: "customer" } },
+    },
+    {
+      role: "authenticated",
+      claims: { sub: staffId, app_metadata: { role: "staff" } },
+    },
+  ]) {
+    await setRole(database, authorization.role, authorization.claims);
+    await expectDatabaseError(
+      () => database.query(`
+        update private.rental_approval_configuration
+        set configuration_value = 'invoice_paid'
+        where configuration_key = 'payment_policy'
+      `),
+      "permission denied"
+    );
+    await resetRole(database);
+  }
+
   await configurePaymentPolicy(database, "deposit_required");
   await database.query(
     "update public.rental_requests set payment_status = 'paid', deposit_status = 'paid' where id = $1",
@@ -542,13 +662,17 @@ test("Payment policy fails closed and Approval/reversal history is append-only",
   const reapproved = await approve(database, fixture.requestId, adminId, "admin");
   assert.equal(reapproved.approved, true);
   const history = await database.query(`
-    select event_type, actor_id
+    select event_type, actor_id, payment_policy
     from public.rental_approval_events
     where rental_request_id = $1
     order by occurred_at, id
   `, [fixture.requestId]);
   assert.deepEqual(history.rows.map((row) => row.event_type), ["approved", "reversed", "approved"]);
   assert.equal(history.rows.at(-1).actor_id, adminId);
+  assert.deepEqual(
+    history.rows.map((row) => row.payment_policy),
+    ["deposit_required", null, "deposit_required"]
+  );
   const finalChecks = await database.query(`
     select count(*) as count
     from public.rental_availability_checks
@@ -609,6 +733,72 @@ test("Invoice-paid policy uses authoritative Invoice state and rejects draft/can
   assert.match(checklist.checks.payment_requirement.reason, /cancelled or void/i);
 });
 
+test("legacy and Release 1 availability use inclusive calendar-date parity", async (t) => {
+  const database = await createDatabase();
+  t.after(() => database.close());
+  await configurePaymentPolicy(database, "deposit_required");
+
+  const blocker = await prepareApprovalCandidate(database, {
+    label: "Inclusive Calendar Blocker",
+    rentalItem: item(equipment.bobcat, 70, 72),
+  });
+  await issueInvoice(database, blocker.invoiceId);
+  assert.equal((await approve(database, blocker.requestId)).approved, true);
+
+  const names = await database.query(`
+    select equipment_requested
+    from public.rental_requests
+    where id = $1
+  `, [blocker.requestId]);
+  const bobcatName = names.rows[0].equipment_requested;
+  const rollerName = (await database.query(`
+    select equipment_name
+    from private.rental_equipment_catalog
+    where equipment_id = $1
+  `, [equipment.roller])).rows[0].equipment_name;
+
+  const scenarios = [
+    { label: "End Boundary", equipmentId: equipment.bobcat, equipmentName: bobcatName, start: 72, end: 74, conflict: true },
+    { label: "Next Calendar Day", equipmentId: equipment.bobcat, equipmentName: bobcatName, start: 73, end: 74, conflict: false },
+    { label: "Start Boundary", equipmentId: equipment.bobcat, equipmentName: bobcatName, start: 68, end: 70, conflict: true },
+    { label: "Day Before", equipmentId: equipment.bobcat, equipmentName: bobcatName, start: 68, end: 69, conflict: false },
+    { label: "Exact Dates", equipmentId: equipment.bobcat, equipmentName: bobcatName, start: 70, end: 72, conflict: true },
+    { label: "Contained Dates", equipmentId: equipment.bobcat, equipmentName: bobcatName, start: 71, end: 72, conflict: true },
+    { label: "Containing Dates", equipmentId: equipment.bobcat, equipmentName: bobcatName, start: 69, end: 73, conflict: true },
+    { label: "Different Resource", equipmentId: equipment.roller, equipmentName: rollerName, start: 70, end: 72, conflict: false },
+  ];
+
+  for (const scenario of scenarios) {
+    const startDate = isoDaysFromNow(scenario.start);
+    const endDate = isoDaysFromNow(scenario.end);
+    assert.equal(
+      await legacyHasConflict(
+        database,
+        scenario.equipmentName,
+        startDate,
+        endDate
+      ),
+      scenario.conflict,
+      `${scenario.label}: legacy availability`
+    );
+
+    const requestId = await createRequest(
+      database,
+      `Parity ${scenario.label}`,
+      item(scenario.equipmentId, scenario.start, scenario.end)
+    );
+    assert.equal(
+      (await confirmInitial(database, requestId)).confirmed,
+      !scenario.conflict,
+      `${scenario.label}: Release 1 initial availability`
+    );
+    await database.query(
+      "update public.rental_requests set status = 'cancelled' where id = $1",
+      [requestId]
+    );
+  }
+});
+
 test("Final availability uses deterministic resource locks and preserves conflict evidence", async (t) => {
   const database = await createDatabase();
   t.after(() => database.close());
@@ -652,6 +842,14 @@ test("Final availability uses deterministic resource locks and preserves conflic
   await issueInvoice(database, blockerInvoiceId);
   assert.equal((await approve(database, blocker.requestId)).approved, true);
 
+  await expectDatabaseError(
+    () => database.query(
+      "update public.rental_requests set status = 'cancelled' where id = $1",
+      [blocker.requestId]
+    ),
+    "Reverse rental approval before cancelling"
+  );
+
   const denied = await approve(database, candidate.requestId);
   assert.equal(denied.approved, false);
   assert.equal(denied.code, "availability_conflict");
@@ -662,6 +860,48 @@ test("Final availability uses deterministic resource locks and preserves conflic
       (select count(*) from public.rental_availability_checks where rental_request_id = $1 and check_type = 'final' and result = 'conflict') as conflicts
   `, [candidate.requestId]);
   assert.deepEqual(candidateAudit.rows[0], { events: 0, conflicts: 1 });
+
+  // Defense in depth: even a malformed privileged row that bypassed the
+  // transition trigger must continue blocking while Approval remains current.
+  await database.exec(
+    "alter table public.rental_requests disable trigger rental_requests_protect_approval_state"
+  );
+  await database.query(
+    "update public.rental_requests set status = 'cancelled' where id = $1",
+    [blocker.requestId]
+  );
+  await database.exec(
+    "alter table public.rental_requests enable trigger rental_requests_protect_approval_state"
+  );
+  const blockerName = (await database.query(
+    "select equipment_requested from public.rental_requests where id = $1",
+    [blocker.requestId]
+  )).rows[0].equipment_requested;
+  await database.query(
+    "update public.rental_requests set status = 'cancelled' where id = $1",
+    [candidate.requestId]
+  );
+  assert.equal(
+    await legacyHasConflict(
+      database,
+      blockerName,
+      isoDaysFromNow(60),
+      isoDaysFromNow(62)
+    ),
+    true
+  );
+  await database.query(
+    "update public.rental_requests set status = 'new' where id = $1",
+    [candidate.requestId]
+  );
+  const malformedBlockerDenial = await approve(database, candidate.requestId);
+  assert.equal(malformedBlockerDenial.approved, false);
+  assert.equal(malformedBlockerDenial.code, "availability_conflict");
+
+  await database.query(
+    "update public.rental_requests set status = 'confirmed' where id = $1",
+    [blocker.requestId]
+  );
 
   const adjacentId = await createRequest(
     database,
@@ -689,6 +929,10 @@ test("Final availability uses deterministic resource locks and preserves conflic
   assert.equal((await confirmInitial(database, differentUnitId)).confirmed, true);
 
   await reverse(database, blocker.requestId);
+  await database.query(
+    "update public.rental_requests set status = 'cancelled' where id = $1",
+    [blocker.requestId]
+  );
   assert.equal((await approve(database, candidate.requestId)).approved, true);
 
   const migration = await readFile(migrationUrls.at(-1), "utf8");
@@ -704,6 +948,45 @@ test("Final availability uses deterministic resource locks and preserves conflic
   assert.doesNotMatch(
     migration,
     /alter\s+table\s+(?:storage|auth|realtime)\./i
+  );
+
+  const overlapDefinitions = await database.query(`
+    select proname, pg_catalog.pg_get_functiondef(functions.oid) as definition
+    from pg_catalog.pg_proc functions
+    join pg_catalog.pg_namespace namespaces on namespaces.oid = functions.pronamespace
+    where (namespaces.nspname, proname) in (
+      ('public', 'has_rental_request_conflict'),
+      ('private', 'rental_approval_has_conflict')
+    )
+  `);
+  assert.equal(overlapDefinitions.rows.length, 2);
+  for (const definition of overlapDefinitions.rows) {
+    assert.match(definition.definition, /private\.rental_calendar_ranges_overlap/i);
+  }
+  const adminDashboardSource = await readFile(adminDashboardUrl, "utf8");
+  assert.match(adminDashboardSource, /rentalDateRangesOverlapInclusive/);
+  assert.doesNotMatch(
+    adminDashboardSource,
+    /newPickup\s*<\s*existingReturn|newReturn\s*>\s*existingPickup/
+  );
+
+  const approveDefinition = (await database.query(`
+    select pg_catalog.pg_get_functiondef(
+      'public.approve_rental_request(uuid,text)'::pg_catalog.regprocedure
+    ) as definition
+  `)).rows[0].definition;
+  const configurationLockIndex = approveDefinition.indexOf(
+    "from private.rental_approval_configuration"
+  );
+  const paymentGateIndex = approveDefinition.indexOf(
+    "checklist := private.rental_approval_checklist"
+  );
+  assert.ok(configurationLockIndex >= 0);
+  assert.match(approveDefinition.slice(configurationLockIndex, paymentGateIndex), /for share/i);
+  assert.ok(configurationLockIndex < paymentGateIndex);
+  assert.match(
+    approveDefinition,
+    /rental_approval_events[\s\S]*payment_policy[\s\S]*evaluated_payment_policy/i
   );
 
   const rpcSecurity = await database.query(`
