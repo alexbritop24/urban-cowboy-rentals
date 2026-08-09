@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import AutomationLogs from "../components/admin/AutomationLogs";
 import AdminRentalRequestItemsEditor from "../components/admin/AdminRentalRequestItemsEditor";
+import RentalApprovalChecklist from "../components/approval/RentalApprovalChecklist";
 import RentalDocumentWorkflowSection from "../components/documents/RentalDocumentWorkflowSection";
 import MainLayout from "../components/layout/MainLayout";
 import SEO from "../components/seo/SEO";
@@ -86,14 +87,6 @@ const deliveryStatusOptions = [
   "delivered",
   "return_pickup_needed",
   "returned",
-];
-
-const availabilityStatusOptions = [
-  "pending_review",
-  "available",
-  "conflict",
-  "unavailable",
-  "approved",
 ];
 
 const formatLabel = (value: string) => value.replaceAll("_", " ");
@@ -563,20 +556,6 @@ const hasDateConflict = (
     }
   };
 
-  const handleConfirmRental = async (requestId: string) => {
-    const updatedRequest = await updateRequestFields(requestId, {
-      status: "confirmed",
-    });
-
-    if (updatedRequest) {
-      await createAutomationLog(
-        updatedRequest,
-        "rental_confirmed",
-        `Rental confirmed for ${updatedRequest.full_name}: ${updatedRequest.equipment_requested}.`
-      );
-    }
-  };
-
   const handleMarkPaid = async (requestId: string) => {
     const updatedRequest = await updateRequestFields(requestId, {
       payment_status: "paid",
@@ -1019,6 +998,12 @@ const hasDateConflict = (
                         />
                       </div>
 
+                      <div className="mt-6">
+                        <RentalApprovalChecklist
+                          rentalRequestId={request.id}
+                        />
+                      </div>
+
                       <div className="mt-6 rounded-2xl border border-yellow-500/10 bg-black/25 p-4 sm:p-5">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                           <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
@@ -1033,15 +1018,6 @@ const hasDateConflict = (
                               className="rounded-full border border-yellow-500/20 bg-black/30 px-4 py-2 text-xs font-black uppercase tracking-[0.08em] text-[#fff7ed] transition hover:border-yellow-500/50 disabled:opacity-50"
                             >
                               Mark Quote Sent
-                            </button>
-
-                            <button
-                              type="button"
-                              disabled={updatingId === request.id}
-                              onClick={() => handleConfirmRental(request.id)}
-                              className="rounded-full border border-green-500/20 bg-green-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.08em] text-green-300 transition hover:border-green-500/50 disabled:opacity-50"
-                            >
-                              Confirm Rental
                             </button>
 
                             <button
@@ -1208,23 +1184,12 @@ const hasDateConflict = (
     Availability Status
   </label>
 
-  <select
-    value={request.availability_status || "pending_review"}
-    onChange={(e) =>
-      updateRequestField(
-        request.id,
-        "availability_status",
-        e.target.value
-      )
-    }
-    className="w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 text-[#fff7ed] outline-none focus:border-yellow-500/40"
-  >
-    {availabilityStatusOptions.map((status) => (
-      <option key={status} value={status}>
-        {formatLabel(status)}
-      </option>
-             ))}
-      </select>
+  <p className="rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 font-black uppercase tracking-[0.08em] text-[#fff7ed]">
+    {formatLabel(request.availability_status || "pending_review")}
+  </p>
+  <p className="mt-2 text-xs text-[#8f8577]">
+    Updated by the authoritative availability workflow above.
+  </p>
        </div>
 
        <div>
