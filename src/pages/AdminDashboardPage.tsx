@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 
 import AutomationLogs from "../components/admin/AutomationLogs";
 import AdminRentalRequestItemsEditor from "../components/admin/AdminRentalRequestItemsEditor";
+import RentalApprovalChecklist from "../components/approval/RentalApprovalChecklist";
 import RentalDocumentWorkflowSection from "../components/documents/RentalDocumentWorkflowSection";
+import { rentalDateRangesOverlapInclusive } from "../domain/availability/rentalAvailability";
 import MainLayout from "../components/layout/MainLayout";
 import SEO from "../components/seo/SEO";
 import PageTransition from "../components/ui/PageTransition";
@@ -41,6 +43,7 @@ interface RentalRequest {
   availability_notes: string | null;
   payment_link: string | null;
   insurance_verification_status: string | null;
+  approval_status: string;
 }
 
 const statusOptions = [
@@ -86,14 +89,6 @@ const deliveryStatusOptions = [
   "delivered",
   "return_pickup_needed",
   "returned",
-];
-
-const availabilityStatusOptions = [
-  "pending_review",
-  "available",
-  "conflict",
-  "unavailable",
-  "approved",
 ];
 
 const formatLabel = (value: string) => value.replaceAll("_", " ");
@@ -338,6 +333,13 @@ const hasDateConflict = (
 ) => {
   return requests.some((request) => {
     if (request.id === currentRequestId) return false;
+    if (request.approval_status === "reversed") return false;
+    if (
+      request.approval_status !== "approved" &&
+      request.status === "cancelled"
+    ) {
+      return false;
+    }
 
     if (request.equipment_requested !== equipmentRequested) {
       return false;
@@ -347,13 +349,12 @@ const hasDateConflict = (
       return false;
     }
 
-    const existingPickup = new Date(request.pickup_date).getTime();
-    const existingReturn = new Date(request.return_date).getTime();
-
-    const newPickup = new Date(pickupDate).getTime();
-    const newReturn = new Date(returnDate).getTime();
-
-    return newPickup < existingReturn && newReturn > existingPickup;
+    return rentalDateRangesOverlapInclusive(
+      pickupDate,
+      returnDate,
+      request.pickup_date,
+      request.return_date
+    );
      });
     };
 
@@ -559,20 +560,6 @@ const hasDateConflict = (
         updatedRequest,
         "quote_sent",
         `Quote sent to ${updatedRequest.full_name} for ${updatedRequest.equipment_requested}.`
-      );
-    }
-  };
-
-  const handleConfirmRental = async (requestId: string) => {
-    const updatedRequest = await updateRequestFields(requestId, {
-      status: "confirmed",
-    });
-
-    if (updatedRequest) {
-      await createAutomationLog(
-        updatedRequest,
-        "rental_confirmed",
-        `Rental confirmed for ${updatedRequest.full_name}: ${updatedRequest.equipment_requested}.`
       );
     }
   };
@@ -922,11 +909,17 @@ const hasDateConflict = (
 
                             className="rounded-2xl border border-yellow-500/10 bg-black/40 px-5 py-4 text-sm font-black uppercase tracking-[0.08em] text-[#fff7ed] outline-none transition focus:border-yellow-500/40 disabled:opacity-50"
                           >
-                            {statusOptions.map((status) => (
-                              <option key={status} value={status}>
-                                {formatLabel(status)}
-                              </option>
-                            ))}
+                            {statusOptions
+                              .filter(
+                                (status) =>
+                                  status !== "cancelled" ||
+                                  request.approval_status !== "approved"
+                              )
+                              .map((status) => (
+                                <option key={status} value={status}>
+                                  {formatLabel(status)}
+                                </option>
+                              ))}
                           </select>
                         </div>
                       </div>
@@ -1019,6 +1012,13 @@ const hasDateConflict = (
                         />
                       </div>
 
+                      <div className="mt-6">
+                        <RentalApprovalChecklist
+                          rentalRequestId={request.id}
+                          onStateChange={() => void fetchRequests()}
+                        />
+                      </div>
+
                       <div className="mt-6 rounded-2xl border border-yellow-500/10 bg-black/25 p-4 sm:p-5">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                           <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
@@ -1033,15 +1033,6 @@ const hasDateConflict = (
                               className="rounded-full border border-yellow-500/20 bg-black/30 px-4 py-2 text-xs font-black uppercase tracking-[0.08em] text-[#fff7ed] transition hover:border-yellow-500/50 disabled:opacity-50"
                             >
                               Mark Quote Sent
-                            </button>
-
-                            <button
-                              type="button"
-                              disabled={updatingId === request.id}
-                              onClick={() => handleConfirmRental(request.id)}
-                              className="rounded-full border border-green-500/20 bg-green-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.08em] text-green-300 transition hover:border-green-500/50 disabled:opacity-50"
-                            >
-                              Confirm Rental
                             </button>
 
                             <button
@@ -1208,23 +1199,12 @@ const hasDateConflict = (
     Availability Status
   </label>
 
-  <select
-    value={request.availability_status || "pending_review"}
-    onChange={(e) =>
-      updateRequestField(
-        request.id,
-        "availability_status",
-        e.target.value
-      )
-    }
-    className="w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 text-[#fff7ed] outline-none focus:border-yellow-500/40"
-  >
-    {availabilityStatusOptions.map((status) => (
-      <option key={status} value={status}>
-        {formatLabel(status)}
-      </option>
-             ))}
-      </select>
+  <p className="rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 font-black uppercase tracking-[0.08em] text-[#fff7ed]">
+    {formatLabel(request.availability_status || "pending_review")}
+  </p>
+  <p className="mt-2 text-xs text-[#8f8577]">
+    Updated by the authoritative availability workflow above.
+  </p>
        </div>
 
        <div>

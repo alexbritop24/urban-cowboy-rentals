@@ -631,6 +631,101 @@ export type Database = {
           },
         ];
       };
+      rental_availability_checks: {
+        Row: {
+          id: string;
+          rental_request_id: string;
+          check_type: string;
+          schedule_hash: string;
+          result: string;
+          checked_by: string;
+          checked_at: string;
+          note: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          rental_request_id: string;
+          check_type: string;
+          schedule_hash: string;
+          result: string;
+          checked_by: string;
+          checked_at?: string;
+          note?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          rental_request_id?: string;
+          check_type?: string;
+          schedule_hash?: string;
+          result?: string;
+          checked_by?: string;
+          checked_at?: string;
+          note?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "rental_availability_checks_request_fk";
+            columns: ["rental_request_id"];
+            isOneToOne: false;
+            referencedRelation: "rental_requests";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      rental_approval_events: {
+        Row: {
+          id: string;
+          rental_request_id: string;
+          event_type: string;
+          actor_id: string;
+          occurred_at: string;
+          note: string | null;
+          availability_check_id: string | null;
+          payment_policy: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          rental_request_id: string;
+          event_type: string;
+          actor_id: string;
+          occurred_at?: string;
+          note?: string | null;
+          availability_check_id?: string | null;
+          payment_policy?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          rental_request_id?: string;
+          event_type?: string;
+          actor_id?: string;
+          occurred_at?: string;
+          note?: string | null;
+          availability_check_id?: string | null;
+          payment_policy?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "rental_approval_events_request_fk";
+            columns: ["rental_request_id"];
+            isOneToOne: false;
+            referencedRelation: "rental_requests";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "rental_approval_events_availability_check_fk";
+            columns: ["availability_check_id"];
+            isOneToOne: false;
+            referencedRelation: "rental_availability_checks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       rental_request_items: {
         Row: {
           id: string;
@@ -701,6 +796,12 @@ export type Database = {
           insurance_reviewed_by: string | null;
           insurance_reviewed_at: string | null;
           insurance_review_note: string | null;
+          approval_status: string;
+          approved_by: string | null;
+          approved_at: string | null;
+          approval_reversed_by: string | null;
+          approval_reversed_at: string | null;
+          approval_reversal_note: string | null;
           full_name: string;
           phone: string;
           email: string;
@@ -740,6 +841,12 @@ export type Database = {
           insurance_reviewed_by?: string | null;
           insurance_reviewed_at?: string | null;
           insurance_review_note?: string | null;
+          approval_status?: string;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          approval_reversed_by?: string | null;
+          approval_reversed_at?: string | null;
+          approval_reversal_note?: string | null;
           full_name: string;
           phone: string;
           email: string;
@@ -779,6 +886,12 @@ export type Database = {
           insurance_reviewed_by?: string | null;
           insurance_reviewed_at?: string | null;
           insurance_review_note?: string | null;
+          approval_status?: string;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          approval_reversed_by?: string | null;
+          approval_reversed_at?: string | null;
+          approval_reversal_note?: string | null;
           full_name?: string;
           phone?: string;
           email?: string;
@@ -897,6 +1010,33 @@ export type Database = {
           review_note_value?: string | null;
         };
         Returns: string;
+      };
+      get_rental_approval_checklist: {
+        Args: {
+          target_rental_request_id: string;
+        };
+        Returns: Json;
+      };
+      confirm_rental_request_initial_availability: {
+        Args: {
+          target_rental_request_id: string;
+          note_value?: string | null;
+        };
+        Returns: Json;
+      };
+      approve_rental_request: {
+        Args: {
+          target_rental_request_id: string;
+          note_value?: string | null;
+        };
+        Returns: Json;
+      };
+      reverse_rental_approval: {
+        Args: {
+          target_rental_request_id: string;
+          note_value?: string | null;
+        };
+        Returns: Json;
       };
       create_invoice_for_agreement: {
         Args: {
