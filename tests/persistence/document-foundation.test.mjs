@@ -40,6 +40,9 @@ const createDatabase = async () => {
       created_at timestamptz not null default now(),
       unique (bucket_id, name)
     );
+    -- Hosted Supabase owns storage.objects and enables RLS before application
+    -- migrations run. The harness models that platform-owned prerequisite.
+    alter table storage.objects enable row level security;
   `);
   return database;
 };
@@ -168,6 +171,14 @@ test("private rental documents preserve history, authorization, and finalization
   const completeAgreement = await createAgreement(database, completeRequest);
 
   const documentMigration = await readFile(migrationUrls.at(-1), "utf8");
+  assert.match(
+    documentMigration,
+    /create\s+policy\s+"staff can read private rental documents"[\s\S]*?bucket_id\s*=\s*'rental-documents'[\s\S]*?private\.is_staff\(\)/i
+  );
+  assert.match(
+    documentMigration,
+    /create\s+trigger\s+rental_document_objects_prevent_orphan[\s\S]*?on\s+storage\.objects/i
+  );
   await database.exec(documentMigration);
 
   const bucket = await database.query(
@@ -180,6 +191,13 @@ test("private rental documents preserve history, authorization, and finalization
     "image/jpeg",
     "image/png",
   ]);
+
+  const storageSecurity = await database.query(`
+    select relrowsecurity as rls_enabled
+    from pg_catalog.pg_class
+    where oid = 'storage.objects'::pg_catalog.regclass
+  `);
+  assert.equal(storageSecurity.rows[0].rls_enabled, true);
 
   const policies = await database.query(`
     select schemaname, tablename, policyname, roles, cmd

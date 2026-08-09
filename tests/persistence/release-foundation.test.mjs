@@ -38,6 +38,9 @@ const createSupabaseLikeDatabase = async () => {
       created_at timestamptz not null default now(),
       unique (bucket_id, name)
     );
+    -- Hosted Supabase owns storage.objects and enables RLS before application
+    -- migrations run. The harness models that platform-owned prerequisite.
+    alter table storage.objects enable row level security;
   `);
   return database;
 };
@@ -111,6 +114,16 @@ test("Release 1 migrations are secure at every step and rerunnable", async (t) =
     [...migrationUrls, sqlTestUrl].map((url) => readFile(url, "utf8"))
   );
   const sqlCorpus = sqlSources.join("\n");
+  const migrationSqlCorpus = sqlSources.slice(0, migrationUrls.length).join("\n");
+  assert.doesNotMatch(
+    migrationSqlCorpus,
+    /\balter\s+table\s+storage\.objects\s+enable\s+row\s+level\s+security\b/i
+  );
+  assert.doesNotMatch(
+    migrationSqlCorpus,
+    /\balter\s+(?:table|function|schema|sequence|view)\s+(?:storage|auth|realtime)\.[^;]*\bowner\s+to\b/i
+  );
+  assert.doesNotMatch(migrationSqlCorpus, /\bset\s+role\s+supabase_storage_admin\b/i);
   assert.doesNotMatch(sqlCorpus, /\bpublic\.digest\s*\(/i);
   assert.doesNotMatch(sqlCorpus, /(^|[^.\w])digest\s*\(/im);
   assert.match(sqlCorpus, /extensions\.digest\s*\(/i);
