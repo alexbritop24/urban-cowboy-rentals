@@ -2,11 +2,11 @@
 
 ## Current Release Status
 
-Release 1 is **locally validated but not approved for production activation**. The implemented chain is:
+Release 1 is **engineering-validated in local and isolated hosted-preview environments, but not approved for production activation**. The implemented chain is:
 
 `Rental Request → normalized items → initial availability → Agreement → acceptance/card authorization → private documents → insurance verification → Invoice → Payment → final availability → Approval → reversal/reapproval`
 
-The remaining work is hosted-environment proof and client configuration/sign-off. Neither rollout gate is enabled by this readiness sprint, and the Approval payment policy remains `unconfigured`.
+The remaining work is client configuration/sign-off, the documented partial hosted-legacy limitation, and controlled production activation. Neither rollout gate is enabled by this readiness sprint, and the Approval payment policy remains `unconfigured`.
 
 Detailed behavior remains defined in the [Release 1 specification](urban-cowboy-rentals-release-1-spec.md), [ERD](urban-cowboy-rentals-release-1-erd.md), [security/role contract](urban-cowboy-rentals-release-1-security-roles.md), and [Approval workflow](urban-cowboy-rentals-release-1-approval-workflow.md).
 
@@ -14,28 +14,28 @@ Detailed behavior remains defined in the [Release 1 specification](urban-cowboy-
 
 | Capability | Status | Evidence or remaining proof |
 | --- | --- | --- |
-| Multi-item request persistence | READY — HOSTED VALIDATION REQUIRED | Transactional RPC, authoritative catalog, lifecycle guards, and local migration tests pass; backend gate remains off. |
-| Agreement creation/finalization | READY — HOSTED VALIDATION REQUIRED | Idempotent creation, legal/document gates, immutable snapshots, and local tests pass. |
+| Multi-item request persistence | HOSTED VALIDATED | Transactional RPC, authoritative catalog, lifecycle guards, hosted synthetic workflow, and local migration tests pass; backend gate remains off. |
+| Agreement creation/finalization | HOSTED VALIDATED | Hosted creation, acceptance, document/insurance gates, finalization, and immutable snapshot verification pass. |
 | Agreement snapshots | READY | Clause and complete-material SHA-256 hashes are persisted and locally verified. |
 | Agreement PDF | READY | Uses persisted snapshot data; legacy unverifiable records fail closed. Browser PDF is intentionally interim. |
-| Document upload | READY — HOSTED VALIDATION REQUIRED | Edge Function and validators exist; actual hosted Storage/Function execution remains required. |
-| Private Storage | READY — HOSTED VALIDATION REQUIRED | Migration specifies a private 10 MB PDF/JPEG/PNG bucket and staff-only policy. Hosted state must be inspected. |
-| Signed document URLs | READY — HOSTED VALIDATION REQUIRED | Edge Function issues 60–300 second URLs (120-second default); hosted expiry/access must be proven. |
-| Insurance verification | READY — HOSTED VALIDATION REQUIRED | Review binds the current insurance document and replacement invalidates review. |
-| Invoice creation | READY — HOSTED VALIDATION REQUIRED | Agreement-derived, idempotent original Invoice creation passes local tests. |
-| Invoice issuance | READY — HOSTED VALIDATION REQUIRED | Issuance locks the snapshot and passes local tests. |
-| Payment | READY — HOSTED VALIDATION REQUIRED | Transactional, append-only recording and balance invariants pass local tests. |
-| Approval checklist | READY — HOSTED VALIDATION REQUIRED | Server-derived, fail-closed checklist passes local tests. |
-| Initial availability | READY — HOSTED VALIDATION REQUIRED | Hash-bound, inclusive calendar-date check passes local tests. |
-| Final availability | READY — HOSTED VALIDATION REQUIRED | Rechecked after sorted advisory locks inside Approval. Real sessions remain required. |
-| Approval | READY — HOSTED VALIDATION REQUIRED | Transactional state/evidence protection passes local tests; hosted races remain. |
-| Approval reversal | READY — HOSTED VALIDATION REQUIRED | Append-only reversal and resource release pass local tests. |
-| Reapproval | READY — HOSTED VALIDATION REQUIRED | Re-runs all gates and creates new evidence locally; hosted walkthrough remains. |
-| Legacy compatibility | READY | Local legacy request, Agreement, Invoice, scalar summary, route, and unverified-state coverage passes. |
-| Authorization/RLS | READY — HOSTED VALIDATION REQUIRED | Local grant/RLS/JWT tests pass; hosted `app_metadata` accounts and Storage policies remain to prove. |
+| Document upload | HOSTED VALIDATED | Hosted Edge Function uploads, type/signature validation, randomized paths, registration, and compensation cleanup pass. |
+| Private Storage | HOSTED VALIDATED | Hosted bucket is private with the expected limits and authorization boundaries. |
+| Signed document URLs | HOSTED VALIDATED | Hosted short-lived signed URL access and expiry behavior pass. |
+| Insurance verification | HOSTED VALIDATED | Hosted review binds the exact current insurance document. |
+| Invoice creation | HOSTED VALIDATED | Hosted Agreement-derived, idempotent original Invoice creation and snapshot lineage pass. |
+| Invoice issuance | HOSTED VALIDATED | Hosted issuance locks the snapshot and preserves totals. |
+| Payment | HOSTED VALIDATED | Hosted append-only payment recording produced the exact paid balance with no drift. |
+| Approval checklist | HOSTED VALIDATED | Hosted server-derived gates, actionable reasons, and fail-closed policy behavior pass. |
+| Initial availability | HOSTED VALIDATED | Hosted hash-bound inclusive-date checks pass. |
+| Final availability | HOSTED VALIDATED | Hosted Approval races and direct sessions prove final recheck after deterministic resource locking. |
+| Approval | HOSTED VALIDATED | Same-resource, reversed-order multi-resource, disjoint-resource, and payment-policy serialization pass. |
+| Approval reversal | HOSTED VALIDATED | Hosted append-only reversal, cancellation protection, and resource release pass. |
+| Reapproval | HOSTED VALIDATED | Hosted reversal/reapproval re-ran every gate and created new final evidence. |
+| Legacy compatibility | READY — HOSTED EVIDENCE PARTIAL | Local request/Agreement/Invoice/route coverage passes. The preview's only request without normalized items was an obsolete synthetic document-validation fixture, and it contained zero representative historical Agreements or Invoices. Hosted legacy route rendering and `legacy_unverified` presentation were therefore not testable; no fixtures were fabricated or backfilled. |
+| Authorization/RLS | HOSTED VALIDATED | Hosted trusted `app_metadata` staff/admin, ordinary customer denial, spoofed-user denial, RPC boundaries, and Storage policies pass. |
 | Production rollout gates | READY | Browser default is disabled; database default is `false`. Activation is intentionally separate. |
 
-No current item is classified `BLOCKED — ENGINEERING` from local evidence. Production activation remains blocked by hosted proof and the business decisions below.
+No current item is classified `BLOCKED — ENGINEERING`. Production activation remains blocked by the business decisions below and requires explicit acceptance of the partial hosted-legacy evidence.
 
 ## Hosted Validation Harness
 
@@ -93,6 +93,8 @@ npm run test:hosted -- approval-races
 - Never use real customer names, email addresses, identity documents, or insurance files.
 
 ## Hosted Test Procedures
+
+The following procedures remain the reusable validation protocol. They were completed where the hosted validation record below reports a pass; imperative steps describe how to repeat that evidence and do not indicate an outstanding preview gate.
 
 ### 1. Migration compatibility
 
@@ -216,7 +218,7 @@ Only `app_metadata.role` or `app_metadata.app_role` values `staff`/`admin` are t
 
 ## Synthetic End-to-End Walkthrough
 
-Run this only after clean hosted migration and authorization validation. Use two active, different serialized catalog items and synthetic customer data.
+This walkthrough passed in the isolated hosted preview. Retain the procedure for a future preview rerun or approved production smoke test, and run it only after clean hosted migration and authorization validation. Use two active, different serialized catalog items and synthetic customer data.
 
 1. Enable the backend gate temporarily in the isolated preview—not production—and create a multi-item request through `create_rental_request_with_items()`.
 2. Confirm normalized child rows, independent dates/rates, quantity `1`, authoritative names/serials/rates, and legacy scalar summary.
@@ -235,11 +237,21 @@ The browser gate remains off throughout backend walkthroughs. It is not necessar
 
 ## Inclusive Dates, Cancellation, and Legacy Walkthroughs
 
-Hosted evidence must include one serialized unit for August 10–12, a conflicting August 12–14 request, and an available August 13–14 request. Compare the public legacy RPC, initial confirmation, final Approval, and browser advisory result.
+Inclusive-date hosted validation passed with one serialized unit for August 10–12, a conflicting August 12–14 request, and an available August 13–14 request. The public legacy RPC, initial confirmation, final Approval, and browser advisory agreed.
 
-For cancellation, directly setting an Approved request to `cancelled` must fail. After `reverse_rental_approval()`, operational cancellation may proceed and the reversed rental no longer blocks solely because of its former Approval. Approved and Reversed events remain append-only.
+Cancellation protection also passed: directly setting an Approved request to `cancelled` failed. After `reverse_rental_approval()`, operational cancellation succeeded and the reversed rental no longer blocked solely because of its former Approval. Approved and Reversed events remained append-only.
 
-For legacy compatibility, inspect representative existing fixtures without backfill: request, historical Agreement, historical Invoice, scalar equipment summary, archived equipment snapshot, `/admin/agreement/:id`, and `/invoice/:id`. No Approval event is fabricated; applicable legacy operational records display `legacy_unverified`.
+The preview's only request without `rental_request_items` was `61d9c74e-7b1a-4464-ad2b-c4f06f38a9cd`. Inspection proved that it is an obsolete synthetic document-validation fixture, not representative business history:
+
+- `full_name` is `Synthetic Release Validation`;
+- its generated email identifies an `r1-doc` test, and its phone is a placeholder;
+- `equipment_requested` explicitly identifies a synthetic document fixture;
+- it has no rental dates, normalized items, Agreement, Invoice, Payment, availability history, or Approval history; and
+- it has two tiny synthetic document files with matching private Storage objects.
+
+This fixture does not reveal a Release 1 defect and must not be backfilled. It remains in the temporary preview only as retained validation evidence until that preview project is deleted.
+
+The hosted preview contained zero representative historical legacy Agreements and zero representative historical legacy Invoices. Hosted rendering of `/admin/agreement/:id` and `/invoice/:id`, including `legacy_unverified` presentation, was therefore **not testable** and is not claimed as a hosted pass. Local automated legacy compatibility coverage passes. Before activation, perform a read-only inventory of actual production legacy records; do not backfill, mutate, or fabricate records merely to expand validation evidence.
 
 ## Release Configuration Audit
 
@@ -247,17 +259,18 @@ Never include values in release evidence.
 
 | Setting/variable | Repository state | Release classification |
 | --- | --- | --- |
-| `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` | Missing/anything except exact `true` resolves to false | INTENTIONALLY DISABLED |
-| `private.release_feature_flags.multi_item_rental_requests` | Migration default `false` | INTENTIONALLY DISABLED |
-| `RENTAL_DOCUMENT_MAX_BYTES` | Edge fallback and bucket constraint are 10,485,760 bytes | CONFIGURED; hosted override must be verified |
-| `RENTAL_DOCUMENT_SIGNED_URL_TTL_SECONDS` | Edge fallback 120 seconds, clamped to 60–300 | CONFIGURED; hosted override must be verified |
-| Approval `payment_policy` | Migration default `unconfigured` | CLIENT DECISION REQUIRED |
-| `VITE_SUPABASE_URL` | Local variable name exists | CONFIGURED locally; preview identity unconfirmed |
-| `VITE_SUPABASE_ANON_KEY` | Local variable name exists | CONFIGURED locally; value must remain unreported |
-| `SUPABASE_URL` | Hosted Edge runtime requirement | HOSTED VALIDATION REQUIRED |
-| `SUPABASE_ANON_KEY` | Hosted Edge runtime requirement | HOSTED VALIDATION REQUIRED |
-| `SUPABASE_SERVICE_ROLE_KEY` | Hosted secret/server-only requirement | HOSTED VALIDATION REQUIRED |
-| Staff/admin `app_metadata` | Account-specific | MISSING until hosted account audit passes |
+| `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` | Missing/anything except exact `true` resolves to false | Browser rollout gate remains disabled |
+| `private.release_feature_flags.multi_item_rental_requests` | Migration default `false`; restored and reverified after preview testing | Backend rollout gate remains `false` |
+| `RENTAL_DOCUMENT_MAX_BYTES` | Edge fallback and bucket constraint are 10,485,760 bytes | Preview passed; confirm production deployment configuration before activation |
+| `RENTAL_DOCUMENT_SIGNED_URL_TTL_SECONDS` | Edge fallback 120 seconds, clamped to 60–300 | Preview passed; confirm production deployment configuration before activation |
+| Approval `payment_policy` | Migration default `unconfigured`; restored and reverified after preview testing | Remains `unconfigured`; client decision required before activation |
+| `VITE_SUPABASE_URL` | Preview project identity passed harness confirmation | Preview passed; production configuration/activation remains pending |
+| `VITE_SUPABASE_ANON_KEY` | Preview key worked without value disclosure | Preview passed; production value must remain unreported |
+| `SUPABASE_URL` | Preview Edge runtime configured successfully | Preview passed; production deployment/configuration remains pending |
+| `SUPABASE_ANON_KEY` | Preview Edge runtime configured successfully | Preview passed; production deployment/configuration remains pending |
+| `SUPABASE_SERVICE_ROLE_KEY` | Preview secret remained server-side and passed required document operations | Preview passed; production secret/configuration remains pending |
+| Preview staff/admin `app_metadata` | Trusted claims and refreshed preview sessions were validated | PASSED 2026-08-13 |
+| Production staff/admin `app_metadata` | Account- and session-specific | PENDING production audit and session refresh |
 | `VITE_N8N_RENTAL_REQUEST_WEBHOOK` | Existing browser integration variable | CONFIGURED locally; operational endpoint test required |
 | `VITE_N8N_AUTOMATION_WEBHOOK_URL` | Existing browser integration variable | CONFIGURED locally; operational endpoint test required |
 
@@ -265,21 +278,30 @@ Never include values in release evidence.
 
 ### P0 — cannot release
 
-No P0 implementation defect is known from local validation. Any public document access, migration failure, authorization bypass, corrupt payment balance, or two successful conflicting Approvals discovered in hosted testing becomes P0 immediately.
+No P0 implementation defect is known from local or isolated hosted-preview validation. Any public document access, migration failure, authorization bypass, corrupt payment balance, or two successful conflicting Approvals discovered during later validation becomes P0 immediately.
 
-### P1 — resolve before activation
+### Completed in isolated hosted preview
 
-- Apply and validate every migration against hosted Supabase in actual order.
-- Pass same-resource, multi-resource, disjoint-resource, and payment-policy hosted concurrency tests.
-- Pass hosted Storage, Edge Function, compensation, signed URL, and authorization validation.
-- Complete one synthetic hosted end-to-end walkthrough and legacy-route walkthrough.
-- Audit actual staff/admin `app_metadata` and refreshed JWTs.
+- Sequential migration validation.
+- Same-resource, reversed-order multi-resource, disjoint-resource, and payment-policy concurrency tests.
+- Private Storage, document Edge Function, compensation cleanup, and signed URL validation.
+- Trusted `app_metadata` authorization and ordinary/spoofed customer denial.
+- Synthetic Agreement → Invoice → Payment → Approval workflow.
+- Approval reversal and reapproval.
+- Inclusive-date parity and cancellation protection.
+
+### P1 — resolve before production activation
+
+- Apply the preview-validated migrations to production through the controlled forward-only migration procedure.
+- Verify production staff/admin `app_metadata` and refreshed sessions.
 - Client selects `deposit_required` or `invoice_paid`; if deposit-based, define zero-deposit behavior.
 - Client/counsel approves final Agreement, card-authorization, signature, and Business-signing wording.
 - Client defines insurance coverage, effective/expiration rules, and verifier authority.
 - Client approves identity/insurance retention and deletion procedures.
 - Client confirms the operational Agreement/Invoice delivery and signature channel.
 - Confirm the webhook endpoints and operational owners used during activation.
+- Explicitly accept the partial hosted legacy evidence described above.
+- Complete a read-only inventory of actual production legacy records before activation, without backfill or mutation.
 
 These are production-activation blockers, not reasons to redesign the implemented architecture.
 
@@ -296,10 +318,10 @@ These are production-activation blockers, not reasons to redesign the implemente
 Do not execute this sequence until every P1 owner signs off.
 
 1. Merge all reviewed Release 1 code to `main`; tag no release yet.
-2. Validate clean and sequential migrations in hosted preview, then apply the same forward migrations to production.
+2. Apply the already preview-validated forward migrations to production through a controlled migration plan; do not perform destructive rollback or rewrite deployed migration history.
 3. Deploy/configure `rental-documents`; verify JWT enforcement and private bucket configuration.
 4. Assign and verify trusted staff/admin `app_metadata`; refresh sessions.
-5. Resolve and record all client/legal/insurance/retention decisions.
+5. Resolve and record all client/legal/insurance/retention/delivery decisions, explicitly accept the partial hosted legacy evidence, and complete the read-only production legacy inventory.
 6. Set the chosen production payment policy through controlled database administration.
 7. Run a non-destructive production configuration smoke test with synthetic/minimal data only where approved.
 8. Enable the database `multi_item_rental_requests` gate.
@@ -310,6 +332,8 @@ Do not execute this sequence until every P1 owner signs off.
 13. After sign-off, tag the reviewed `main` commit as `v1.0.0`.
 
 Backend activation precedes browser activation so a stale/early browser cannot make the server accept unfinished writes. Readiness validation itself leaves both gates off.
+
+Do not activate production until every remaining business, legal, security, and operations sign-off is complete. Activation and any rollback action must preserve immutable Agreements, Invoices, Payments, Documents, availability checks, and Approval events.
 
 ## Rollback Strategy
 
@@ -382,15 +406,55 @@ Results:
 - Feature-disabled and feature-enabled production builds — passed. Node 20.17 emitted the documented Vite/Supabase runtime warning.
 - `git diff --check` and the migration qualification/managed-schema audit — passed.
 
-As of the initial readiness review, no hosted test is marked passed: the available configuration does not prove an isolated preview target and lacks the required staff/admin/customer/service/database credentials. Record hosted project, date, operator, sanitized results, and evidence links here only after actual execution.
+Final local regression rerun completed on 2026-08-13:
+
+```text
+npm run lint
+npm run test:persistence
+npm run check:domain
+feature-disabled production build
+feature-enabled production build
+git diff --check
+```
+
+Results:
+
+- `npm run lint` — passed.
+- `npm run test:persistence` — 30/30 passed.
+- `npm run check:domain` — 45 domain files, zero circular dependencies.
+- Feature-disabled and feature-enabled production builds — passed.
+- `git diff --check` — passed; the repository was clean before this readiness-record update.
+- Node 20.17 again emitted the documented Vite minimum-version warning; the builds completed successfully.
+
+Hosted validation was completed in the isolated `urban-cowboy-rentals-r1-validation` preview during 2026-08-11 through 2026-08-13. Sanitized results:
+
+- Hosted preview confirmation and sequential migration validation — passed.
+- Trusted `app_metadata` staff/admin authorization, ordinary customer denial, and spoofed-metadata denial — passed.
+- Private Storage, Edge Function upload/registration, signed URL behavior, and compensation cleanup — passed.
+- Unconfigured payment-policy fail-closed behavior — passed.
+- Automated same-resource, reversed-order multi-resource, and disjoint-resource Approval races — passed.
+- Direct same-resource serialization — passed; the waiter blocked and then returned `availability_conflict`.
+- Direct X+Y/Y+X sorted-lock serialization — passed without deadlock; the waiter returned `availability_conflict` after the holder committed.
+- Direct disjoint-resource concurrency — passed; the second Approval completed while the first transaction remained open.
+- Payment-policy row serialization — passed; the Approved event retained the policy evaluated in its transaction.
+- Synthetic request through Agreement, acceptance/card authorization, private documents, insurance verification, Invoice, exact Payment, Approval, reversal, and reapproval — passed.
+- Inclusive-date parity — passed across the legacy RPC, initial/final checks, and browser advisory: August 10–12 conflicts with August 12–14 and permits August 13–14.
+- Cancellation protection — passed: direct cancellation while Approved failed; audited reversal released the resource; cancellation then succeeded without rewriting history.
+- Preview cleanup — passed: `payment_policy = unconfigured` and `multi_item_rental_requests = false` were reverified.
+- Hosted legacy evidence — partial. The only request without normalized items, `61d9c74e-7b1a-4464-ad2b-c4f06f38a9cd`, was the obsolete synthetic document-validation fixture described above. It had no Agreement, Invoice, Payment, availability history, or Approval history, and it remains only as retained preview evidence until preview deletion. The preview contained zero representative historical legacy Agreements and zero representative historical legacy Invoices, so historical route rendering and `legacy_unverified` presentation were not testable and are not claimed as hosted passes. Local automated compatibility coverage remains green; no rows were fabricated, backfilled, or mutated.
 
 ## Sign-off
 
 | Area | Owner | Status/date |
 | --- | --- | --- |
-| Engineering/local validation | Readiness branch | Passed 2026-08-08 |
-| Hosted migration/concurrency |  | Pending |
-| Security/Storage authorization |  | Pending |
+| Engineering/local validation | Readiness branch | Passed 2026-08-13 |
+| Isolated preview migration/concurrency | Validation operator | Passed 2026-08-13 |
+| Isolated preview security/Storage authorization | Validation operator | Passed 2026-08-13 |
+| Isolated preview staff/admin authorization | Validation operator | Passed 2026-08-13 |
+| Hosted legacy routes | Validation operator | Not testable — zero representative historical Agreement/Invoice records; evidence partial |
+| Production migrations | Release operator | Pending controlled application |
+| Production staff/admin authorization | Release operator | Pending `app_metadata` audit and refreshed-session verification |
 | Client operations/payment policy |  | Pending |
 | Legal Agreement wording |  | Pending |
+| Insurance/retention/delivery operations |  | Pending |
 | Production activation approval |  | Pending |
