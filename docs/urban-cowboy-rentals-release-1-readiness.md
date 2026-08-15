@@ -6,7 +6,7 @@ Release 1 is **engineering-validated in local and isolated hosted-preview enviro
 
 `Rental Request → normalized items → initial availability → Agreement → acceptance/card authorization → private documents → insurance verification → Invoice → Payment → final availability → Approval → reversal/reapproval`
 
-The remaining work is client configuration/sign-off, the documented partial hosted-legacy limitation, and controlled production activation. Neither rollout gate is enabled by this readiness sprint, and the Approval payment policy remains `unconfigured`.
+The remaining work is isolated hosted-preview validation of the new production-shape reconciliation migration and post-reconciliation multi-session behavior, client configuration/sign-off, the documented partial hosted-legacy limitation, and controlled production activation. Neither rollout gate is enabled by this readiness work, and the Approval payment policy remains `unconfigured`.
 
 Detailed behavior remains defined in the [Release 1 specification](urban-cowboy-rentals-release-1-spec.md), [ERD](urban-cowboy-rentals-release-1-erd.md), [security/role contract](urban-cowboy-rentals-release-1-security-roles.md), and [Approval workflow](urban-cowboy-rentals-release-1-approval-workflow.md).
 
@@ -35,7 +35,7 @@ Detailed behavior remains defined in the [Release 1 specification](urban-cowboy-
 | Authorization/RLS | HOSTED VALIDATED | Hosted trusted `app_metadata` staff/admin, ordinary customer denial, spoofed-user denial, RPC boundaries, and Storage policies pass. |
 | Production rollout gates | READY | Browser default is disabled; database default is `false`. Activation is intentionally separate. |
 
-No current item is classified `BLOCKED — ENGINEERING`. Production activation remains blocked by the business decisions below and requires explicit acceptance of the partial hosted-legacy evidence.
+No local implementation defect is currently classified `BLOCKED — ENGINEERING`. The new forward-only reconciliation migration still requires isolated hosted-preview validation before production migration approval. Production activation also remains blocked by the business decisions below and requires explicit acceptance of the partial hosted-legacy evidence.
 
 ## Hosted Validation Harness
 
@@ -253,6 +253,20 @@ This fixture does not reveal a Release 1 defect and must not be backfilled. It r
 
 The hosted preview contained zero representative historical legacy Agreements and zero representative historical legacy Invoices. Hosted rendering of `/admin/agreement/:id` and `/invoice/:id`, including `legacy_unverified` presentation, was therefore **not testable** and is not claimed as a hosted pass. Local automated legacy compatibility coverage passes. Before activation, perform a read-only inventory of actual production legacy records; do not backfill, mutate, or fabricate records merely to expand validation evidence.
 
+## Local Production-Shape Compatibility Remediation
+
+Local production-shape remediation was completed on 2026-08-14 against the read-only production inventory documented for this review. It does not claim that the new migration has been applied to preview or production.
+
+- The first unapplied Agreement migration now permits retained historical draft duplicates while enforcing at most one canonical active Agreement per request.
+- Historical draft and ready/locked Agreements remain unchanged. No signature, acceptance, clause, item, Approval, Payment, or availability evidence is fabricated.
+- Agreement lookup and Approval selection use the same deterministic canonical ordering, preferring locked ready/signed records over drafts.
+- A new forward-only reconciliation migration converges already-migrated environments without deleting or rewriting business rows.
+- The four legacy Agreement/Invoice/Payment foreign keys are replaced semantically with validated `RESTRICT` constraints; the existing `rental_request_items` `RESTRICT` relationship remains intact.
+- Agreement and Invoice numbering sequences advance beyond the largest matching persisted suffix and never regress.
+- A local production-shaped fixture preserves three request IDs, 17 Agreements including 14 retained drafts, two issued/unpaid legacy Invoices without invented item snapshots, archived-equipment scalar history, totals, balances, statuses, and timestamps.
+
+The reconciliation migration must be applied and validated in an isolated hosted preview before the controlled production migration step. Embedded PGlite proves local duplicate-attempt rejection, but it is not evidence of independent PostgreSQL sessions; post-reconciliation multi-session concurrency validation therefore remains pending. No hosted system was contacted during this remediation.
+
 ## Release Configuration Audit
 
 Never include values in release evidence.
@@ -283,7 +297,7 @@ No P0 implementation defect is known from local or isolated hosted-preview valid
 ### Completed in isolated hosted preview
 
 - Sequential migration validation.
-- Same-resource, reversed-order multi-resource, disjoint-resource, and payment-policy concurrency tests.
+- Same-resource, reversed-order multi-resource, disjoint-resource, and payment-policy concurrency tests for the previously deployed preview schema.
 - Private Storage, document Edge Function, compensation cleanup, and signed URL validation.
 - Trusted `app_metadata` authorization and ordinary/spoofed customer denial.
 - Synthetic Agreement → Invoice → Payment → Approval workflow.
@@ -292,7 +306,8 @@ No P0 implementation defect is known from local or isolated hosted-preview valid
 
 ### P1 — resolve before production activation
 
-- Apply the preview-validated migrations to production through the controlled forward-only migration procedure.
+- Apply and validate `20260809000100_release1_production_shape_reconciliation.sql` in an isolated hosted preview, including sequential, rerun, and post-reconciliation multi-session concurrency validation. This new remediation is not covered by the earlier hosted migration pass.
+- Apply the corrected pending Release 1 migration chain to production through the controlled forward-only migration procedure only after that preview validation and the production read-only preflight succeed.
 - Verify production staff/admin `app_metadata` and refreshed sessions.
 - Client selects `deposit_required` or `invoice_paid`; if deposit-based, define zero-deposit behavior.
 - Client/counsel approves final Agreement, card-authorization, signature, and Business-signing wording.
@@ -318,18 +333,19 @@ These are production-activation blockers, not reasons to redesign the implemente
 Do not execute this sequence until every P1 owner signs off.
 
 1. Merge all reviewed Release 1 code to `main`; tag no release yet.
-2. Apply the already preview-validated forward migrations to production through a controlled migration plan; do not perform destructive rollback or rewrite deployed migration history.
-3. Deploy/configure `rental-documents`; verify JWT enforcement and private bucket configuration.
-4. Assign and verify trusted staff/admin `app_metadata`; refresh sessions.
-5. Resolve and record all client/legal/insurance/retention/delivery decisions, explicitly accept the partial hosted legacy evidence, and complete the read-only production legacy inventory.
-6. Set the chosen production payment policy through controlled database administration.
-7. Run a non-destructive production configuration smoke test with synthetic/minimal data only where approved.
-8. Enable the database `multi_item_rental_requests` gate.
-9. Verify server RPCs, legacy behavior, and monitoring before exposing the browser path.
-10. Deploy/configure `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS=true` and verify the built artifact.
-11. Complete an operational request → Approval smoke test and route/PDF checks.
-12. Monitor the signals below through the agreed observation window.
-13. After sign-off, tag the reviewed `main` commit as `v1.0.0`.
+2. Apply and validate the new forward-only reconciliation migration in an isolated hosted preview; verify sequential application, safe rerun, deterministic canonical selection, foreign keys, sequence alignment, and post-reconciliation multi-session behavior without mutating historical evidence.
+3. Complete the read-only production preflight, then apply the corrected pending Release 1 migrations to production through a controlled forward-only plan; do not perform destructive rollback or rewrite deployed migration history.
+4. Deploy/configure `rental-documents`; verify JWT enforcement and private bucket configuration.
+5. Assign and verify trusted staff/admin `app_metadata`; refresh sessions.
+6. Resolve and record all client/legal/insurance/retention/delivery decisions, explicitly accept the partial hosted legacy evidence, and complete the read-only production legacy inventory.
+7. Set the chosen production payment policy through controlled database administration.
+8. Run a non-destructive production configuration smoke test with synthetic/minimal data only where approved.
+9. Enable the database `multi_item_rental_requests` gate.
+10. Verify server RPCs, legacy behavior, and monitoring before exposing the browser path.
+11. Deploy/configure `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS=true` and verify the built artifact.
+12. Complete an operational request → Approval smoke test and route/PDF checks.
+13. Monitor the signals below through the agreed observation window.
+14. After sign-off, tag the reviewed `main` commit as `v1.0.0`.
 
 Backend activation precedes browser activation so a stale/early browser cannot make the server accept unfinished writes. Readiness validation itself leaves both gates off.
 
@@ -426,6 +442,30 @@ Results:
 - `git diff --check` — passed; the repository was clean before this readiness-record update.
 - Node 20.17 again emitted the documented Vite minimum-version warning; the builds completed successfully.
 
+Production-shape compatibility remediation was validated locally on 2026-08-14:
+
+```text
+node --test tests/persistence/production-compatibility.test.mjs
+npm run lint
+npm run test:persistence
+npm run check:domain
+feature-disabled production build
+feature-enabled production build
+git diff --check
+```
+
+Results:
+
+- Production compatibility tests — 3/3 passed, covering the production-shaped legacy fixture, deterministic canonical Agreement selection and duplicate-attempt rejection under embedded PGlite execution, and forward reconciliation from a faithfully reconstructed old-preview state.
+- Behavioral repository lookup test — passed for canonical ranking, deterministic draft fallback/tie-breaking, empty results, and direct Agreement-ID lookup.
+- `npm run lint` — passed.
+- `npm run test:persistence` — 34/34 passed.
+- `npm run check:domain` — 45 domain files, zero circular dependencies.
+- Feature-disabled and feature-enabled production builds — passed.
+- `git diff --check` — passed.
+- Node 20.17 emitted the existing Vite minimum-version warning; both production builds completed successfully.
+- No hosted preview or production system was contacted. The new reconciliation migration remains pending isolated hosted-preview validation.
+
 Hosted validation was completed in the isolated `urban-cowboy-rentals-r1-validation` preview during 2026-08-11 through 2026-08-13. Sanitized results:
 
 - Hosted preview confirmation and sequential migration validation — passed.
@@ -447,8 +487,10 @@ Hosted validation was completed in the isolated `urban-cowboy-rentals-r1-validat
 
 | Area | Owner | Status/date |
 | --- | --- | --- |
-| Engineering/local validation | Readiness branch | Passed 2026-08-13 |
-| Isolated preview migration/concurrency | Validation operator | Passed 2026-08-13 |
+| Engineering/local validation | Readiness branch | Passed 2026-08-14 |
+| Local production-shape migration compatibility | Readiness branch | Passed 2026-08-14 |
+| Prior isolated preview migration/concurrency | Validation operator | Passed 2026-08-13 before the production-shape reconciliation |
+| Isolated preview reconciliation/multi-session validation | Validation operator | Pending — new 2026-08-14 remediation not yet applied to hosted preview |
 | Isolated preview security/Storage authorization | Validation operator | Passed 2026-08-13 |
 | Isolated preview staff/admin authorization | Validation operator | Passed 2026-08-13 |
 | Hosted legacy routes | Validation operator | Not testable — zero representative historical Agreement/Invoice records; evidence partial |

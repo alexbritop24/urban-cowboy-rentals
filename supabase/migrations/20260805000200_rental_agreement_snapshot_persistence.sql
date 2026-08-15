@@ -171,11 +171,12 @@ begin
   if exists (
     select rental_request_id
     from public.rental_agreements
+    where status in ('sent', 'viewed', 'ready', 'signed')
     group by rental_request_id
     having count(*) > 1
   ) then
     raise exception using errcode = '23505',
-      message = 'Cannot enforce one Agreement per request until duplicate rental_agreements rows are resolved.';
+      message = 'Cannot enforce one canonical active Agreement per request while multiple non-draft Agreements exist.';
   end if;
 
   if exists (
@@ -191,8 +192,11 @@ begin
 end;
 $$;
 
-create unique index if not exists rental_agreements_rental_request_key
-  on public.rental_agreements (rental_request_id);
+-- Historical production data can contain retained duplicate drafts. Only active
+-- non-draft lifecycle states are canonical; cancelled Agreements are historical.
+create unique index if not exists rental_agreements_canonical_request_key
+  on public.rental_agreements (rental_request_id)
+  where status in ('sent', 'viewed', 'ready', 'signed');
 create unique index if not exists rental_agreements_agreement_number_key
   on public.rental_agreements (agreement_number);
 create index if not exists rental_agreements_status_idx
@@ -321,6 +325,40 @@ create index if not exists agreement_items_equipment_schedule_idx
 create sequence if not exists public.rental_agreement_number_seq;
 revoke all on sequence public.rental_agreement_number_seq
   from public, anon, authenticated;
+
+do $$
+declare
+  maximum_existing_suffix bigint;
+  sequence_last_value bigint;
+  sequence_is_called boolean;
+  highest_allocated_value bigint;
+begin
+  select max((regexp_match(
+    agreement_number,
+    '^UCR-[0-9]{4}-([0-9]{6})$'
+  ))[1]::bigint)
+  into maximum_existing_suffix
+  from public.rental_agreements
+  where agreement_number ~ '^UCR-[0-9]{4}-[0-9]{6}$';
+
+  select last_value, is_called
+  into sequence_last_value, sequence_is_called
+  from public.rental_agreement_number_seq;
+
+  highest_allocated_value := case
+    when sequence_is_called then sequence_last_value
+    else sequence_last_value - 1
+  end;
+
+  if coalesce(maximum_existing_suffix, 0) > highest_allocated_value then
+    perform pg_catalog.setval(
+      'public.rental_agreement_number_seq'::pg_catalog.regclass,
+      maximum_existing_suffix,
+      true
+    );
+  end if;
+end;
+$$;
 
 create or replace function private.current_staff_actor_id()
 returns uuid

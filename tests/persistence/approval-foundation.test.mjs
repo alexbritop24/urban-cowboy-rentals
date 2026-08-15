@@ -6,6 +6,10 @@ import test from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 
+const approvalMigrationUrl = new URL(
+  "../../supabase/migrations/20260808000100_rental_approval_workflow.sql",
+  import.meta.url
+);
 const migrationUrls = [
   new URL("../../supabase/migrations/20260805000000_rental_requests_compatibility_baseline.sql", import.meta.url),
   new URL("../../supabase/migrations/20260805000100_rental_request_items_persistence.sql", import.meta.url),
@@ -14,7 +18,8 @@ const migrationUrls = [
   new URL("../../supabase/migrations/20260806000200_immutable_multi_item_invoice_persistence.sql", import.meta.url),
   new URL("../../supabase/migrations/20260806000300_invoice_snapshot_integrity_remediation.sql", import.meta.url),
   new URL("../../supabase/migrations/20260807000100_private_rental_document_workflow.sql", import.meta.url),
-  new URL("../../supabase/migrations/20260808000100_rental_approval_workflow.sql", import.meta.url),
+  approvalMigrationUrl,
+  new URL("../../supabase/migrations/20260809000100_release1_production_shape_reconciliation.sql", import.meta.url),
 ];
 const adminDashboardUrl = new URL(
   "../../src/pages/AdminDashboardPage.tsx",
@@ -935,7 +940,7 @@ test("Final availability uses deterministic resource locks and preserves conflic
   );
   assert.equal((await approve(database, candidate.requestId)).approved, true);
 
-  const migration = await readFile(migrationUrls.at(-1), "utf8");
+  const migration = await readFile(approvalMigrationUrl, "utf8");
   assert.match(
     migration,
     /order by items\.resource_key[\s\S]*pg_catalog\.pg_advisory_xact_lock/i

@@ -176,20 +176,61 @@ const readRpcId = (value: unknown): string => {
   throw new Error("The Agreement operation did not return an identifier.");
 };
 
+const canonicalAgreementRank = (row: DatabaseRow): number => {
+  const status = requiredString(row, "status");
+  const lockedAt = nullableString(row.locked_at);
+
+  if ((status === "ready" || status === "signed") && lockedAt) return 0;
+  if (["sent", "viewed", "ready", "signed"].includes(status)) return 1;
+  if (status === "draft") return 2;
+  if (status === "cancelled") return 3;
+  return 4;
+};
+
+const descendingText = (left: string | null, right: string | null): number => {
+  const leftValue = left ?? "";
+  const rightValue = right ?? "";
+
+  if (leftValue === rightValue) return 0;
+  return leftValue > rightValue ? -1 : 1;
+};
+
+export const selectCanonicalAgreementRow = (
+  rows: DatabaseRow[]
+): DatabaseRow | null =>
+  [...rows].sort((left, right) =>
+    canonicalAgreementRank(left) - canonicalAgreementRank(right) ||
+    descendingText(nullableString(left.locked_at), nullableString(right.locked_at)) ||
+    descendingText(nullableString(left.created_at), nullableString(right.created_at)) ||
+    descendingText(nullableString(left.id), nullableString(right.id))
+  )[0] ?? null;
+
 const loadAggregate = async (
   client: SupabaseClient,
   filter: { field: "id" | "rental_request_id"; value: string }
 ): Promise<RentalAgreementAggregate | null> => {
-  const { data: agreementData, error: agreementError } = await client
-    .from("rental_agreements")
-    .select("*")
-    .eq(filter.field, filter.value)
-    .maybeSingle();
+  let agreementRow: DatabaseRow | null;
+  if (filter.field === "id") {
+    const { data, error } = await client
+      .from("rental_agreements")
+      .select("*")
+      .eq("id", filter.value)
+      .maybeSingle();
+    if (error) throw error;
+    agreementRow = data ? (data as DatabaseRow) : null;
+  } else {
+    const { data, error } = await client
+      .from("rental_agreements")
+      .select("*")
+      .eq("rental_request_id", filter.value);
+    if (error) throw error;
+    agreementRow = selectCanonicalAgreementRow(
+      Array.isArray(data) ? (data as DatabaseRow[]) : []
+    );
+  }
 
-  if (agreementError) throw agreementError;
-  if (!agreementData) return null;
+  if (!agreementRow) return null;
 
-  const agreementRow = agreementData as DatabaseRow;
   const agreementId = requiredString(agreementRow, "id");
   const { data: itemData, error: itemError } = await client
     .from("agreement_items")

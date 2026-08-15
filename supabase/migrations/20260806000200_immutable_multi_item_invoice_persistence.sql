@@ -317,6 +317,40 @@ create index if not exists payments_invoice_received_idx
 create sequence if not exists public.invoice_number_seq;
 revoke all on sequence public.invoice_number_seq from public, anon, authenticated;
 
+do $$
+declare
+  maximum_existing_suffix bigint;
+  sequence_last_value bigint;
+  sequence_is_called boolean;
+  highest_allocated_value bigint;
+begin
+  select max((regexp_match(
+    invoice_number,
+    '^INV-[0-9]{4}-([0-9]{6})$'
+  ))[1]::bigint)
+  into maximum_existing_suffix
+  from public.invoices
+  where invoice_number ~ '^INV-[0-9]{4}-[0-9]{6}$';
+
+  select last_value, is_called
+  into sequence_last_value, sequence_is_called
+  from public.invoice_number_seq;
+
+  highest_allocated_value := case
+    when sequence_is_called then sequence_last_value
+    else sequence_last_value - 1
+  end;
+
+  if coalesce(maximum_existing_suffix, 0) > highest_allocated_value then
+    perform pg_catalog.setval(
+      'public.invoice_number_seq'::pg_catalog.regclass,
+      maximum_existing_suffix,
+      true
+    );
+  end if;
+end;
+$$;
+
 create or replace function private.next_invoice_number()
 returns text
 language sql

@@ -405,6 +405,33 @@ begin
 end;
 $$;
 
+create or replace function private.canonical_rental_agreement_id(
+  target_rental_request_id uuid
+)
+returns uuid
+language sql
+stable
+security definer
+set search_path = pg_catalog, private
+as $$
+  select agreements.id
+  from public.rental_agreements agreements
+  where agreements.rental_request_id = target_rental_request_id
+  order by
+    case
+      when agreements.status in ('ready', 'signed')
+        and agreements.locked_at is not null then 0
+      when agreements.status in ('sent', 'viewed', 'ready', 'signed') then 1
+      when agreements.status = 'draft' then 2
+      when agreements.status = 'cancelled' then 3
+      else 4
+    end,
+    agreements.locked_at desc nulls last,
+    agreements.created_at desc,
+    agreements.id desc
+  limit 1;
+$$;
+
 create or replace function private.rental_approval_schedule_items(
   target_rental_request_id uuid
 )
@@ -794,7 +821,7 @@ begin
 
   select * into agreement_record
   from public.rental_agreements
-  where rental_request_id = target_rental_request_id;
+  where id = private.canonical_rental_agreement_id(target_rental_request_id);
 
   current_schedule_hash := private.rental_approval_schedule_hash(
     target_rental_request_id
@@ -1202,7 +1229,7 @@ begin
 
   select * into agreement_record
   from public.rental_agreements
-  where rental_request_id = target_rental_request_id
+  where id = private.canonical_rental_agreement_id(target_rental_request_id)
   for update;
   if not found then
     raise exception using errcode = '55000', message = 'Agreement must be finalized.';
@@ -1398,6 +1425,8 @@ revoke all on function private.protect_rental_approval_event_history()
 revoke all on function private.rental_calendar_ranges_overlap(
   timestamptz, timestamptz, timestamptz, timestamptz
 ) from public, anon, authenticated;
+revoke all on function private.canonical_rental_agreement_id(uuid)
+  from public, anon, authenticated;
 revoke all on function private.rental_approval_schedule_items(uuid)
   from public, anon, authenticated;
 revoke all on function private.rental_approval_schedule_hash(uuid)
