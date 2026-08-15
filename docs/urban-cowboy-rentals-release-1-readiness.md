@@ -2,11 +2,11 @@
 
 ## Current Release Status
 
-Release 1 is **engineering-validated in local and isolated hosted-preview environments, but not approved for production activation**. The implemented chain is:
+Release 1 is **engineering-validated locally and in the isolated hosted preview, and its database schema is present in production, but it is not approved or enabled for production activation**. The implemented chain is:
 
 `Rental Request → normalized items → initial availability → Agreement → acceptance/card authorization → private documents → insurance verification → Invoice → Payment → final availability → Approval → reversal/reapproval`
 
-The remaining work is isolated hosted-preview validation of the new production-shape reconciliation migration and post-reconciliation multi-session behavior, client configuration/sign-off, the documented partial hosted-legacy limitation, and controlled production activation. Neither rollout gate is enabled by this readiness work, and the Approval payment policy remains `unconfigured`.
+Commit `59acd8d` was pushed to `main`. Because the Supabase GitHub integration still had “Deploy to production” enabled, that push unexpectedly applied the pending migrations through `20260809000100` to production before the planned controlled deployment step. Read-only integrity checks proved that the known production history was preserved. This was a schema deployment incident, not Release 1 feature activation or approval. The production backend rollout flag is verified `false`, repository browser behavior defaults off unless `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` is exactly `true`, and the Approval payment policy remains `unconfigured`. The deployed production frontend environment and built artifact are not yet verified, and the business, legal, authorization, document-runtime, operations, smoke-test, and monitoring sign-offs below remain pending.
 
 Detailed behavior remains defined in the [Release 1 specification](urban-cowboy-rentals-release-1-spec.md), [ERD](urban-cowboy-rentals-release-1-erd.md), [security/role contract](urban-cowboy-rentals-release-1-security-roles.md), and [Approval workflow](urban-cowboy-rentals-release-1-approval-workflow.md).
 
@@ -31,15 +31,18 @@ Detailed behavior remains defined in the [Release 1 specification](urban-cowboy-
 | Approval | HOSTED VALIDATED | Same-resource, reversed-order multi-resource, disjoint-resource, and payment-policy serialization pass. |
 | Approval reversal | HOSTED VALIDATED | Hosted append-only reversal, cancellation protection, and resource release pass. |
 | Reapproval | HOSTED VALIDATED | Hosted reversal/reapproval re-ran every gate and created new final evidence. |
-| Legacy compatibility | READY — HOSTED EVIDENCE PARTIAL | Local request/Agreement/Invoice/route coverage passes. The preview's only request without normalized items was an obsolete synthetic document-validation fixture, and it contained zero representative historical Agreements or Invoices. Hosted legacy route rendering and `legacy_unverified` presentation were therefore not testable; no fixtures were fabricated or backfilled. |
-| Authorization/RLS | HOSTED VALIDATED | Hosted trusted `app_metadata` staff/admin, ordinary customer denial, spoofed-user denial, RPC boundaries, and Storage policies pass. |
-| Production rollout gates | READY | Browser default is disabled; database default is `false`. Activation is intentionally separate. |
+| Reconciliation migration | HOSTED VALIDATED | Preview application, immediate comparison, manual rerun, and second comparison passed; indexes, helper/functions, FKs, sequences, flags, policy, and all ten business snapshots remained correct. |
+| Agreement creation serialization | HOSTED VALIDATED | Two independent post-reconciliation staff JWT sessions produced exactly one Agreement and one `23505` rejection for the same request. This is Agreement creation evidence, not a rerun of the Approval race suite. |
+| Legacy compatibility | READY — HOSTED UI EVIDENCE PARTIAL | Local request/Agreement/Invoice/route coverage passes, and production database preservation of all known legacy rows is verified. Preview contained no representative historical Agreements or Invoices, so hosted legacy route rendering and `legacy_unverified` presentation remain untested. |
+| Authorization/RLS | HOSTED VALIDATED — PRODUCTION PENDING | Post-reconciliation preview authorization passed with refreshed role-correct JWTs under Node 22.23.1. Production staff/admin claims and refreshed sessions remain unverified. |
+| Production schema | DEPLOYED — NOT ACTIVATED | Migrations through `20260809000100` were applied automatically by the GitHub integration. Preservation checks passed; no controlled rollout, production smoke test, or feature activation occurred. |
+| Production rollout gates | NOT ACTIVATED — FRONTEND VERIFICATION PENDING | Preview and production database flags are verified `false`, and repository browser behavior defaults off. The deployed production frontend environment and built artifact remain unverified. Backend activation must precede browser exposure. |
 
-No local implementation defect is currently classified `BLOCKED — ENGINEERING`. The new forward-only reconciliation migration still requires isolated hosted-preview validation before production migration approval. Production activation also remains blocked by the business decisions below and requires explicit acceptance of the partial hosted-legacy evidence.
+No current item is classified `BLOCKED — ENGINEERING`. Preview reconciliation, hosted idempotency, post-reconciliation authorization, and independent-session Agreement creation serialization are complete. Production activation remains blocked by the decisions and operational verification below, including production authorization, approved smoke testing, and explicit acceptance of the partial hosted legacy-route evidence.
 
 ## Hosted Validation Harness
 
-The repository provides `npm run test:hosted -- <command>`. It uses the existing Supabase client and adds no testing framework. It never prints credential values or customer data.
+The repository provides `npm run test:hosted -- <command>`. It uses the existing Supabase client and adds no testing framework. It never prints credential values or customer data. Hosted authorization must run under Node 22 with native WebSocket support; Node 20 could not execute that check correctly. The successful post-reconciliation authorization run used Node 22.23.1 and securely refreshed JWTs without printing token values or identity details.
 
 The harness refuses every hosted target unless:
 
@@ -47,7 +50,7 @@ The harness refuses every hosted target unless:
 - `RELEASE_VALIDATION_CONFIRM_PROJECT_REF` exactly matches the project reference parsed from `VITE_SUPABASE_URL`; and
 - mutating commands also set `RELEASE_VALIDATION_ALLOW_MUTATIONS=YES_I_UNDERSTAND_PREVIEW_ONLY`.
 
-Do not set these confirmations for production. Use an isolated hosted preview reset from the Release 1 migrations. Synthetic records created by the test remain auditable and should be discarded by resetting/deleting the preview project, not by bypassing application retention guards.
+Do not set these confirmations for production. Use the isolated hosted preview for preview-only validation. Synthetic records remain auditable and must not be removed by bypassing application retention guards. The current validation database must be retained until this readiness update is reviewed and the remaining release decisions and production verification are complete; delete or reset it only after those evidence-retention needs end.
 
 ### Required hosted variables
 
@@ -231,7 +234,7 @@ This walkthrough passed in the isolated hosted preview. Retain the procedure for
 9. Record a valid synthetic Payment only when required by the isolated-preview policy.
 10. Inspect the checklist. With `unconfigured`, stop and record the correct fail-closed result.
 11. In a separate isolated-policy test, approve, verify the Approved event/final availability evidence, reverse, confirm every dependent record remains, and reapprove after all gates pass again.
-12. Restore the payment policy and backend gate to disabled defaults and reset the isolated preview when evidence is retained elsewhere.
+12. Restore the payment policy and backend gate to disabled defaults. Retain the current isolated preview until this readiness documentation is reviewed and remaining release decisions and production verification are complete.
 
 The browser gate remains off throughout backend walkthroughs. It is not necessary to expose unfinished behavior to test trusted RPCs.
 
@@ -251,11 +254,11 @@ The preview's only request without `rental_request_items` was `61d9c74e-7b1a-446
 
 This fixture does not reveal a Release 1 defect and must not be backfilled. It remains in the temporary preview only as retained validation evidence until that preview project is deleted.
 
-The hosted preview contained zero representative historical legacy Agreements and zero representative historical legacy Invoices. Hosted rendering of `/admin/agreement/:id` and `/invoice/:id`, including `legacy_unverified` presentation, was therefore **not testable** and is not claimed as a hosted pass. Local automated legacy compatibility coverage passes. Before activation, perform a read-only inventory of actual production legacy records; do not backfill, mutate, or fabricate records merely to expand validation evidence.
+The hosted preview contained zero representative historical legacy Agreements and zero representative historical legacy Invoices. Hosted rendering of `/admin/agreement/:id` and `/invoice/:id`, including `legacy_unverified` presentation, was therefore **not testable** and is not claimed as a hosted pass. Local automated legacy compatibility coverage passes. The subsequent production read-only inventory proved database-level preservation of the actual historical Agreements and Invoices, but it did not test their browser routes or UI presentation. Do not backfill, mutate, or fabricate records merely to expand validation evidence.
 
 ## Local Production-Shape Compatibility Remediation
 
-Local production-shape remediation was completed on 2026-08-14 against the read-only production inventory documented for this review. It does not claim that the new migration has been applied to preview or production.
+Local production-shape remediation was completed on 2026-08-14 against the read-only production inventory documented for this review. Commit `59acd8d fix(migrations): preserve legacy agreement history` is pushed to `main`; the repository was clean and synchronized before this documentation update.
 
 - The first unapplied Agreement migration now permits retained historical draft duplicates while enforcing at most one canonical active Agreement per request.
 - Historical draft and ready/locked Agreements remain unchanged. No signature, acceptance, clause, item, Approval, Payment, or availability evidence is fabricated.
@@ -265,7 +268,72 @@ Local production-shape remediation was completed on 2026-08-14 against the read-
 - Agreement and Invoice numbering sequences advance beyond the largest matching persisted suffix and never regress.
 - A local production-shaped fixture preserves three request IDs, 17 Agreements including 14 retained drafts, two issued/unpaid legacy Invoices without invented item snapshots, archived-equipment scalar history, totals, balances, statuses, and timestamps.
 
-The reconciliation migration must be applied and validated in an isolated hosted preview before the controlled production migration step. Embedded PGlite proves local duplicate-attempt rejection, but it is not evidence of independent PostgreSQL sessions; post-reconciliation multi-session concurrency validation therefore remains pending. No hosted system was contacted during this remediation.
+The local validation associated with `59acd8d` passed before hosted reconciliation: production compatibility 3/3, behavioral Agreement repository 1/1, persistence 34/34, lint, 45-file domain analysis with zero cycles, both feature-gate builds, and `git diff --check`. Embedded PGlite was not treated as independent-session evidence. The later hosted preview reconciliation, idempotency, authorization, and same-request Agreement creation race are recorded below.
+
+## Hosted Reconciliation, Production Schema Incident, and Containment
+
+### Preview reconciliation and idempotency
+
+The `urban-cowboy-rentals-r1-validation` project (`cmqsvywbhswrycgxvbgy`) was at migration `20260808000100` before reconciliation. It had the old unconditional `rental_agreements_rental_request_key`, no canonical Agreement helper, request-level Agreement selection in Approval/checklist, no conflicting active or Release 1 Agreement cardinality, backend flag `false`, and payment policy `unconfigured`.
+
+The linked CLI dry run identified only `20260809000100_release1_production_shape_reconciliation.sql` as pending. Applying it to preview succeeded. Post-migration inspection proved:
+
+- migration `20260809000100` is recorded as latest;
+- the unconditional Agreement index is gone and both intended partial unique indexes are present;
+- `private.canonical_rental_agreement_id(uuid)` exists and both Approval/checklist functions use it;
+- all five intended foreign keys are validated `RESTRICT` constraints;
+- Agreement and Invoice sequences remained at `8` and did not regress;
+- the backend flag remained `false` and payment policy remained `unconfigured`; and
+- all ten recorded business-table counts and hashes matched their pre-migration values, with `all_business_snapshots_match = true`.
+
+A following CLI dry run reported that the remote database was up to date. The reconciliation SQL was then manually applied a second time in preview and completed successfully with no returned rows. Immediate comparison again proved all ten business hashes/counts, both sequences, partial indexes, five validated `RESTRICT` foreign keys, canonical helper/function integration, rollout flag, and payment policy remained correct. This is hosted idempotency evidence.
+
+### Post-reconciliation authorization and Agreement creation race
+
+The first authorization attempt under Node 20 was invalid because native WebSocket support was unavailable. The operator switched to Node 22.23.1, securely refreshed expired preview JWTs without printing secrets, and reconfirmed the staff, second-staff, admin, customer, and spoofed-customer claim classes. `npm run test:hosted -- authorization` then passed.
+
+No existing request was suitable for a same-request Agreement creation race, so a clearly labeled preview-only scalar compatibility fixture was created:
+
+- request `e9b3d4a1-22c7-4ee5-bf51-202608150001`;
+- status `new`, Approval `pending`, availability `available`, and insurance `verified`;
+- dates January 10–12, 2030 and quote `$240.00`; and
+- no Agreement before the race.
+
+The fixture's `insurance_verification_status = verified` prerequisite was established through privileged, controlled preview-only SQL setup. That setup was acceptable only in the disposable validation project; it was not a new test of document upload, insurance review, or production authorization. Earlier hosted document and insurance workflow evidence remains separate from this race.
+
+Two distinct valid staff JWT sessions simultaneously called `create_rental_agreement_for_request(uuid)`. Exactly one succeeded and one was rejected with PostgreSQL code `23505`. The resulting authoritative Agreement is `b345bcef-b323-470a-8c4d-d8b2f6bab0f5`, number `UCR-2026-000009`, status `draft`, with `snapshot_schema_version = 1`, a present current snapshot hash, and exactly one Agreement item.
+
+This race tested and proves post-reconciliation independent-session serialization for same-request Agreement creation only. It is not a post-reconciliation Approval race; the broader Approval race suite was completed on the prior preview schema. The idempotency hash comparison occurred before this intentional fixture was created, so the original whole-database hashes are not claimed to remain unchanged afterward.
+
+### Unexpected automatic production schema application
+
+Before `59acd8d`, production project `rental_requests` (`rzuzhdczpvxfsefzgtbv`) had migrations only through `20260805000100`. The Supabase GitHub integration was connected to `alexbritop24/urban-cowboy-rentals`, working directory `.`, production branch `main`, with “Deploy to production” enabled. Pushing `59acd8d` therefore automatically applied the pending Release 1 migrations through `20260809000100` to production before the intended controlled deployment step.
+
+This was an unexpected automatic schema application, not an intentional controlled rollout. The production database gate remained `false`, so the schema application itself did not activate Release 1. The deployed production frontend environment and built artifact still require verification, and no Release 1 activation was approved.
+
+### Production preservation evidence
+
+Immediate read-only production checks proved:
+
+- all three legacy requests and all 17 historical Agreements remain;
+- all 14 historical drafts on the duplicate-history request remain;
+- all three ready/locked canonical historical Agreements remain;
+- both issued/unpaid historical Invoices retain their IDs, request/Agreement links, numbers, `issued_at`, statuses, and financial values;
+- Invoice 1 remains subtotal `$200.00`, deposit `$100.00`, delivery `$30.00`, tax `$10.00`, and total/balance `$340.00`;
+- Invoice 2 remains subtotal `$100.00`, deposit `$49.95`, delivery/tax `$0.00`, and total/balance `$149.95`;
+- no Agreement items, Invoice items, Payments, Documents, Approval events, or availability checks were fabricated for historical rows;
+- historical Agreements remain snapshot-unverified without invented hashes or signatures;
+- no orphan relationship or Agreement-cardinality conflict exists;
+- Utility Trailer and RawMax catalog entries remain archived and non-rentable;
+- reconciled foreign keys are validated `RESTRICT`;
+- `multi_item_rental_requests = false`; and
+- `payment_policy = unconfigured`.
+
+No rollback was performed or recommended because the schema converged safely and production business data was preserved. Database preservation does not establish production UI route rendering, production authorization, an operational smoke test, or feature activation.
+
+### Automatic-deployment safeguard
+
+After the cause was identified, the operator disabled the Supabase GitHub integration’s “Deploy to production” toggle. The repository remains connected, but pushes to `main` no longer automatically apply production database migrations. Automatic preview branching is unavailable on the current Free plan. Future production database changes require an explicitly reviewed and manually confirmed procedure.
 
 ## Release Configuration Audit
 
@@ -273,17 +341,19 @@ Never include values in release evidence.
 
 | Setting/variable | Repository state | Release classification |
 | --- | --- | --- |
-| `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` | Missing/anything except exact `true` resolves to false | Browser rollout gate remains disabled |
-| `private.release_feature_flags.multi_item_rental_requests` | Migration default `false`; restored and reverified after preview testing | Backend rollout gate remains `false` |
+| `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` | Repository behavior resolves missing/anything except exact `true` to false | Repository browser default is fail-closed; deployed production environment and artifact verification is pending |
+| `private.release_feature_flags.multi_item_rental_requests` | Preview and production reverified as `false` after schema reconciliation | Backend rollout gate remains disabled in both environments |
 | `RENTAL_DOCUMENT_MAX_BYTES` | Edge fallback and bucket constraint are 10,485,760 bytes | Preview passed; confirm production deployment configuration before activation |
 | `RENTAL_DOCUMENT_SIGNED_URL_TTL_SECONDS` | Edge fallback 120 seconds, clamped to 60–300 | Preview passed; confirm production deployment configuration before activation |
-| Approval `payment_policy` | Migration default `unconfigured`; restored and reverified after preview testing | Remains `unconfigured`; client decision required before activation |
+| Approval `payment_policy` | Preview and production reverified as `unconfigured` | Client decision required before activation |
+| Production migration version | `20260809000100` | Schema applied automatically; preservation verified; feature activation not approved |
+| Supabase GitHub “Deploy to production” | Disabled after the automatic migration incident | Future production migrations require reviewed manual confirmation |
 | `VITE_SUPABASE_URL` | Preview project identity passed harness confirmation | Preview passed; production configuration/activation remains pending |
 | `VITE_SUPABASE_ANON_KEY` | Preview key worked without value disclosure | Preview passed; production value must remain unreported |
 | `SUPABASE_URL` | Preview Edge runtime configured successfully | Preview passed; production deployment/configuration remains pending |
 | `SUPABASE_ANON_KEY` | Preview Edge runtime configured successfully | Preview passed; production deployment/configuration remains pending |
 | `SUPABASE_SERVICE_ROLE_KEY` | Preview secret remained server-side and passed required document operations | Preview passed; production secret/configuration remains pending |
-| Preview staff/admin `app_metadata` | Trusted claims and refreshed preview sessions were validated | PASSED 2026-08-13 |
+| Preview staff/admin `app_metadata` | Trusted claims and securely refreshed preview sessions validated under Node 22.23.1 | PASSED after reconciliation |
 | Production staff/admin `app_metadata` | Account- and session-specific | PENDING production audit and session refresh |
 | `VITE_N8N_RENTAL_REQUEST_WEBHOOK` | Existing browser integration variable | CONFIGURED locally; operational endpoint test required |
 | `VITE_N8N_AUTOMATION_WEBHOOK_URL` | Existing browser integration variable | CONFIGURED locally; operational endpoint test required |
@@ -298,17 +368,27 @@ No P0 implementation defect is known from local or isolated hosted-preview valid
 
 - Sequential migration validation.
 - Same-resource, reversed-order multi-resource, disjoint-resource, and payment-policy concurrency tests for the previously deployed preview schema.
+- Forward reconciliation through `20260809000100`, complete before/after business-snapshot comparison, CLI up-to-date dry run, manual migration rerun, and second unchanged comparison.
+- Post-reconciliation authorization with refreshed role-correct JWTs under Node 22.23.1.
+- Post-reconciliation independent-session same-request Agreement creation serialization: one success, one `23505` rejection, and one authoritative Agreement.
 - Private Storage, document Edge Function, compensation cleanup, and signed URL validation.
 - Trusted `app_metadata` authorization and ordinary/spoofed customer denial.
 - Synthetic Agreement → Invoice → Payment → Approval workflow.
 - Approval reversal and reapproval.
 - Inclusive-date parity and cancellation protection.
 
+### Completed production containment and preservation checks
+
+- Automatic schema application through `20260809000100` was identified and documented as an incident, not a controlled rollout.
+- Read-only production checks preserved all known legacy IDs, links, statuses, timestamps, financial values, archived catalog state, and row counts without fabricated workflow evidence.
+- The production backend rollout flag remains verified `false`, repository browser behavior defaults off, deployed production frontend configuration remains unverified, and payment policy remains `unconfigured`.
+- Supabase GitHub “Deploy to production” is disabled; future production migration changes require explicit review and manual confirmation.
+
 ### P1 — resolve before production activation
 
-- Apply and validate `20260809000100_release1_production_shape_reconciliation.sql` in an isolated hosted preview, including sequential, rerun, and post-reconciliation multi-session concurrency validation. This new remediation is not covered by the earlier hosted migration pass.
-- Apply the corrected pending Release 1 migration chain to production through the controlled forward-only migration procedure only after that preview validation and the production read-only preflight succeed.
 - Verify production staff/admin `app_metadata` and refreshed sessions.
+- Deploy and configure the production `rental-documents` Edge Function; verify JWT enforcement, the private `rental-documents` bucket, the approved 10 MB file-size limit and PDF/JPEG/PNG MIME allowlist, signed-document access, and required runtime variables/settings without printing values.
+- Verify that the currently deployed production frontend environment and built artifact keep `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` disabled before any gate activation.
 - Client selects `deposit_required` or `invoice_paid`; if deposit-based, define zero-deposit behavior.
 - Client/counsel approves final Agreement, card-authorization, signature, and Business-signing wording.
 - Client defines insurance coverage, effective/expiration rules, and verifier authority.
@@ -316,7 +396,10 @@ No P0 implementation defect is known from local or isolated hosted-preview valid
 - Client confirms the operational Agreement/Invoice delivery and signature channel.
 - Confirm the webhook endpoints and operational owners used during activation.
 - Explicitly accept the partial hosted legacy evidence described above.
-- Complete a read-only inventory of actual production legacy records before activation, without backfill or mutation.
+- Perform only an explicitly approved, non-destructive production smoke test.
+- Approve the backend and browser gate enablement sequence; neither may be enabled until that approval.
+- Complete final production activation approval and assign the monitoring window and operator.
+- Retain the preview validation database until this readiness documentation and remaining production verification are complete.
 
 These are production-activation blockers, not reasons to redesign the implemented architecture.
 
@@ -330,24 +413,25 @@ These are production-activation blockers, not reasons to redesign the implemente
 
 ## Production Activation Order
 
-Do not execute this sequence until every P1 owner signs off.
+Controlled preparatory and verification steps 1–9 may proceed with the approval required for each task. Do not begin step 10, the first rollout-gate activation step, until every P1 blocker and owner sign-off is complete.
 
-1. Merge all reviewed Release 1 code to `main`; tag no release yet.
-2. Apply and validate the new forward-only reconciliation migration in an isolated hosted preview; verify sequential application, safe rerun, deterministic canonical selection, foreign keys, sequence alignment, and post-reconciliation multi-session behavior without mutating historical evidence.
-3. Complete the read-only production preflight, then apply the corrected pending Release 1 migrations to production through a controlled forward-only plan; do not perform destructive rollback or rewrite deployed migration history.
-4. Deploy/configure `rental-documents`; verify JWT enforcement and private bucket configuration.
-5. Assign and verify trusted staff/admin `app_metadata`; refresh sessions.
-6. Resolve and record all client/legal/insurance/retention/delivery decisions, explicitly accept the partial hosted legacy evidence, and complete the read-only production legacy inventory.
-7. Set the chosen production payment policy through controlled database administration.
-8. Run a non-destructive production configuration smoke test with synthetic/minimal data only where approved.
-9. Enable the database `multi_item_rental_requests` gate.
-10. Verify server RPCs, legacy behavior, and monitoring before exposing the browser path.
-11. Deploy/configure `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS=true` and verify the built artifact.
-12. Complete an operational request → Approval smoke test and route/PDF checks.
-13. Monitor the signals below through the agreed observation window.
-14. After sign-off, tag the reviewed `main` commit as `v1.0.0`.
+1. Review and accept this incident, reconciliation, and production-preservation record; tag no release yet.
+2. Reconfirm that automatic production deployment remains disabled and that production records migration `20260809000100`; do not roll back or rewrite deployed history.
+3. Assign and verify trusted production staff/admin `app_metadata`, then refresh and validate their sessions.
+4. Resolve and record all payment, legal, insurance, retention, delivery/signature, webhook-owner, and partial legacy-route evidence decisions.
+5. Deploy and configure the production `rental-documents` Edge Function. Verify JWT enforcement, the private `rental-documents` bucket, the approved file-size and MIME restrictions, signed-document access, and required runtime variables/settings without printing values.
+6. Verify the production webhook runtime configuration and operational endpoints.
+7. Verify that the currently deployed production frontend environment and built artifact resolve `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` to disabled.
+8. Set the chosen production payment policy through controlled database administration.
+9. Run only the approved non-destructive production smoke test with synthetic/minimal data, including the agreed route/PDF and operational checks.
+10. **First rollout-gate activation step:** enable the database `multi_item_rental_requests` gate.
+11. Verify server RPCs, legacy behavior, and monitoring before exposing the browser path.
+12. Deploy/configure `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS=true` and verify the built artifact.
+13. Complete the approved operational request → Approval smoke test.
+14. Monitor the signals below through the agreed observation window.
+15. After final production activation sign-off, tag the reviewed `main` commit as `v1.0.0`.
 
-Backend activation precedes browser activation so a stale/early browser cannot make the server accept unfinished writes. Readiness validation itself leaves both gates off.
+Backend activation precedes browser activation so a stale or early browser cannot make the server accept unfinished writes. The automatic schema application did not enable the backend gate, and repository browser behavior remains fail-closed by default; the deployed production frontend must be verified during step 7 before any gate activation.
 
 Do not activate production until every remaining business, legal, security, and operations sign-off is complete. Activation and any rollback action must preserve immutable Agreements, Invoices, Payments, Documents, availability checks, and Approval events.
 
@@ -464,9 +548,22 @@ Results:
 - Feature-disabled and feature-enabled production builds — passed.
 - `git diff --check` — passed.
 - Node 20.17 emitted the existing Vite minimum-version warning; both production builds completed successfully.
-- No hosted preview or production system was contacted. The new reconciliation migration remains pending isolated hosted-preview validation.
+- These local commands used no hosted target. Subsequent preview reconciliation and the automatic production schema incident are recorded separately below.
 
-Hosted validation was completed in the isolated `urban-cowboy-rentals-r1-validation` preview during 2026-08-11 through 2026-08-13. Sanitized results:
+Hosted reconciliation and production preservation follow-up completed after `59acd8d` was pushed:
+
+- Preview preflight identified only `20260809000100` as pending; application succeeded and the following dry run reported the remote database up to date.
+- All ten preview business-table hashes/counts matched before and immediately after reconciliation; indexes, canonical functions, five validated `RESTRICT` foreign keys, sequences at `8`, disabled backend flag, and `unconfigured` payment policy were correct.
+- Manual reapplication completed successfully with no returned rows, and the second comparison remained unchanged. Hosted idempotency passed.
+- After switching from unsupported Node 20 behavior to Node 22.23.1 and securely refreshing expired JWTs, post-reconciliation hosted authorization passed for the expected staff/admin/customer/spoofed-customer boundaries.
+- Two independent staff JWT sessions raced Agreement creation for preview request `e9b3d4a1-22c7-4ee5-bf51-202608150001`: one succeeded, one returned `23505`, and exactly one Agreement/item snapshot was created.
+- The whole-database idempotency comparison preceded that intentional fixture and is not claimed after its creation.
+- The production GitHub integration automatically applied migrations through `20260809000100` when `59acd8d` reached `main`; this was not an intentional controlled production rollout.
+- Immediate production inspection preserved all known historical records, identifiers, links, timestamps, statuses, exact Invoice financials, archived catalog state, and snapshot-unverified legacy classification without fabricating workflow evidence.
+- Production remained inactive with the backend rollout flag verified `false` and payment policy `unconfigured`; repository browser behavior defaults off, but the deployed production frontend environment and artifact remain pending verification. No rollback was performed or recommended.
+- The GitHub integration’s automatic production deployment toggle was disabled after the incident.
+
+Earlier hosted validation was completed in the isolated `urban-cowboy-rentals-r1-validation` preview during 2026-08-11 through 2026-08-13. Sanitized results:
 
 - Hosted preview confirmation and sequential migration validation — passed.
 - Trusted `app_metadata` staff/admin authorization, ordinary customer denial, and spoofed-metadata denial — passed.
@@ -487,15 +584,20 @@ Hosted validation was completed in the isolated `urban-cowboy-rentals-r1-validat
 
 | Area | Owner | Status/date |
 | --- | --- | --- |
-| Engineering/local validation | Readiness branch | Passed 2026-08-14 |
-| Local production-shape migration compatibility | Readiness branch | Passed 2026-08-14 |
+| Engineering/local validation | Commit `59acd8d` | Passed and pushed to `main` |
+| Local production-shape migration compatibility | Commit `59acd8d` | Passed 2026-08-14 |
 | Prior isolated preview migration/concurrency | Validation operator | Passed 2026-08-13 before the production-shape reconciliation |
-| Isolated preview reconciliation/multi-session validation | Validation operator | Pending — new 2026-08-14 remediation not yet applied to hosted preview |
+| Isolated preview reconciliation/idempotency | Validation operator | Passed; apply, dry run, manual rerun, and comparisons complete |
+| Post-reconciliation Agreement creation race | Validation operator | Passed with two independent staff JWT sessions |
 | Isolated preview security/Storage authorization | Validation operator | Passed 2026-08-13 |
-| Isolated preview staff/admin authorization | Validation operator | Passed 2026-08-13 |
+| Post-reconciliation preview authorization | Validation operator | Passed under Node 22.23.1 with refreshed sessions |
 | Hosted legacy routes | Validation operator | Not testable — zero representative historical Agreement/Invoice records; evidence partial |
-| Production migrations | Release operator | Pending controlled application |
+| Production schema migrations | Supabase GitHub integration | Applied automatically through `20260809000100`; preservation verified; not activation |
+| Automatic production deployment safeguard | Release operator | “Deploy to production” disabled after incident |
 | Production staff/admin authorization | Release operator | Pending `app_metadata` audit and refreshed-session verification |
+| Production document/Storage deployment | Release operator | Pending Edge Function deployment/configuration and JWT, private-bucket, size/MIME, signed-access, and runtime-setting verification |
+| Production frontend rollout baseline | Release operator | Pending deployed environment and built-artifact verification with the browser flag disabled |
+| Approved production smoke test | Release operator | Pending |
 | Client operations/payment policy |  | Pending |
 | Legal Agreement wording |  | Pending |
 | Insurance/retention/delivery operations |  | Pending |
