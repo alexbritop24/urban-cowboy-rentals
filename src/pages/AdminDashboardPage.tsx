@@ -43,6 +43,7 @@ interface RentalRequest {
   availability_notes: string | null;
   payment_link: string | null;
   insurance_verification_status: string | null;
+  driver_license_verification_status: string | null;
   approval_status: string;
 }
 
@@ -996,6 +997,7 @@ const hasDateConflict = (
                       <div className="mt-6">
                         <RentalDocumentWorkflowSection
                           rentalRequestId={request.id}
+                          lifecycleRevision={request.approval_status}
                           onStateChange={(documentState) =>
                             setRequests((currentRequests) =>
                               currentRequests.map((currentRequest) =>
@@ -1004,6 +1006,8 @@ const hasDateConflict = (
                                       ...currentRequest,
                                       insurance_verification_status:
                                         documentState.insuranceVerificationStatus,
+                                      driver_license_verification_status:
+                                        documentState.driverLicenseVerificationStatus,
                                     }
                                   : currentRequest
                               )
@@ -1205,6 +1209,15 @@ const hasDateConflict = (
   <p className="mt-2 text-xs text-[#8f8577]">
     Updated by the authoritative availability workflow above.
   </p>
+       </div>
+
+       <div>
+         <p className="mb-2 text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
+           Utah Driver-License Verification
+         </p>
+         <p className="rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 font-black uppercase tracking-[0.08em] text-[#fff7ed]">
+           {formatLabel(request.driver_license_verification_status || "pending")}
+         </p>
        </div>
 
        <div>

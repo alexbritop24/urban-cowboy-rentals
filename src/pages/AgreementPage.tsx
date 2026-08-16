@@ -201,16 +201,26 @@ export default function AgreementPage() {
   const isFinalized = Boolean(agreement.locked_at);
   const isAccepted = agreement.signature_status !== "pending";
   const hasVerifiedSnapshot = agreement.snapshot_availability.status === "verified";
-  const hasCurrentDriverLicense = documentState?.documents.some(
+  const currentDriverLicense = documentState?.documents.find(
     (document) => document.documentType === "driver_license" && document.isCurrent
-  ) ?? false;
+  );
+  const hasCurrentDriverLicense = Boolean(currentDriverLicense);
   const hasCurrentInsurance = documentState?.documents.some(
     (document) => document.documentType === "insurance" && document.isCurrent
   ) ?? false;
   const currentInsuranceStatus =
     documentState?.insuranceVerificationStatus ?? agreement.insurance_verification_status;
+  const currentDriverLicenseStatus =
+    documentState?.driverLicenseVerificationStatus ?? "pending";
+  const hasCurrentUtahDriverLicenseVerification = Boolean(
+    currentDriverLicense &&
+      currentDriverLicenseStatus === "verified" &&
+      documentState?.driverLicenseIssuingState === "UT" &&
+      documentState.driverLicenseReviewedDocumentId === currentDriverLicense.id
+  );
   const documentPrerequisitesSatisfied =
     hasCurrentDriverLicense &&
+    hasCurrentUtahDriverLicenseVerification &&
     hasCurrentInsurance &&
     currentInsuranceStatus === "verified";
 
@@ -242,6 +252,10 @@ export default function AgreementPage() {
                   </p>
                   <div className="mt-6 space-y-4 text-sm text-[#d8cfc4]">
                     <StatusRow label="Driver license" value={hasCurrentDriverLicense ? "uploaded" : "missing"} />
+                    <StatusRow
+                      label="Utah license verification"
+                      value={hasCurrentUtahDriverLicenseVerification ? "verified" : currentDriverLicenseStatus}
+                    />
                     <StatusRow label="Insurance document" value={hasCurrentInsurance ? "uploaded" : "missing"} />
                     <StatusRow label="Insurance verification" value={currentInsuranceStatus} />
                     <StatusRow label="Availability confirmation" value={agreement.availability_confirmation_status} />

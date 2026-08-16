@@ -20,6 +20,7 @@ const labels: Record<RentalApprovalCheckKey, string> = {
   item_data_complete: "Item data complete",
   initial_availability: "Initial availability confirmed",
   driver_license: "Driver license uploaded",
+  driver_license_verification: "Utah driver license verified",
   insurance: "Insurance uploaded",
   insurance_verification: "Insurance verified",
   card_authorization: "Card authorization acknowledged",

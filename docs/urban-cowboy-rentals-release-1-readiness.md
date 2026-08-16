@@ -4,9 +4,9 @@
 
 Release 1 is **engineering-validated locally and in the isolated hosted preview, and its database schema is present in production, but it is not approved or enabled for production activation**. The implemented chain is:
 
-`Rental Request → normalized items → initial availability → Agreement → acceptance/card authorization → private documents → insurance verification → Invoice → Payment → final availability → Approval → reversal/reapproval`
+`Rental Request → normalized items → initial availability → Agreement draft → private documents → exact-current Utah driver-license review + insurance verification → acceptance/card authorization → finalized Agreement → Invoice → Payment → final availability → Approval → reversal/reapproval`
 
-Commit `59acd8d` was pushed to `main`. Because the Supabase GitHub integration still had “Deploy to production” enabled, that push unexpectedly applied the pending migrations through `20260809000100` to production before the planned controlled deployment step. Read-only integrity checks proved that the known production history was preserved. This was a schema deployment incident, not Release 1 feature activation or approval. The production backend rollout flag is verified `false`, repository browser behavior defaults off unless `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` is exactly `true`, and the Approval payment policy remains `unconfigured`. The deployed production frontend environment and built artifact are not yet verified, and the business, legal, authorization, document-runtime, operations, smoke-test, and monitoring sign-offs below remain pending.
+Commit `59acd8d` was pushed to `main`. Because the Supabase GitHub integration still had “Deploy to production” enabled, that push unexpectedly applied the pending migrations through `20260809000100` to production before the planned controlled deployment step. Read-only integrity checks proved that the known production history was preserved. This was a schema deployment incident, not Release 1 feature activation or approval. The production backend rollout flag is verified `false`, and the deployed production frontend was manually verified to retain the single legacy Equipment Requested dropdown. The client selected `invoice_paid`, but the Approval payment policy intentionally remains `unconfigured` until controlled activation. Production document runtime and Jason's refreshed admin authorization passed the limited checks below; the personal staff account's refreshed session, the new Utah-license migration, business/legal decisions, smoke testing, and activation sign-offs remain pending.
 
 Detailed behavior remains defined in the [Release 1 specification](urban-cowboy-rentals-release-1-spec.md), [ERD](urban-cowboy-rentals-release-1-erd.md), [security/role contract](urban-cowboy-rentals-release-1-security-roles.md), and [Approval workflow](urban-cowboy-rentals-release-1-approval-workflow.md).
 
@@ -15,28 +15,29 @@ Detailed behavior remains defined in the [Release 1 specification](urban-cowboy-
 | Capability | Status | Evidence or remaining proof |
 | --- | --- | --- |
 | Multi-item request persistence | HOSTED VALIDATED | Transactional RPC, authoritative catalog, lifecycle guards, hosted synthetic workflow, and local migration tests pass; backend gate remains off. |
-| Agreement creation/finalization | HOSTED VALIDATED | Hosted creation, acceptance, document/insurance gates, finalization, and immutable snapshot verification pass. |
+| Agreement creation/finalization | HOSTED BASELINE VALIDATED — UTAH GATE LOCAL | Hosted creation, acceptance, prior document/insurance gates, finalization, and immutable snapshot verification pass. Exact-current Utah-license enforcement is locally complete and awaits hosted validation. |
 | Agreement snapshots | READY | Clause and complete-material SHA-256 hashes are persisted and locally verified. |
 | Agreement PDF | READY | Uses persisted snapshot data; legacy unverifiable records fail closed. Browser PDF is intentionally interim. |
 | Document upload | HOSTED VALIDATED | Hosted Edge Function uploads, type/signature validation, randomized paths, registration, and compensation cleanup pass. |
 | Private Storage | HOSTED VALIDATED | Hosted bucket is private with the expected limits and authorization boundaries. |
 | Signed document URLs | HOSTED VALIDATED | Hosted short-lived signed URL access and expiry behavior pass. |
 | Insurance verification | HOSTED VALIDATED | Hosted review binds the exact current insurance document. |
+| Utah driver-license verification | LOCALLY IMPLEMENTED — HOSTED/PRODUCTION PENDING | Manual staff/admin review must name the exact current document inspected, is append-only, and permits verification only for normalized `UT`. Existing rows remain pending; migration `20260810000100` is not deployed by this work. |
 | Invoice creation | HOSTED VALIDATED | Hosted Agreement-derived, idempotent original Invoice creation and snapshot lineage pass. |
 | Invoice issuance | HOSTED VALIDATED | Hosted issuance locks the snapshot and preserves totals. |
 | Payment | HOSTED VALIDATED | Hosted append-only payment recording produced the exact paid balance with no drift. |
 | Approval checklist | HOSTED VALIDATED | Hosted server-derived gates, actionable reasons, and fail-closed policy behavior pass. |
 | Initial availability | HOSTED VALIDATED | Hosted hash-bound inclusive-date checks pass. |
 | Final availability | HOSTED VALIDATED | Hosted Approval races and direct sessions prove final recheck after deterministic resource locking. |
-| Approval | HOSTED VALIDATED | Same-resource, reversed-order multi-resource, disjoint-resource, and payment-policy serialization pass. |
+| Approval | HOSTED BASELINE VALIDATED — UTAH GATE LOCAL | Same-resource, reversed-order multi-resource, disjoint-resource, and payment-policy serialization pass. The explicit pre-final-availability Utah gate is locally complete and awaits hosted validation. |
 | Approval reversal | HOSTED VALIDATED | Hosted append-only reversal, cancellation protection, and resource release pass. |
 | Reapproval | HOSTED VALIDATED | Hosted reversal/reapproval re-ran every gate and created new final evidence. |
 | Reconciliation migration | HOSTED VALIDATED | Preview application, immediate comparison, manual rerun, and second comparison passed; indexes, helper/functions, FKs, sequences, flags, policy, and all ten business snapshots remained correct. |
 | Agreement creation serialization | HOSTED VALIDATED | Two independent post-reconciliation staff JWT sessions produced exactly one Agreement and one `23505` rejection for the same request. This is Agreement creation evidence, not a rerun of the Approval race suite. |
 | Legacy compatibility | READY — HOSTED UI EVIDENCE PARTIAL | Local request/Agreement/Invoice/route coverage passes, and production database preservation of all known legacy rows is verified. Preview contained no representative historical Agreements or Invoices, so hosted legacy route rendering and `legacy_unverified` presentation remain untested. |
-| Authorization/RLS | HOSTED VALIDATED — PRODUCTION PENDING | Post-reconciliation preview authorization passed with refreshed role-correct JWTs under Node 22.23.1. Production staff/admin claims and refreshed sessions remain unverified. |
+| Authorization/RLS | PREVIEW VALIDATED — PRODUCTION PARTIAL | Preview authorization passed. Jason's production admin role and refreshed session passed a read-only nonexistent-document lookup; the personal staff role is assigned but its refreshed session remains untested. |
 | Production schema | DEPLOYED — NOT ACTIVATED | Migrations through `20260809000100` were applied automatically by the GitHub integration. Preservation checks passed; no controlled rollout, production smoke test, or feature activation occurred. |
-| Production rollout gates | NOT ACTIVATED — FRONTEND VERIFICATION PENDING | Preview and production database flags are verified `false`, and repository browser behavior defaults off. The deployed production frontend environment and built artifact remain unverified. Backend activation must precede browser exposure. |
+| Production rollout gates | DISABLED | Production database flag is verified `false`; the deployed frontend was manually verified to show the single legacy Equipment Requested dropdown. Backend activation must precede browser exposure. |
 
 No current item is classified `BLOCKED — ENGINEERING`. Preview reconciliation, hosted idempotency, post-reconciliation authorization, and independent-session Agreement creation serialization are complete. Production activation remains blocked by the decisions and operational verification below, including production authorization, approved smoke testing, and explicit acceptance of the partial hosted legacy-route evidence.
 
@@ -209,6 +210,7 @@ Deploy `rental-documents` from the committed source with JWT verification enable
 | --- | --- | --- | --- | --- | --- |
 | Document metadata read | Deny | Deny | Allow | Allow | RLS + `private.is_staff()` |
 | Signed document access | Deny | Deny | Allow current document | Allow current document | Edge JWT + metadata RLS |
+| Driver-license review/history | Deny | Deny | Allow exact-current document | Allow exact-current document | Staff RPC + RLS; only `UT` may be verified |
 | Insurance review | Deny | Deny | Allow | Allow | Staff RPC |
 | Agreement finalization | Deny | Deny | Allow when gates pass | Allow when gates pass | Staff RPC |
 | Invoice create/issue | Deny | Deny | Allow | Allow | Staff RPC |
@@ -221,14 +223,16 @@ Only `app_metadata.role` or `app_metadata.app_role` values `staff`/`admin` are t
 
 ## Synthetic End-to-End Walkthrough
 
-This walkthrough passed in the isolated hosted preview. Retain the procedure for a future preview rerun or approved production smoke test, and run it only after clean hosted migration and authorization validation. Use two active, different serialized catalog items and synthetic customer data.
+The pre-Utah Release 1 baseline form of this walkthrough passed in the isolated hosted preview. That earlier hosted baseline evidence remains valid. The revised procedure below now includes exact-current-document Utah driver-license verification before Agreement finalization; that capability is implemented and validated locally only, and this revised walkthrough has not yet passed hosted-preview validation. Retain the procedure for a future preview rerun or approved production smoke test, and run it only after clean hosted migration and authorization validation. Use two active, different serialized catalog items and synthetic customer data.
+
+For Release 1, customers send their driver license and insurance to staff, and trusted staff/admin upload both through the protected dashboard. Direct customer document upload remains deferred to Release 1.1.
 
 1. Enable the backend gate temporarily in the isolated preview—not production—and create a multi-item request through `create_rental_request_with_items()`.
 2. Confirm normalized child rows, independent dates/rates, quantity `1`, authoritative names/serials/rates, and legacy scalar summary.
 3. Confirm initial availability.
 4. Create the Agreement and verify its item/clause/material snapshots and `sha256:` hashes.
 5. Record typed-name acceptance and credit-card authorization acknowledgment; never submit card number or CVV.
-6. Run the document harness or upload generated license/insurance files, then verify the current insurance document.
+6. Run the document harness or upload generated license/insurance files. Inspect the exact current driver-license document, submit that document ID to the manual review RPC, verify it only when Utah-issued, and independently verify the current insurance document.
 7. Finalize the Agreement and confirm immutable status/hash evidence.
 8. Create exactly one original Invoice, issue it, and verify snapshot lineage.
 9. Record a valid synthetic Payment only when required by the isolated-preview policy.
@@ -237,6 +241,8 @@ This walkthrough passed in the isolated hosted preview. Retain the procedure for
 12. Restore the payment policy and backend gate to disabled defaults. Retain the current isolated preview until this readiness documentation is reviewed and remaining release decisions and production verification are complete.
 
 The browser gate remains off throughout backend walkthroughs. It is not necessary to expose unfinished behavior to test trusted RPCs.
+
+The review RPC rejects stale operator intent: if the inspected license has been replaced, the expected document ID no longer matches and no review event is created. Verification can never be introduced after Agreement finalization. A locked but never-Approved rental may record rejection because no Approval exists to reverse. A currently Approved rental must first use the audited reversal workflow; rejection never unlocks or rewrites the Agreement, and the rejected locked Agreement cannot silently regain eligibility.
 
 ## Inclusive Dates, Cancellation, and Legacy Walkthroughs
 
@@ -341,20 +347,22 @@ Never include values in release evidence.
 
 | Setting/variable | Repository state | Release classification |
 | --- | --- | --- |
-| `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` | Repository behavior resolves missing/anything except exact `true` to false | Repository browser default is fail-closed; deployed production environment and artifact verification is pending |
+| `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` | Repository behavior resolves missing/anything except exact `true` to false | Deployed production frontend manually verified in legacy single-dropdown mode |
 | `private.release_feature_flags.multi_item_rental_requests` | Preview and production reverified as `false` after schema reconciliation | Backend rollout gate remains disabled in both environments |
 | `RENTAL_DOCUMENT_MAX_BYTES` | Edge fallback and bucket constraint are 10,485,760 bytes | Preview passed; confirm production deployment configuration before activation |
 | `RENTAL_DOCUMENT_SIGNED_URL_TTL_SECONDS` | Edge fallback 120 seconds, clamped to 60–300 | Preview passed; confirm production deployment configuration before activation |
-| Approval `payment_policy` | Preview and production reverified as `unconfigured` | Client decision required before activation |
+| Approval `payment_policy` | Preview and production reverified as `unconfigured` | Client selected `invoice_paid`; set only during controlled activation |
 | Production migration version | `20260809000100` | Schema applied automatically; preservation verified; feature activation not approved |
 | Supabase GitHub “Deploy to production” | Disabled after the automatic migration incident | Future production migrations require reviewed manual confirmation |
 | `VITE_SUPABASE_URL` | Preview project identity passed harness confirmation | Preview passed; production configuration/activation remains pending |
 | `VITE_SUPABASE_ANON_KEY` | Preview key worked without value disclosure | Preview passed; production value must remain unreported |
-| `SUPABASE_URL` | Preview Edge runtime configured successfully | Preview passed; production deployment/configuration remains pending |
-| `SUPABASE_ANON_KEY` | Preview Edge runtime configured successfully | Preview passed; production deployment/configuration remains pending |
-| `SUPABASE_SERVICE_ROLE_KEY` | Preview secret remained server-side and passed required document operations | Preview passed; production secret/configuration remains pending |
+| Production `rental-documents` runtime | JWT enforcement, private bucket, 10 MB limit, PDF/JPEG/PNG allowlist, and Edge runtime checked without value disclosure | PASSED; retain staff-only signed-access boundaries |
+| `SUPABASE_URL` | Preview and production Edge runtime checks completed without value disclosure | PASSED for current document runtime |
+| `SUPABASE_ANON_KEY` | Preview and production Edge runtime checks completed without value disclosure | PASSED for current document runtime |
+| `SUPABASE_SERVICE_ROLE_KEY` | Remained server-side during preview and production runtime checks | PASSED for current document runtime; never expose value |
 | Preview staff/admin `app_metadata` | Trusted claims and securely refreshed preview sessions validated under Node 22.23.1 | PASSED after reconciliation |
-| Production staff/admin `app_metadata` | Account- and session-specific | PENDING production audit and session refresh |
+| Production admin `app_metadata` | Jason's admin role and refreshed session passed a read-only nonexistent-document lookup | PASSED for the limited authorization check |
+| Production personal staff `app_metadata` | Staff role assigned | PENDING refreshed-session verification |
 | `VITE_N8N_RENTAL_REQUEST_WEBHOOK` | Existing browser integration variable | CONFIGURED locally; operational endpoint test required |
 | `VITE_N8N_AUTOMATION_WEBHOOK_URL` | Existing browser integration variable | CONFIGURED locally; operational endpoint test required |
 
@@ -381,15 +389,16 @@ No P0 implementation defect is known from local or isolated hosted-preview valid
 
 - Automatic schema application through `20260809000100` was identified and documented as an incident, not a controlled rollout.
 - Read-only production checks preserved all known legacy IDs, links, statuses, timestamps, financial values, archived catalog state, and row counts without fabricated workflow evidence.
-- The production backend rollout flag remains verified `false`, repository browser behavior defaults off, deployed production frontend configuration remains unverified, and payment policy remains `unconfigured`.
+- The production backend rollout flag remains verified `false`, the deployed frontend was manually verified in legacy single-dropdown mode, and payment policy remains `unconfigured`.
 - Supabase GitHub “Deploy to production” is disabled; future production migration changes require explicit review and manual confirmation.
+- Jason's refreshed production admin session passed a read-only nonexistent-document authorization lookup; no customer document or PII was read.
+- The private `rental-documents` bucket, 10 MB limit, PDF/JPEG/PNG allowlist, JWT enforcement, signed-access runtime, and Edge runtime passed production verification.
 
 ### P1 — resolve before production activation
 
-- Verify production staff/admin `app_metadata` and refreshed sessions.
-- Deploy and configure the production `rental-documents` Edge Function; verify JWT enforcement, the private `rental-documents` bucket, the approved 10 MB file-size limit and PDF/JPEG/PNG MIME allowlist, signed-document access, and required runtime variables/settings without printing values.
-- Verify that the currently deployed production frontend environment and built artifact keep `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` disabled before any gate activation.
-- Client selects `deposit_required` or `invoice_paid`; if deposit-based, define zero-deposit behavior.
+- Validate migration `20260810000100_utah_driver_license_verification.sql` in the retained hosted preview, then apply it through the reviewed manual production procedure without fabricating review evidence.
+- Verify the personal staff account's refreshed production session; Jason's admin session has passed.
+- Keep the selected `invoice_paid` policy recorded but leave the database `unconfigured` until the controlled activation step.
 - Client/counsel approves final Agreement, card-authorization, signature, and Business-signing wording.
 - Client defines insurance coverage, effective/expiration rules, and verifier authority.
 - Client approves identity/insurance retention and deletion procedures.
@@ -413,25 +422,26 @@ These are production-activation blockers, not reasons to redesign the implemente
 
 ## Production Activation Order
 
-Controlled preparatory and verification steps 1–9 may proceed with the approval required for each task. Do not begin step 10, the first rollout-gate activation step, until every P1 blocker and owner sign-off is complete.
+Controlled preparatory and verification steps 1–9 may proceed with the approval required for each task. Do not begin step 10, the separately controlled payment-policy configuration, or step 11, the first rollout-gate activation step, until every P1 blocker and owner sign-off is complete.
 
 1. Review and accept this incident, reconciliation, and production-preservation record; tag no release yet.
 2. Reconfirm that automatic production deployment remains disabled and that production records migration `20260809000100`; do not roll back or rewrite deployed history.
-3. Assign and verify trusted production staff/admin `app_metadata`, then refresh and validate their sessions.
-4. Resolve and record all payment, legal, insurance, retention, delivery/signature, webhook-owner, and partial legacy-route evidence decisions.
-5. Deploy and configure the production `rental-documents` Edge Function. Verify JWT enforcement, the private `rental-documents` bucket, the approved file-size and MIME restrictions, signed-document access, and required runtime variables/settings without printing values.
-6. Verify the production webhook runtime configuration and operational endpoints.
-7. Verify that the currently deployed production frontend environment and built artifact resolve `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` to disabled.
-8. Set the chosen production payment policy through controlled database administration.
-9. Run only the approved non-destructive production smoke test with synthetic/minimal data, including the agreed route/PDF and operational checks.
-10. **First rollout-gate activation step:** enable the database `multi_item_rental_requests` gate.
-11. Verify server RPCs, legacy behavior, and monitoring before exposing the browser path.
-12. Deploy/configure `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS=true` and verify the built artifact.
-13. Complete the approved operational request → Approval smoke test.
-14. Monitor the signals below through the agreed observation window.
-15. After final production activation sign-off, tag the reviewed `main` commit as `v1.0.0`.
+3. Validate migration `20260810000100_utah_driver_license_verification.sql` in the retained preview, then apply it to production through the reviewed manual forward-only procedure. Confirm existing rows remain pending and no review evidence is fabricated.
+4. Only after migration `20260810000100` succeeds and is verified, deploy the migration-dependent application code with both `private.release_feature_flags.multi_item_rental_requests = false` and `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` disabled. This order is mandatory because the application unconditionally queries the new driver-license fields, `rental_driver_license_reviews` history table, `get_rental_document_workflow_capabilities()` RPC, and `review_rental_driver_license()` RPC.
+5. Verify the personal staff account's refreshed production session; retain Jason's passed admin evidence.
+6. Resolve and record all legal, insurance, retention, delivery/signature, webhook-owner, and partial legacy-route evidence decisions.
+7. Reconfirm the passed production document/Storage runtime controls and verify the production webhook endpoints.
+8. Reconfirm that the deployed production frontend remains in legacy single-dropdown mode with both rollout gates disabled.
+9. Run only the approved non-destructive production smoke test with synthetic/minimal data, including the agreed route/PDF and operational checks. Keep the production payment policy `unconfigured` during these preparatory checks.
+10. Through separately approved and controlled database administration, set the selected `invoice_paid` policy; until this step begins successfully, the production payment policy must remain `unconfigured`.
+11. **First rollout-gate activation step:** enable the database `multi_item_rental_requests` gate.
+12. Verify server RPCs, legacy behavior, and monitoring before exposing the browser path.
+13. Deploy/configure `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS=true` and verify the built artifact.
+14. Complete the approved operational request → Approval smoke test.
+15. Monitor the signals below through the agreed observation window.
+16. After final production activation sign-off, tag the reviewed `main` commit as `v1.0.0`.
 
-Backend activation precedes browser activation so a stale or early browser cannot make the server accept unfinished writes. The automatic schema application did not enable the backend gate, and repository browser behavior remains fail-closed by default; the deployed production frontend must be verified during step 7 before any gate activation.
+Migration `20260810000100` must be applied and verified before its dependent application code is deployed. The application deployment must leave both rollout gates disabled; backend activation then precedes browser activation so a stale or early browser cannot make the server accept unfinished writes. Neither preview nor production has received migration `20260810000100`. The automatic schema application did not enable the backend gate, and the deployed frontend currently retains the legacy single-dropdown path; reconfirm that state during step 8 before any gate activation.
 
 Do not activate production until every remaining business, legal, security, and operations sign-off is complete. Activation and any rollback action must preserve immutable Agreements, Invoices, Payments, Documents, availability checks, and Approval events.
 
@@ -455,6 +465,7 @@ Finalized Agreement snapshots, issued Invoice snapshots, Payments, document hist
 | Request/RPC rejection | Application error handling and Supabase function/database logs |
 | Agreement finalization/acceptance failure | RPC errors and Agreement UI notices |
 | Document upload/registration/cleanup failure | Edge Function logs; cleanup failure is currently not durable |
+| Driver-license review rejection/stale-document failure | Review RPC errors, current request state, and append-only review history |
 | Insurance review failure | RPC errors and request review state |
 | Invoice creation/issuance failure | RPC errors and Invoice state |
 | Payment rejection/balance mismatch | Payment RPC errors, Payments, and Invoice balances |
@@ -471,7 +482,9 @@ Assign an operator and alert/check cadence before activation. Do not log documen
 - Archived equipment is absent from new selection and still visible historically.
 - Staff/admin route access works; ordinary authenticated and spoofed users remain denied.
 - Agreement/Invoice routes and PDFs render all immutable items/totals.
-- Private document upload/view/insurance review works without public URLs.
+- Private staff document upload/view works without public URLs; customer self-service upload remains deferred to Release 1.1.
+- Manual driver-license review targets the exact current document, verifies only `UT`, and observes finalized/Approved lifecycle capabilities.
+- Insurance review remains independent and is disabled after Agreement finalization.
 - Invoice issue and a controlled Payment preserve exact balance.
 - Checklist reasons are actionable; final availability is rechecked.
 - One rental can be Approved, reversed, and reapproved with append-only evidence.
@@ -560,7 +573,7 @@ Hosted reconciliation and production preservation follow-up completed after `59a
 - The whole-database idempotency comparison preceded that intentional fixture and is not claimed after its creation.
 - The production GitHub integration automatically applied migrations through `20260809000100` when `59acd8d` reached `main`; this was not an intentional controlled production rollout.
 - Immediate production inspection preserved all known historical records, identifiers, links, timestamps, statuses, exact Invoice financials, archived catalog state, and snapshot-unverified legacy classification without fabricating workflow evidence.
-- Production remained inactive with the backend rollout flag verified `false` and payment policy `unconfigured`; repository browser behavior defaults off, but the deployed production frontend environment and artifact remain pending verification. No rollback was performed or recommended.
+- Production remained inactive with the backend rollout flag verified `false` and payment policy `unconfigured`; the deployed production frontend was subsequently verified in legacy single-dropdown mode. No rollback was performed or recommended.
 - The GitHub integration’s automatic production deployment toggle was disabled after the incident.
 
 Earlier hosted validation was completed in the isolated `urban-cowboy-rentals-r1-validation` preview during 2026-08-11 through 2026-08-13. Sanitized results:
@@ -580,6 +593,17 @@ Earlier hosted validation was completed in the isolated `urban-cowboy-rentals-r1
 - Preview cleanup — passed: `payment_policy = unconfigured` and `multi_item_rental_requests = false` were reverified.
 - Hosted legacy evidence — partial. The only request without normalized items, `61d9c74e-7b1a-4464-ad2b-c4f06f38a9cd`, was the obsolete synthetic document-validation fixture described above. It had no Agreement, Invoice, Payment, availability history, or Approval history, and it remains only as retained preview evidence until preview deletion. The preview contained zero representative historical legacy Agreements and zero representative historical legacy Invoices, so historical route rendering and `legacy_unverified` presentation were not testable and are not claimed as hosted passes. Local automated compatibility coverage remains green; no rows were fabricated, backfilled, or mutated.
 
+Utah driver-license verification was implemented and validated locally on 2026-08-15 without contacting a hosted system. Local implementation is complete only when the focused and full regression commands below pass:
+
+- forward-only migration `20260810000100` preserves existing production-shaped rows as `pending`, creates no review events, and reruns safely;
+- focused authorization, exact-inspected-document binding, replacement-race rejection, append-only history/RLS, Agreement/Approval gates, server-derived UI capabilities, stale-evidence defense, locked-never-Approved rejection, and audited reversal correction tests — 4/4 passed;
+- existing document tests — 4/4 passed; existing Approval tests — 6/6 passed;
+- full persistence suite — 38/38 passed;
+- `npm run lint` and 45-file domain-cycle analysis — passed with zero cycles; and
+- feature-disabled and feature-enabled production builds — passed under Node 22.23.1.
+
+This correction produced local evidence only and did not contact a hosted system. Hosted migration, authorization, and concurrency validation plus controlled production application of `20260810000100` remain pending. Neither rollout gate was enabled; `invoice_paid` remains the selected activation policy while the production database remains `unconfigured`.
+
 ## Sign-off
 
 | Area | Owner | Status/date |
@@ -594,11 +618,13 @@ Earlier hosted validation was completed in the isolated `urban-cowboy-rentals-r1
 | Hosted legacy routes | Validation operator | Not testable — zero representative historical Agreement/Invoice records; evidence partial |
 | Production schema migrations | Supabase GitHub integration | Applied automatically through `20260809000100`; preservation verified; not activation |
 | Automatic production deployment safeguard | Release operator | “Deploy to production” disabled after incident |
-| Production staff/admin authorization | Release operator | Pending `app_metadata` audit and refreshed-session verification |
-| Production document/Storage deployment | Release operator | Pending Edge Function deployment/configuration and JWT, private-bucket, size/MIME, signed-access, and runtime-setting verification |
-| Production frontend rollout baseline | Release operator | Pending deployed environment and built-artifact verification with the browser flag disabled |
+| Production admin authorization | Release operator | Jason's role and refreshed session passed the read-only nonexistent-document lookup |
+| Production personal staff authorization | Release operator | Role assigned; refreshed session pending verification |
+| Production document/Storage deployment | Release operator | Passed JWT, private-bucket, 10 MB, PDF/JPEG/PNG, signed-access, and Edge runtime verification |
+| Production frontend rollout baseline | Release operator | Manually verified with one legacy Equipment Requested dropdown |
+| Utah driver-license verification | Engineering/release operator | Locally implemented with exact-document and lifecycle enforcement; hosted preview migration/concurrency validation and controlled production migration pending |
 | Approved production smoke test | Release operator | Pending |
-| Client operations/payment policy |  | Pending |
+| Payment policy activation | Client/release operator | `invoice_paid` selected; database remains `unconfigured` pending controlled activation |
 | Legal Agreement wording |  | Pending |
 | Insurance/retention/delivery operations |  | Pending |
 | Production activation approval |  | Pending |

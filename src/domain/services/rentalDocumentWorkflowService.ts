@@ -2,6 +2,7 @@ import type {
   RentalDocumentFile,
   RentalDocumentType,
   RentalDocumentWorkflowState,
+  ReviewRentalDriverLicenseCommand,
   ReviewRentalInsuranceCommand,
 } from "../models/rentalDocument";
 import type { RentalDocumentRepository } from "../models/rentalDocumentRepository";
@@ -19,6 +20,9 @@ export interface RentalDocumentWorkflowService {
     file: RentalDocumentFile
   ): Promise<RentalDocumentWorkflowState>;
   createSignedViewUrl(documentId: string): Promise<string>;
+  reviewDriverLicense(
+    command: ReviewRentalDriverLicenseCommand
+  ): Promise<RentalDocumentWorkflowState>;
   reviewInsurance(
     command: ReviewRentalInsuranceCommand
   ): Promise<RentalDocumentWorkflowState>;
@@ -48,6 +52,30 @@ export const createRentalDocumentWorkflowService = (
     const url = await repository.createSignedViewUrl(documentId);
     if (!url) throw new Error("A temporary document URL could not be generated.");
     return url;
+  },
+
+  async reviewDriverLicense(command) {
+    assertIdentifier(command.rentalRequestId, "Rental request ID");
+    assertIdentifier(
+      command.expectedDriverLicenseDocumentId,
+      "Expected driver-license document ID"
+    );
+    const issuingState = command.issuingState.trim().toUpperCase();
+    const note = command.note?.trim() || null;
+    if (!/^[A-Z]{2}$/.test(issuingState)) {
+      throw new Error("Issuing state must be a two-letter US state code.");
+    }
+    if (command.status === "verified" && issuingState !== "UT") {
+      throw new Error("Only a valid Utah-issued driver license may be verified.");
+    }
+    if (command.status === "rejected" && !note) {
+      throw new Error("A meaningful rejection reason is required.");
+    }
+    if (note && note.length > 2000) {
+      throw new Error("Driver-license review note cannot exceed 2000 characters.");
+    }
+    await repository.reviewDriverLicense({ ...command, issuingState, note });
+    return repository.loadWorkflowState(command.rentalRequestId);
   },
 
   async reviewInsurance(command) {

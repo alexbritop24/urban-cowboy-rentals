@@ -18,6 +18,10 @@ const migrationUrls = [
 ];
 
 const reconciliationUrl = migrationUrls.at(-1);
+const utahDriverLicenseVerificationUrl = new URL(
+  "../../supabase/migrations/20260810000100_utah_driver_license_verification.sql",
+  import.meta.url
+);
 const requestIds = {
   duplicate: "10000000-0000-4000-8000-000000000001",
   noInvoice: "10000000-0000-4000-8000-000000000002",
@@ -414,9 +418,36 @@ test("production-shaped legacy data survives the complete fresh migration path",
   );
 
   await applyMigrations(database, 2);
+  await applyMigration(database, utahDriverLicenseVerificationUrl);
 
   const after = (await historicalSnapshot(database)).rows[0].snapshot;
   assert.deepEqual(after, before);
+
+  const licenseState = await database.query(`
+    select id, driver_license_verification_status,
+      driver_license_reviewed_document_id, driver_license_reviewed_by,
+      driver_license_reviewed_at, driver_license_review_note
+    from public.rental_requests
+    where id in ($1, $2, $3)
+    order by id
+  `, [requestIds.duplicate, requestIds.noInvoice, requestIds.rawmax]);
+  assert.equal(licenseState.rows.length, 3);
+  for (const row of licenseState.rows) {
+    assert.equal(row.driver_license_verification_status, "pending");
+    assert.equal(row.driver_license_reviewed_document_id, null);
+    assert.equal(row.driver_license_reviewed_by, null);
+    assert.equal(row.driver_license_reviewed_at, null);
+    assert.equal(row.driver_license_review_note, null);
+  }
+  assert.equal(
+    Number((await database.query(
+      "select count(*) as count from public.rental_driver_license_reviews"
+    )).rows[0].count),
+    0
+  );
+
+  await applyMigration(database, utahDriverLicenseVerificationUrl);
+  assert.deepEqual((await historicalSnapshot(database)).rows[0].snapshot, before);
 
   const preservedFinancials = await database.query(`
     select invoice_number, subtotal::text, deposit_amount::text,

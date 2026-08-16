@@ -20,6 +20,7 @@ const migrationUrls = [
   new URL("../../supabase/migrations/20260807000100_private_rental_document_workflow.sql", import.meta.url),
   approvalMigrationUrl,
   new URL("../../supabase/migrations/20260809000100_release1_production_shape_reconciliation.sql", import.meta.url),
+  new URL("../../supabase/migrations/20260810000100_utah_driver_license_verification.sql", import.meta.url),
 ];
 const adminDashboardUrl = new URL(
   "../../src/pages/AdminDashboardPage.tsx",
@@ -176,18 +177,24 @@ const registerDocument = async (database, requestId, documentType) => {
      values ('rental-documents', $1, '{"size":5,"mimetype":"application/pdf"}'::jsonb)`,
     [path]
   );
-  await callStaffRpc(
+  const result = await callStaffRpc(
     database,
     `select public.register_rental_document(
       $1::uuid, $2::text, 'rental-documents', $3::text,
       $4::text, 'application/pdf', 5::bigint
-    )`,
+    ) as id`,
     [requestId, documentType, path, `${documentType}.pdf`]
   );
+  return result.rows[0].id;
 };
 
 const prepareDocuments = async (database, requestId) => {
-  await registerDocument(database, requestId, "driver_license");
+  const driverLicenseId = await registerDocument(database, requestId, "driver_license");
+  await callStaffRpc(
+    database,
+    "select public.review_rental_driver_license($1::uuid, $2::uuid, 'verified', 'ut', 'Utah license manually reviewed')",
+    [requestId, driverLicenseId]
+  );
   await registerDocument(database, requestId, "insurance");
   await callStaffRpc(
     database,
@@ -432,6 +439,7 @@ test("Approval checklist is server-derived, authorized, and invalidates stale sc
   assert.equal(checklist.checks.item_data_complete.state, "pass");
   assert.equal(checklist.checks.initial_availability.state, "pending");
   assert.equal(checklist.checks.driver_license.state, "fail");
+  assert.equal(checklist.checks.driver_license_verification.state, "pending");
   assert.equal(checklist.checks.insurance.state, "fail");
   assert.equal(checklist.checks.agreement_final.state, "fail");
   assert.equal(checklist.checks.payment_requirement.state, "configuration_required");
@@ -460,10 +468,11 @@ test("Approval checklist is server-derived, authorized, and invalidates stale sc
     2
   );
 
-  await registerDocument(database, requestId, "driver_license");
+  const driverLicenseId = await registerDocument(database, requestId, "driver_license");
   await registerDocument(database, requestId, "insurance");
   checklist = await getChecklist(database, requestId);
   assert.equal(checklist.checks.driver_license.state, "pass");
+  assert.equal(checklist.checks.driver_license_verification.state, "pending");
   assert.equal(checklist.checks.insurance.state, "pass");
   assert.equal(checklist.checks.insurance_verification.state, "fail");
 
@@ -482,6 +491,14 @@ test("Approval checklist is server-derived, authorized, and invalidates stale sc
   );
   checklist = await getChecklist(database, requestId);
   assert.equal(checklist.checks.insurance_verification.state, "pass");
+
+  await callStaffRpc(
+    database,
+    "select public.review_rental_driver_license($1::uuid, $2::uuid, 'verified', 'ut', 'Utah license reviewed')",
+    [requestId, driverLicenseId]
+  );
+  checklist = await getChecklist(database, requestId);
+  assert.equal(checklist.checks.driver_license_verification.state, "pass");
 
   await registerDocument(database, requestId, "insurance");
   checklist = await getChecklist(database, requestId);
@@ -975,22 +992,37 @@ test("Final availability uses deterministic resource locks and preserves conflic
     /newPickup\s*<\s*existingReturn|newReturn\s*>\s*existingPickup/
   );
 
-  const approveDefinition = (await database.query(`
-    select pg_catalog.pg_get_functiondef(
-      'public.approve_rental_request(uuid,text)'::pg_catalog.regprocedure
-    ) as definition
-  `)).rows[0].definition;
-  const configurationLockIndex = approveDefinition.indexOf(
+  const approveDefinitions = await database.query(`
+    select namespaces.nspname as schema_name,
+      pg_catalog.pg_get_functiondef(functions.oid) as definition
+    from pg_catalog.pg_proc functions
+    join pg_catalog.pg_namespace namespaces on namespaces.oid = functions.pronamespace
+    where (namespaces.nspname = 'public' and functions.proname = 'approve_rental_request')
+      or (namespaces.nspname = 'private'
+        and functions.proname = 'approve_rental_request_without_driver_license_verification')
+  `);
+  assert.equal(approveDefinitions.rows.length, 2);
+  const approveWrapper = approveDefinitions.rows.find(
+    (row) => row.schema_name === "public"
+  ).definition;
+  const approveTransaction = approveDefinitions.rows.find(
+    (row) => row.schema_name === "private"
+  ).definition;
+  assert.match(
+    approveWrapper,
+    /assert_current_utah_driver_license[\s\S]*approve_rental_request_without_driver_license_verification/i
+  );
+  const configurationLockIndex = approveTransaction.indexOf(
     "from private.rental_approval_configuration"
   );
-  const paymentGateIndex = approveDefinition.indexOf(
+  const paymentGateIndex = approveTransaction.indexOf(
     "checklist := private.rental_approval_checklist"
   );
   assert.ok(configurationLockIndex >= 0);
-  assert.match(approveDefinition.slice(configurationLockIndex, paymentGateIndex), /for share/i);
+  assert.match(approveTransaction.slice(configurationLockIndex, paymentGateIndex), /for share/i);
   assert.ok(configurationLockIndex < paymentGateIndex);
   assert.match(
-    approveDefinition,
+    approveTransaction,
     /rental_approval_events[\s\S]*payment_policy[\s\S]*evaluated_payment_policy/i
   );
 

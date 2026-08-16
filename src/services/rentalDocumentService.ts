@@ -34,6 +34,21 @@ export const createRentalDocumentViewUrl = (
   documentId: string
 ): Promise<string> => workflow.createSignedViewUrl(documentId);
 
+export const reviewRentalDriverLicense = (
+  rentalRequestId: string,
+  expectedDriverLicenseDocumentId: string,
+  status: "verified" | "rejected",
+  issuingState: string,
+  note: string | null
+): Promise<RentalDocumentWorkflowState> =>
+  workflow.reviewDriverLicense({
+    rentalRequestId,
+    expectedDriverLicenseDocumentId,
+    status,
+    issuingState,
+    note,
+  });
+
 export const reviewRentalInsurance = (
   rentalRequestId: string,
   status: "verified" | "rejected",

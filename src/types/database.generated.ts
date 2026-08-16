@@ -552,6 +552,57 @@ export type Database = {
           },
         ];
       };
+      rental_driver_license_reviews: {
+        Row: {
+          id: string;
+          rental_request_id: string;
+          driver_license_document_id: string;
+          review_status: string;
+          issuing_state: string;
+          reviewed_by: string;
+          reviewed_at: string;
+          review_note: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          rental_request_id: string;
+          driver_license_document_id: string;
+          review_status: string;
+          issuing_state: string;
+          reviewed_by: string;
+          reviewed_at?: string;
+          review_note?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          rental_request_id?: string;
+          driver_license_document_id?: string;
+          review_status?: string;
+          issuing_state?: string;
+          reviewed_by?: string;
+          reviewed_at?: string;
+          review_note?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "rental_driver_license_reviews_request_fk";
+            columns: ["rental_request_id"];
+            isOneToOne: false;
+            referencedRelation: "rental_requests";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "rental_driver_license_reviews_document_fk";
+            columns: ["driver_license_document_id"];
+            isOneToOne: false;
+            referencedRelation: "rental_documents";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       rental_documents: {
         Row: {
           id: string;
@@ -796,6 +847,12 @@ export type Database = {
           insurance_reviewed_by: string | null;
           insurance_reviewed_at: string | null;
           insurance_review_note: string | null;
+          driver_license_verification_status: string;
+          driver_license_reviewed_document_id: string | null;
+          driver_license_issuing_state: string | null;
+          driver_license_reviewed_by: string | null;
+          driver_license_reviewed_at: string | null;
+          driver_license_review_note: string | null;
           approval_status: string;
           approved_by: string | null;
           approved_at: string | null;
@@ -841,6 +898,12 @@ export type Database = {
           insurance_reviewed_by?: string | null;
           insurance_reviewed_at?: string | null;
           insurance_review_note?: string | null;
+          driver_license_verification_status?: string;
+          driver_license_reviewed_document_id?: string | null;
+          driver_license_issuing_state?: string | null;
+          driver_license_reviewed_by?: string | null;
+          driver_license_reviewed_at?: string | null;
+          driver_license_review_note?: string | null;
           approval_status?: string;
           approved_by?: string | null;
           approved_at?: string | null;
@@ -886,6 +949,12 @@ export type Database = {
           insurance_reviewed_by?: string | null;
           insurance_reviewed_at?: string | null;
           insurance_review_note?: string | null;
+          driver_license_verification_status?: string;
+          driver_license_reviewed_document_id?: string | null;
+          driver_license_issuing_state?: string | null;
+          driver_license_reviewed_by?: string | null;
+          driver_license_reviewed_at?: string | null;
+          driver_license_review_note?: string | null;
           approval_status?: string;
           approved_by?: string | null;
           approved_at?: string | null;
@@ -922,6 +991,13 @@ export type Database = {
           {
             foreignKeyName: "rental_requests_insurance_reviewed_document_fk";
             columns: ["insurance_reviewed_document_id"];
+            isOneToOne: false;
+            referencedRelation: "rental_documents";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "rental_requests_driver_license_reviewed_document_fk";
+            columns: ["driver_license_reviewed_document_id"];
             isOneToOne: false;
             referencedRelation: "rental_documents";
             referencedColumns: ["id"];
@@ -1010,6 +1086,22 @@ export type Database = {
           review_note_value?: string | null;
         };
         Returns: string;
+      };
+      review_rental_driver_license: {
+        Args: {
+          target_rental_request_id: string;
+          expected_driver_license_document_id: string;
+          verification_status_value: string;
+          issuing_state_value: string;
+          review_note_value?: string | null;
+        };
+        Returns: string;
+      };
+      get_rental_document_workflow_capabilities: {
+        Args: {
+          target_rental_request_id: string;
+        };
+        Returns: Json;
       };
       get_rental_approval_checklist: {
         Args: {

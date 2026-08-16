@@ -2,6 +2,7 @@ export const rentalApprovalCheckKeys = [
   "item_data_complete",
   "initial_availability",
   "driver_license",
+  "driver_license_verification",
   "insurance",
   "insurance_verification",
   "card_authorization",
