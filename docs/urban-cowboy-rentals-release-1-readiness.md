@@ -2,11 +2,11 @@
 
 ## Current Release Status
 
-Release 1 is **engineering-validated locally and in the isolated hosted preview; its database schema through `20260810000100` is deployed and integrity-verified in production, while the migration-dependent application remains undeployed and Release 1 is not approved or enabled for production activation**. The implemented chain is:
+Release 1 is **engineering-validated locally and in the isolated hosted preview; its database schema through `20260810000100` and migration-dependent application at commit `396e5ae` are deployed in production, while both rollout gates remain disabled and Release 1 is not approved or enabled for production activation**. The implemented chain is:
 
 `Rental Request → normalized items → initial availability → Agreement draft → private documents → exact-current Utah driver-license review + insurance verification → acceptance/card authorization → finalized Agreement → Invoice → Payment → final availability → Approval → reversal/reapproval`
 
-Commit `59acd8d` was pushed to `main`. Because the Supabase GitHub integration still had “Deploy to production” enabled, that push unexpectedly applied the pending migrations through `20260809000100` to production before the planned controlled deployment step. Read-only integrity checks proved that the known production history was preserved. This was a schema deployment incident, not Release 1 feature activation or approval. Migration `20260810000100` was later applied to production through a controlled, forward-only procedure and passed complete pre/post integrity verification. The migration-dependent application commit has not been pushed or deployed. The production backend rollout flag is verified `false`; the Vercel project has no `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` variable, so future builds remain fail-closed; and the currently deployed production frontend retains the single legacy Equipment Requested dropdown. The client selected `invoice_paid`, but the production Approval payment policy intentionally remains `unconfigured` until controlled activation. Production authorization, dependent application deployment and artifact/browser verification, business/legal decisions, smoke testing, and activation sign-offs remain pending.
+Commit `59acd8d` was pushed to `main`. Because the Supabase GitHub integration still had “Deploy to production” enabled, that push unexpectedly applied the pending migrations through `20260809000100` to production before the planned controlled deployment step. Read-only integrity checks proved that the known production history was preserved. This was a schema deployment incident, not Release 1 feature activation or approval. Migration `20260810000100` was later applied to production through a controlled, forward-only procedure and passed complete pre/post integrity verification. Commit `396e5ae` was then pushed to `origin/main`, and Vercel produced a successful Ready production deployment containing the migration-dependent Utah driver-license application code. The production backend rollout flag remains verified `false`; Vercel still has no `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` variable; and a hard reload of the deployed public rental form showed exactly one Equipment Requested dropdown, proving the deployed browser artifact remains fail-closed. The production admin dashboard loaded all three existing requests and the Utah interface under Jason's refreshed trusted admin session without any business-data mutation. The client selected `invoice_paid`, but the production Approval payment policy intentionally remains `unconfigured` until controlled activation. Personal staff-session verification, any approved remaining production authorization checks, controlled business smoke testing, business/legal decisions, and activation sign-offs remain pending.
 
 Detailed behavior remains defined in the [Release 1 specification](urban-cowboy-rentals-release-1-spec.md), [ERD](urban-cowboy-rentals-release-1-erd.md), [security/role contract](urban-cowboy-rentals-release-1-security-roles.md), and [Approval workflow](urban-cowboy-rentals-release-1-approval-workflow.md).
 
@@ -22,7 +22,7 @@ Detailed behavior remains defined in the [Release 1 specification](urban-cowboy-
 | Private Storage | HOSTED VALIDATED | Hosted bucket is private with the expected limits and authorization boundaries. |
 | Signed document URLs | HOSTED VALIDATED | Hosted short-lived signed URL access and expiry behavior pass. |
 | Insurance verification | HOSTED VALIDATED | Hosted review binds the exact current insurance document. |
-| Utah driver-license verification | PRODUCTION SCHEMA DEPLOYED — APPLICATION PENDING | Preview migration, authorization/RLS, exact-document review, replacement reset/race, lifecycle rules, Approval gate, and a fresh end-to-end workflow passed. Production migration `20260810000100` is integrity-verified, but the dependent application, production authorization, and smoke test remain pending. |
+| Utah driver-license verification | PRODUCTION APPLICATION DEPLOYED — ACTIVATION PENDING | Preview migration, authorization/RLS, exact-document review, replacement reset/race, lifecycle rules, Approval gate, and a fresh end-to-end workflow passed. Production migration and application are deployed; the trusted-admin read-only interface/capability smoke passed, while production workflow mutation testing remains pending. |
 | Invoice creation | HOSTED VALIDATED | Hosted Agreement-derived, idempotent original Invoice creation and snapshot lineage pass. |
 | Invoice issuance | HOSTED VALIDATED | Hosted issuance locks the snapshot and preserves totals. |
 | Payment | HOSTED VALIDATED | Hosted append-only payment recording produced the exact paid balance with no drift. |
@@ -35,11 +35,12 @@ Detailed behavior remains defined in the [Release 1 specification](urban-cowboy-
 | Reconciliation migration | HOSTED VALIDATED | Preview application, immediate comparison, manual rerun, and second comparison passed; indexes, helper/functions, FKs, sequences, flags, policy, and all ten business snapshots remained correct. |
 | Agreement creation serialization | HOSTED VALIDATED | Two independent post-reconciliation staff JWT sessions produced exactly one Agreement and one `23505` rejection for the same request. This is Agreement creation evidence, not a rerun of the Approval race suite. |
 | Legacy compatibility | READY — HOSTED UI EVIDENCE PARTIAL | Local request/Agreement/Invoice/route coverage passes, and production database preservation of all known legacy rows is verified. Preview contained no representative historical Agreements or Invoices, so hosted legacy route rendering and `legacy_unverified` presentation remain untested. |
-| Authorization/RLS | PREVIEW VALIDATED — PRODUCTION PARTIAL | Refreshed preview staff/admin sessions passed the Utah capability, review, and append-only-history workflow; customer and spoofed-customer sessions were denied. Jason's production admin role passed a limited read-only check, while the personal staff session and migration-dependent production authorization remain pending. |
-| Production schema | DEPLOYED — NOT ACTIVATED | Migrations through `20260809000100` were applied automatically by the GitHub integration; `20260810000100` was then applied and verified through a controlled procedure. Preservation checks passed; no application rollout, production smoke test, or feature activation occurred. |
-| Production rollout gates | DISABLED | Production database flag is verified `false`; Vercel has no browser-gate variable, so future builds resolve fail-closed; and the deployed frontend retains the single legacy Equipment Requested dropdown. Backend activation must precede browser exposure. |
+| Authorization/RLS | PREVIEW VALIDATED — PRODUCTION PARTIAL | Refreshed preview staff/admin sessions passed the Utah capability, review, and append-only-history workflow; customer and spoofed-customer sessions were denied. Jason's refreshed production admin session and read-only capability loading are verified; the personal staff session and any approved production customer authorization checks remain pending. |
+| Production schema | DEPLOYED — NOT ACTIVATED | Migrations through `20260809000100` were applied automatically by the GitHub integration; `20260810000100` was then applied and verified through a controlled procedure before the separate `396e5ae` application deployment. Preservation checks passed; no production workflow mutation or feature activation occurred. |
+| Production application | DEPLOYED — NOT ACTIVATED | Vercel successfully deployed `396e5ae` from `main` after the required schema migration. The public fail-closed browser check and read-only admin/schema compatibility smoke passed; no production workflow mutation was attempted. |
+| Production rollout gates | DISABLED | Production database flag is verified `false`; Vercel has no browser-gate variable; and the deployed `396e5ae` public form hard-reloaded with exactly one Equipment Requested dropdown. Backend activation must precede browser exposure. |
 
-No current item is classified `BLOCKED — ENGINEERING`. Preview reconciliation, migration `20260810000100` compatibility/idempotency, controlled production schema application and integrity verification, Utah authorization and lifecycle validation, the replacement/review race, the fresh Utah-inclusive workflow, and independent-session Agreement creation serialization are complete. Production activation remains blocked by dependent application deployment, production authorization and artifact/browser verification, remaining decisions and operational verification, approved smoke testing, and explicit acceptance of the partial hosted legacy-route evidence.
+No current item is classified `BLOCKED — ENGINEERING`. Preview reconciliation, migration `20260810000100` compatibility/idempotency, controlled production schema application and integrity verification, production application deployment, fail-closed browser-artifact verification, Jason's refreshed admin-session verification, read-only admin/schema compatibility smoke, Utah authorization and lifecycle validation, the replacement/review race, the fresh Utah-inclusive workflow, and independent-session Agreement creation serialization are complete. Production activation remains blocked by the personal staff-session check, any approved remaining production authorization checks, remaining decisions and operational verification, controlled business smoke testing, and explicit acceptance of the partial hosted legacy-route evidence.
 
 ## Hosted Validation Harness
 
@@ -223,7 +224,7 @@ Only `app_metadata.role` or `app_metadata.app_role` values `staff`/`admin` are t
 
 ## Synthetic End-to-End Walkthrough
 
-The pre-Utah Release 1 baseline form of this walkthrough passed in the isolated hosted preview and remains valid historical evidence. After preview application of migration `20260810000100`, a fresh revised walkthrough including exact-current-document Utah driver-license verification also passed in retained preview project `cmqsvywbhswrycgxvbgy`. This is hosted preview backend/workflow evidence only: production now has the integrity-verified schema migration, but the revised application UI has not been deployed or browser-tested there. Retain the procedure and preview evidence for review and any approved production smoke test. Use active serialized catalog items and synthetic customer data only.
+The pre-Utah Release 1 baseline form of this walkthrough passed in the isolated hosted preview and remains valid historical evidence. After preview application of migration `20260810000100`, a fresh revised walkthrough including exact-current-document Utah driver-license verification also passed in retained preview project `cmqsvywbhswrycgxvbgy`. This remains preview workflow evidence: production now has the integrity-verified schema and deployed application, but only fail-closed public rendering and read-only trusted-admin compatibility have been exercised there. Retain the procedure and preview evidence for review and any approved production business smoke test. Use active serialized catalog items and synthetic customer data only.
 
 For Release 1, customers send their driver license and insurance to staff, and trusted staff/admin upload both through the protected dashboard. Direct customer document upload remains deferred to Release 1.1.
 
@@ -356,13 +357,13 @@ The preview-only flow proved:
 - both final records were attributed to preview admin `819bee46-dd38-427b-8f36-e99783f5788b`, the Approval event recorded `invoice_paid`, Approval completed successfully, and the request's `approval_status` became `approved`; and
 - after validation, the Agreement remained locked and snapshot-exact, the Invoice remained paid at `$240` with zero balance, `multi_item_rental_requests` was restored to `false`, and `payment_policy` was restored to `unconfigured`.
 
-These results extend rather than replace the earlier pre-Utah hosted baseline. Release 1 still uses trusted staff/admin uploads; direct customer uploads do not exist. Customer self-service uploads, customer notifications/status portal, and an “Accept for Processing” action remain deferred. This preview workflow evidence does not establish production application deployment, production browser behavior for the revised UI, production authorization, or Release 1 activation; the production schema migration is documented separately below.
+These results extend rather than replace the earlier pre-Utah hosted baseline. Release 1 still uses trusted staff/admin uploads; direct customer uploads do not exist. Customer self-service uploads, customer notifications/status portal, and an “Accept for Processing” action remain deferred. This preview workflow evidence does not establish production workflow behavior or Release 1 activation; the later production schema, application, fail-closed browser, and read-only trusted-admin compatibility evidence are documented separately below.
 
 ### Unexpected automatic production schema application
 
 Before `59acd8d`, production project `rental_requests` (`rzuzhdczpvxfsefzgtbv`) had migrations only through `20260805000100`. The Supabase GitHub integration was connected to `alexbritop24/urban-cowboy-rentals`, working directory `.`, production branch `main`, with “Deploy to production” enabled. Pushing `59acd8d` therefore automatically applied the pending Release 1 migrations through `20260809000100` to production before the intended controlled deployment step.
 
-This was an unexpected automatic schema application, not an intentional controlled rollout. The production database gate remained `false`, so the schema application itself did not activate Release 1. The currently deployed production frontend was subsequently verified in legacy single-dropdown mode; the revised migration-dependent application artifact has not been deployed or production-browser-tested. No Release 1 activation was approved.
+This was an unexpected automatic schema application, not an intentional controlled rollout. The production database gate remained `false`, so the schema application itself did not activate Release 1. At that incident stage, the production frontend was verified in legacy single-dropdown mode and the revised migration-dependent artifact had not yet been deployed. The later `396e5ae` application deployment and its fail-closed/read-only validation are recorded below; no Release 1 activation was approved.
 
 ### Production preservation evidence
 
@@ -411,13 +412,21 @@ Post-migration verification proved that production now records `20260810000100` 
 
 Production still had 17 Agreements including three finalized Agreements, two issued/unpaid Invoices, zero Payments, zero Approval events, zero approved requests, and zero documents. Historical Invoice financial values and timestamps remained unchanged. The migration added six `rental_requests` columns, `rental_driver_license_reviews`, the review and capability RPCs, Utah assertion and wrapped prerequisite/checklist/Approval functions, seven validated constraints, four enabled triggers, review-history RLS, and the staff-only `SELECT` policy. New driver-license foreign keys use `RESTRICT`. Production configuration remained `multi_item_rental_requests = false` and `payment_policy = unconfigured`.
 
-This was a controlled schema deployment and integrity verification only. It did not deploy the migration-dependent application, validate migration-dependent production authorization, run a production smoke test, or activate Release 1. No rollback is required or recommended.
+This was a controlled schema deployment and integrity verification only. That operation did not deploy the migration-dependent application, validate migration-dependent production authorization, run a production smoke test, or activate Release 1. The later application deployment is independently recorded below. No rollback is required or recommended.
 
-### Vercel browser-gate baseline
+### Production application deployment and browser-gate validation
 
-The Vercel project serving `urbancowboyrentals.com` was manually inspected and contains no `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` environment variable. Repository code enables the browser workflow only when the value is exact lowercase `true`, so future builds currently resolve the browser rollout gate to disabled/fail-closed. Do not add the variable during migration-dependent application deployment.
+Production migration `20260810000100` was applied and integrity-verified before the dependent application was deployed. Commit `396e5ae` was pushed to `origin/main`, and Vercel automatically produced a successful Ready production deployment from `main` containing the Utah driver-license application code. This was an application deployment, not Release 1 activation.
 
-The currently deployed production site was already manually verified to retain the legacy single Equipment Requested dropdown. The migration-dependent application build has not been pushed or deployed, so post-deployment artifact and browser verification remain required after that application is pushed. This Vercel baseline does not establish application deployment or feature activation.
+The Vercel production environment contains no `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` variable. Repository code enables the browser workflow only when the value is exact lowercase `true`. After deployment, the public production rental form was hard-reloaded and displayed exactly one Equipment Requested dropdown. This verifies that the deployed `396e5ae` browser artifact is fail-closed for multi-item requests. The backend `multi_item_rental_requests` flag remains `false`; neither rollout gate was activated.
+
+The production admin dashboard loaded successfully against the production database, displayed the existing three rental requests, rendered the newly deployed Utah driver-license verification interface, and showed the locked lifecycle state for historical/finalized requests. Rendering the document workflow exercised its authenticated read-only request/document/review-history and capability loading. No document upload, verification, rejection, request update, Agreement action, Invoice action, Payment action, Approval action, or other business-data mutation was performed. This is a read-only application/schema compatibility smoke check, not a complete production workflow test.
+
+Jason's refreshed production browser session returned `productionAdminAuthorization: PASS`, `sessionPresent: true`, user ID `d6236d6a-1259-443d-9a1c-01fe1b82e900`, trusted role `admin`, expiry `2026-08-17T03:21:53.000Z`, `expired: false`, and `secretsPrinted: false`. Jason's refreshed trusted admin session is therefore verified. The personal account assigned the `staff` role has not been validated with a refreshed production browser session, and no production customer authorization test has been performed. Do not create a synthetic production user or rental fixture merely to fill those evidence gaps.
+
+During browser inspection, Command+Shift+R in Safari toggled Reader Mode and produced an unstyled article-like checklist. That observation was browser Reader Mode, not an application rendering failure; the normal production dashboard rendered correctly outside Reader Mode. Safari reload-from-origin is Option+Command+R, while Command+R performs a normal reload.
+
+No synthetic or destructive production workflow testing occurred. Production remains unactivated with backend gate `false`, browser gate fail-closed, and payment policy `unconfigured`. The preview validation project remains retained, Supabase GitHub automatic production database deployment remains disabled, and no rollback is indicated.
 
 ### Automatic-deployment safeguard
 
@@ -429,13 +438,14 @@ Never include values in release evidence.
 
 | Setting/variable | Repository state | Release classification |
 | --- | --- | --- |
-| `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` | Absent from the Vercel project; repository behavior resolves missing/anything except exact lowercase `true` to false | Future builds remain fail-closed; the current deployed frontend is verified in legacy single-dropdown mode; do not add the variable yet |
+| `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` | Absent from the Vercel production environment; repository behavior resolves missing/anything except exact lowercase `true` to false | Deployed `396e5ae` artifact passed the hard-reload fail-closed check with one Equipment Requested dropdown; do not add the variable yet |
 | `private.release_feature_flags.multi_item_rental_requests` | Preview and production reverified as `false`, including after the controlled Utah migration | Backend rollout gate remains disabled in both environments |
 | `RENTAL_DOCUMENT_MAX_BYTES` | Edge fallback and bucket constraint are 10,485,760 bytes | Preview passed; confirm production deployment configuration before activation |
 | `RENTAL_DOCUMENT_SIGNED_URL_TTL_SECONDS` | Edge fallback 120 seconds, clamped to 60–300 | Preview passed; confirm production deployment configuration before activation |
 | Approval `payment_policy` | Preview and production reverified as `unconfigured` | Client selected `invoice_paid`; set only during controlled activation |
 | Preview migration version | `20260810000100` in retained project `cmqsvywbhswrycgxvbgy` | Hosted migration, rerun, dry run, authorization, race, lifecycle, and fresh walkthrough validation passed |
-| Production migration version | `20260810000100` | Utah migration applied through the controlled CLI procedure; complete preservation and linked up-to-date dry-run checks passed; application deployment and activation remain pending |
+| Production migration version | `20260810000100` | Utah migration applied through the controlled CLI procedure; complete preservation and linked up-to-date dry-run checks passed; activation remains pending |
+| Production application version | `396e5ae` from `main` | Vercel deployment reached Ready; application/schema compatibility and fail-closed browser checks passed; not activation |
 | Supabase GitHub “Deploy to production” | Disabled after the automatic migration incident | Future production migrations require reviewed manual confirmation |
 | `VITE_SUPABASE_URL` | Preview project identity passed harness confirmation | Preview passed; production configuration/activation remains pending |
 | `VITE_SUPABASE_ANON_KEY` | Preview key worked without value disclosure | Preview passed; production value must remain unreported |
@@ -444,7 +454,7 @@ Never include values in release evidence.
 | `SUPABASE_ANON_KEY` | Preview and production Edge runtime checks completed without value disclosure | PASSED for current document runtime |
 | `SUPABASE_SERVICE_ROLE_KEY` | Remained server-side during preview and production runtime checks | PASSED for current document runtime; never expose value |
 | Preview staff/admin `app_metadata` | Trusted claims and securely refreshed preview sessions validated under Node 22.23.1 | PASSED after reconciliation |
-| Production admin `app_metadata` | Jason's admin role and refreshed session passed a read-only nonexistent-document lookup | PASSED for the limited authorization check |
+| Production admin `app_metadata` | Jason's refreshed session has trusted role `admin`, is unexpired, and successfully loaded the read-only document workflow/capabilities | PASSED for the trusted-admin application compatibility check; no mutation performed |
 | Production personal staff `app_metadata` | Staff role assigned | PENDING refreshed-session verification |
 | `VITE_N8N_RENTAL_REQUEST_WEBHOOK` | Existing browser integration variable | CONFIGURED locally; operational endpoint test required |
 | `VITE_N8N_AUTOMATION_WEBHOOK_URL` | Existing browser integration variable | CONFIGURED locally; operational endpoint test required |
@@ -479,16 +489,18 @@ No P0 implementation defect is known from local or isolated hosted-preview valid
 - Read-only production checks preserved all known legacy IDs, links, statuses, timestamps, financial values, archived catalog state, and row counts without fabricated workflow evidence.
 - The production backend rollout flag remains verified `false`, the deployed frontend was manually verified in legacy single-dropdown mode, and payment policy remains `unconfigured`.
 - Supabase GitHub “Deploy to production” is disabled; future production migration changes require explicit review and manual confirmation.
-- Jason's refreshed production admin session passed a read-only nonexistent-document authorization lookup; no customer document or PII was read.
+- Jason's refreshed production admin session passed with trusted role `admin`; the rendered workflow exercised read-only capability loading without mutation.
 - The private `rental-documents` bucket, 10 MB limit, PDF/JPEG/PNG allowlist, JWT enforcement, signed-access runtime, and Edge runtime passed production verification.
 - Controlled application of `20260810000100` completed with an exit-code-`0` CLI apply, exact business-table and sequence preservation, clean pending initialization, no fabricated evidence, and a following production-linked up-to-date dry run.
 - The repository link was restored to retained preview project `cmqsvywbhswrycgxvbgy`; production remained at backend gate `false` and payment policy `unconfigured`.
-- The Vercel project has no browser-gate variable, so future builds remain fail-closed; no migration-dependent application build has been deployed.
+- Commit `396e5ae` was pushed to `origin/main`, and Vercel produced a successful Ready production deployment after migration `20260810000100` was verified.
+- The deployed public form hard-reloaded with exactly one Equipment Requested dropdown while the Vercel browser variable remained absent and the backend gate remained `false`.
+- The production admin dashboard loaded all three requests, the Utah interface, and locked historical/finalized lifecycle state under Jason's refreshed trusted admin session without any business-data mutation.
 
 ### P1 — resolve before production activation
 
-- Deploy the migration-dependent application code now that production migration `20260810000100` is integrity-verified, keeping both rollout gates disabled; then verify the deployed artifact and browser remain fail-closed before any activation step.
-- Verify the personal staff account's refreshed production session; Jason's admin session has passed.
+- Verify the personal staff account's refreshed production session; Jason's trusted admin session has passed.
+- Perform any explicitly approved remaining production authorization checks without creating synthetic production users or rental fixtures merely for coverage.
 - Keep the selected `invoice_paid` policy recorded but leave the database `unconfigured` until the controlled activation step.
 - Client/counsel approves final Agreement, card-authorization, signature, and Business-signing wording.
 - Client defines insurance coverage, effective/expiration rules, and verifier authority.
@@ -514,26 +526,27 @@ These are production-activation blockers, not reasons to redesign the implemente
 
 ## Production Activation Order
 
-Controlled preparatory and verification steps 1–9 may proceed with the approval required for each task. Steps 2–3 are complete. Do not begin step 10, the separately controlled payment-policy configuration, or step 11, the first rollout-gate activation step, until every P1 blocker and owner sign-off is complete.
+Controlled preparatory and verification steps 1–10 may proceed with the approval required for each task. Steps 2–5 are complete. Do not begin step 11, the separately controlled payment-policy configuration, or step 12, the first rollout-gate activation step, until every P1 blocker and owner sign-off is complete.
 
 1. Review and accept this incident, reconciliation, and production-preservation record; tag no release yet.
 2. **Complete:** Automatic production deployment is disabled, retained preview project `cmqsvywbhswrycgxvbgy` records validated migration `20260810000100`, and deployed production history will not be rolled back or rewritten.
 3. **Complete:** Migration `20260810000100_utah_driver_license_verification.sql` was applied to production through the reviewed manual forward-only procedure and integrity-verified without fabricating evidence; the repository link was restored to preview.
-4. **Next pending preparatory step:** Deploy the migration-dependent application code with `private.release_feature_flags.multi_item_rental_requests = false` and `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` absent/disabled. This order remains mandatory because the application unconditionally queries the new driver-license fields, `rental_driver_license_reviews` history table, `get_rental_document_workflow_capabilities()` RPC, and `review_rental_driver_license()` RPC. Do not add the Vercel browser-gate variable yet.
-5. Verify the personal staff account's refreshed production session; retain Jason's passed admin evidence.
-6. Resolve and record all legal, insurance, retention, delivery/signature, webhook-owner, and partial legacy-route evidence decisions.
-7. Reconfirm the passed production document/Storage runtime controls and verify the production webhook endpoints.
-8. Verify the newly deployed production artifact has no enabled browser gate and confirm the production frontend remains in legacy single-dropdown mode with both rollout gates disabled.
-9. Run only the approved non-destructive production smoke test with synthetic/minimal data, including the agreed route/PDF and operational checks. Keep the production payment policy `unconfigured` during these preparatory checks.
-10. Through separately approved and controlled database administration, set the selected `invoice_paid` policy; until this step begins successfully, the production payment policy must remain `unconfigured`.
-11. **First rollout-gate activation step:** enable the database `multi_item_rental_requests` gate.
-12. Verify server RPCs, legacy behavior, and monitoring before exposing the browser path.
-13. Deploy/configure `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS=true` and verify the built artifact.
-14. Complete the approved operational request → Approval smoke test.
-15. Monitor the signals below through the agreed observation window.
-16. After final production activation sign-off, tag the reviewed `main` commit as `v1.0.0`.
+4. **Complete:** Commit `396e5ae` was pushed to `origin/main`, and Vercel produced a Ready production deployment after the required schema migration, with `private.release_feature_flags.multi_item_rental_requests = false` and `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` absent. The migration-before-application order was mandatory because the application unconditionally queries the new driver-license fields, `rental_driver_license_reviews` history table, `get_rental_document_workflow_capabilities()` RPC, and `review_rental_driver_license()` RPC.
+5. **Complete:** The deployed public form was hard-reloaded and showed one Equipment Requested dropdown; the production admin dashboard loaded under Jason's refreshed trusted admin session and showed the three requests, Utah interface, locked lifecycle presentation, and read-only capability loading without business-data mutation.
+6. Verify the personal staff account's refreshed production session and perform only approved remaining authorization checks; retain Jason's passed trusted-admin evidence and create no synthetic production user or rental fixture merely for coverage.
+7. Resolve and record all legal, insurance, retention, delivery/signature, webhook-owner, and partial legacy-route evidence decisions.
+8. Reconfirm the passed production document/Storage runtime controls and verify the production webhook endpoints.
+9. Run only the approved read-only or explicitly controlled production business smoke test, including the agreed route/PDF and operational checks. Keep the production payment policy `unconfigured` during these preparatory checks.
+10. Confirm the monitoring operator/cadence and remaining activation approvals.
+11. Through separately approved and controlled database administration, set the selected `invoice_paid` policy; until this step begins successfully, the production payment policy must remain `unconfigured`.
+12. **First rollout-gate activation step:** enable the database `multi_item_rental_requests` gate.
+13. Verify server RPCs, legacy behavior, and monitoring before exposing the browser path.
+14. Deploy/configure `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS=true` and verify the built artifact.
+15. Complete the approved operational request → Approval smoke test.
+16. Monitor the signals below through the agreed observation window.
+17. After final production activation sign-off, tag the reviewed `main` commit as `v1.0.0`.
 
-Migration `20260810000100` has passed in retained preview and has now been deliberately applied and integrity-verified in production. Its dependent application code has not been pushed or deployed. That application deployment must leave the backend gate `false` and the Vercel browser variable absent/disabled; backend activation later precedes browser activation so a stale or early browser cannot make the server accept unfinished writes. The currently deployed frontend retains the legacy single-dropdown path; verify the post-deployment artifact and browser state during step 8 before any gate activation.
+Migration `20260810000100` passed in retained preview and was deliberately applied and integrity-verified in production before dependent application commit `396e5ae` was pushed and deployed. The deployed artifact retains backend gate `false` and an absent Vercel browser variable; its public form passed the one-dropdown fail-closed check. Backend activation remains later and precedes browser activation so a stale or early browser cannot make the server accept unfinished writes. Neither gate may be enabled until the remaining P1 blockers and sign-offs are complete.
 
 Do not activate production until every remaining business, legal, security, and operations sign-off is complete. Activation and any rollback action must preserve immutable Agreements, Invoices, Payments, Documents, availability checks, and Approval events.
 
@@ -696,7 +709,9 @@ Utah driver-license verification was implemented and validated locally on 2026-0
 
 During the hosted workflow-validation phase, migration `20260810000100` was applied to retained preview project `cmqsvywbhswrycgxvbgy`. Preflight under Node.js 22, secure token refresh, the Utah authorization/RLS matrix, exact-document and non-Utah rejection behavior, review-history visibility, replacement reset, the two-session replacement/review race, finalized/Approved lifecycle rules, transactional Approval failure, migration reapplication, linked up-to-date dry run, and the fresh Utah-inclusive workflow all passed. No secrets were printed. Preview cleanup reverified `multi_item_rental_requests = false` and `payment_policy = unconfigured`.
 
-The Utah workflow evidence above was produced in preview, not production. In a later separately controlled production operation, migration `20260810000100` applied successfully with exit code `0`; exact pre/post business-table hashes, counts, and sequence state matched; all three existing requests initialized pending with null evidence; no review history or other workflow evidence was fabricated; and a subsequent production-linked dry run reported the remote database up to date. The repository link was restored to preview. Production rollout gates remain disabled and payment policy remains `unconfigured`. Dependent application deployment, revised production artifact/browser validation, migration-dependent production authorization, smoke testing, and release sign-offs remain pending.
+The Utah workflow evidence above was produced in preview, not production. In a later separately controlled production operation, migration `20260810000100` applied successfully with exit code `0`; exact pre/post business-table hashes, counts, and sequence state matched; all three existing requests initialized pending with null evidence; no review history or other workflow evidence was fabricated; and a subsequent production-linked dry run reported the remote database up to date. The repository link was restored to preview. Production rollout gates remained disabled and payment policy remained `unconfigured`.
+
+Production application/browser compatibility validation then completed after commit `396e5ae` was pushed to `origin/main` and Vercel reported a Ready production deployment. A hard reload of the public rental form showed exactly one Equipment Requested dropdown with the Vercel browser variable absent, proving the deployed artifact remained fail-closed. The production admin dashboard loaded all three existing requests, the new Utah interface, and locked historical/finalized lifecycle state. Jason's refreshed session passed with user ID `d6236d6a-1259-443d-9a1c-01fe1b82e900`, trusted role `admin`, expiry `2026-08-17T03:21:53.000Z`, `expired: false`, and no secrets printed; the rendered workflow exercised read-only capability loading. No business-data mutation or synthetic/destructive production workflow test was performed. Personal staff-session verification, any approved remaining production authorization checks, controlled business smoke testing, and release sign-offs remain pending.
 
 ## Sign-off
 
@@ -715,14 +730,15 @@ The Utah workflow evidence above was produced in preview, not production. In a l
 | Hosted legacy routes | Validation operator | Not testable — zero representative historical Agreement/Invoice records; evidence partial |
 | Production schema migrations | Release operator | Automatic application through `20260809000100` and controlled application of `20260810000100` are integrity-verified; not application deployment or activation |
 | Automatic production deployment safeguard | Release operator | “Deploy to production” disabled after incident |
-| Production admin authorization | Release operator | Jason's role and refreshed session passed the read-only nonexistent-document lookup |
+| Production admin authorization | Release operator | Jason's refreshed trusted `admin` session passed; unexpired session and read-only workflow/capability loading verified without secrets or mutation |
 | Production personal staff authorization | Release operator | Role assigned; refreshed session pending verification |
 | Production document/Storage deployment | Release operator | Passed JWT, private-bucket, 10 MB, PDF/JPEG/PNG, signed-access, and Edge runtime verification |
-| Production frontend rollout baseline | Release operator | Manually verified with one legacy Equipment Requested dropdown |
-| Vercel browser rollout gate | Release operator | Variable absent; repository exact-`true` behavior makes future builds fail-closed; post-application-deployment artifact/browser verification pending |
-| Migration-dependent production application | Release operator | Not pushed or deployed; deploy next with both rollout gates disabled |
-| Utah driver-license verification | Engineering/release operator | Local and hosted-preview workflow validation passed; production migration is deployed and integrity-verified; production application, authorization, and smoke test pending |
-| Approved production smoke test | Release operator | Pending |
+| Production application deployment | Vercel/release operator | Commit `396e5ae` deployed Ready from `main` after production migration `20260810000100`; not activation |
+| Production frontend rollout baseline | Release operator | Deployed public form hard-reloaded with exactly one Equipment Requested dropdown |
+| Vercel browser rollout gate | Release operator | Variable absent; deployed `396e5ae` artifact passed the exact-`true` fail-closed check |
+| Production admin/schema compatibility smoke | Release operator | Three requests, Utah interface, locked lifecycle state, and read-only capability loading rendered successfully; no mutation performed |
+| Utah driver-license verification | Engineering/release operator | Local and hosted-preview workflow validation passed; production schema/application and trusted-admin read-only compatibility passed; production mutation smoke remains pending |
+| Approved production business smoke test | Release operator | Pending; no synthetic or destructive production workflow test performed |
 | Payment policy activation | Client/release operator | `invoice_paid` selected; database remains `unconfigured` pending controlled activation |
 | Legal Agreement wording |  | Pending |
 | Insurance/retention/delivery operations |  | Pending |
