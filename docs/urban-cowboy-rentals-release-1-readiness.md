@@ -2,11 +2,11 @@
 
 ## Current Release Status
 
-Release 1 is **engineering-validated locally and in the isolated hosted preview; its database schema through `20260810000100` and migration-dependent application at commit `396e5ae` are deployed in production, while both rollout gates remain disabled and Release 1 is not approved or enabled for production activation**. The implemented chain is:
+Release 1 is **engineering-validated locally and in the isolated hosted preview; its database schema through `20260810000100` and migration-dependent application at commit `396e5ae` are deployed in production, while both rollout gates remain disabled, the apex domain has a blocking DNS/TLS defect, and Release 1 is not approved or enabled for production activation**. The implemented chain is:
 
 `Rental Request → normalized items → initial availability → Agreement draft → private documents → exact-current Utah driver-license review + insurance verification → acceptance/card authorization → finalized Agreement → Invoice → Payment → final availability → Approval → reversal/reapproval`
 
-Commit `59acd8d` was pushed to `main`. Because the Supabase GitHub integration still had “Deploy to production” enabled, that push unexpectedly applied the pending migrations through `20260809000100` to production before the planned controlled deployment step. Read-only integrity checks proved that the known production history was preserved. This was a schema deployment incident, not Release 1 feature activation or approval. Migration `20260810000100` was later applied to production through a controlled, forward-only procedure and passed complete pre/post integrity verification. Commit `396e5ae` was then pushed to `origin/main`, and Vercel produced a successful Ready production deployment containing the migration-dependent Utah driver-license application code. The production backend rollout flag remains verified `false`; Vercel still has no `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` variable; and a hard reload of the deployed public rental form showed exactly one Equipment Requested dropdown, proving the deployed browser artifact remains fail-closed. The production admin dashboard loaded all three existing requests and the Utah interface under Jason's refreshed trusted admin session without any business-data mutation. The client selected `invoice_paid`, but the production Approval payment policy intentionally remains `unconfigured` until controlled activation. Personal staff-session verification, any approved remaining production authorization checks, controlled business smoke testing, business/legal decisions, and activation sign-offs remain pending.
+Commit `59acd8d` was pushed to `main`. Because the Supabase GitHub integration still had “Deploy to production” enabled, that push unexpectedly applied the pending migrations through `20260809000100` to production before the planned controlled deployment step. Read-only integrity checks proved that the known production history was preserved. This was a schema deployment incident, not Release 1 feature activation or approval. Migration `20260810000100` was later applied to production through a controlled, forward-only procedure and passed complete pre/post integrity verification. Commit `396e5ae` was then pushed to `origin/main`, and Vercel produced a successful Ready production deployment containing the migration-dependent Utah driver-license application code. The production backend rollout flag remains verified `false`; Vercel still has no `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` variable; and a hard reload of the deployed `www` public rental form showed exactly one Equipment Requested dropdown, proving the deployed browser artifact remains fail-closed. The production admin dashboard loaded all three existing requests and the Utah interface under Jason's refreshed trusted admin session without any business-data mutation. The personal May 9 account also completed refreshed trusted-`staff` authentication and read-only dashboard/schema compatibility validation through the working `www` domain. The apex domain currently resolves to the wrong IONOS-hosted address and fails TLS before its intended redirect, so overall production-domain availability is not healthy and activation is blocked pending authorized DNS correction and fresh verification. The client selected `invoice_paid`, but the production Approval payment policy intentionally remains `unconfigured` until controlled activation. Any approved remaining production authorization checks, controlled business smoke testing, business/legal decisions, and activation sign-offs remain pending.
 
 Detailed behavior remains defined in the [Release 1 specification](urban-cowboy-rentals-release-1-spec.md), [ERD](urban-cowboy-rentals-release-1-erd.md), [security/role contract](urban-cowboy-rentals-release-1-security-roles.md), and [Approval workflow](urban-cowboy-rentals-release-1-approval-workflow.md).
 
@@ -35,12 +35,13 @@ Detailed behavior remains defined in the [Release 1 specification](urban-cowboy-
 | Reconciliation migration | HOSTED VALIDATED | Preview application, immediate comparison, manual rerun, and second comparison passed; indexes, helper/functions, FKs, sequences, flags, policy, and all ten business snapshots remained correct. |
 | Agreement creation serialization | HOSTED VALIDATED | Two independent post-reconciliation staff JWT sessions produced exactly one Agreement and one `23505` rejection for the same request. This is Agreement creation evidence, not a rerun of the Approval race suite. |
 | Legacy compatibility | READY — HOSTED UI EVIDENCE PARTIAL | Local request/Agreement/Invoice/route coverage passes, and production database preservation of all known legacy rows is verified. Preview contained no representative historical Agreements or Invoices, so hosted legacy route rendering and `legacy_unverified` presentation remain untested. |
-| Authorization/RLS | PREVIEW VALIDATED — PRODUCTION PARTIAL | Refreshed preview staff/admin sessions passed the Utah capability, review, and append-only-history workflow; customer and spoofed-customer sessions were denied. Jason's refreshed production admin session and read-only capability loading are verified; the personal staff session and any approved production customer authorization checks remain pending. |
+| Authorization/RLS | PREVIEW VALIDATED — PRODUCTION PARTIAL | Refreshed preview staff/admin sessions passed the Utah capability, review, and append-only-history workflow; customer and spoofed-customer sessions were denied. Jason's refreshed production `admin` session and the personal account's refreshed production `staff` session are verified for read-only dashboard/schema compatibility; production customer authorization remains unverified. |
 | Production schema | DEPLOYED — NOT ACTIVATED | Migrations through `20260809000100` were applied automatically by the GitHub integration; `20260810000100` was then applied and verified through a controlled procedure before the separate `396e5ae` application deployment. Preservation checks passed; no production workflow mutation or feature activation occurred. |
-| Production application | DEPLOYED — NOT ACTIVATED | Vercel successfully deployed `396e5ae` from `main` after the required schema migration. The public fail-closed browser check and read-only admin/schema compatibility smoke passed; no production workflow mutation was attempted. |
-| Production rollout gates | DISABLED | Production database flag is verified `false`; Vercel has no browser-gate variable; and the deployed `396e5ae` public form hard-reloaded with exactly one Equipment Requested dropdown. Backend activation must precede browser exposure. |
+| Production application | DEPLOYED — NOT ACTIVATED | Vercel successfully deployed `396e5ae` from `main` after the required schema migration. The `www` fail-closed browser check and read-only admin/schema compatibility smoke passed; no production workflow mutation was attempted. |
+| Production rollout gates | DISABLED | Production database flag is verified `false`; Vercel has no browser-gate variable; and the deployed `396e5ae` `www` form hard-reloaded with exactly one Equipment Requested dropdown. Backend activation must precede browser exposure. |
+| Production public domains | P1 BLOCKED — APEX DNS/TLS | `www.urbancowboyrentals.com` is valid and available for controlled validation, but fresh apex-domain clients fail TLS before the intended redirect. Correct and verify the IONOS apex A record before activation. |
 
-No current item is classified `BLOCKED — ENGINEERING`. Preview reconciliation, migration `20260810000100` compatibility/idempotency, controlled production schema application and integrity verification, production application deployment, fail-closed browser-artifact verification, Jason's refreshed admin-session verification, read-only admin/schema compatibility smoke, Utah authorization and lifecycle validation, the replacement/review race, the fresh Utah-inclusive workflow, and independent-session Agreement creation serialization are complete. Production activation remains blocked by the personal staff-session check, any approved remaining production authorization checks, remaining decisions and operational verification, controlled business smoke testing, and explicit acceptance of the partial hosted legacy-route evidence.
+No current item is classified `BLOCKED — ENGINEERING`. Preview reconciliation, migration `20260810000100` compatibility/idempotency, controlled production schema application and integrity verification, production application deployment, fail-closed browser-artifact verification, Jason's refreshed admin-session verification, personal refreshed staff-session verification, read-only admin/staff dashboard-schema compatibility, Utah authorization and lifecycle validation, the replacement/review race, the fresh Utah-inclusive workflow, and independent-session Agreement creation serialization are complete. Production activation remains blocked by the apex DNS/TLS incident, any approved remaining production authorization checks, remaining decisions and operational verification, controlled business smoke testing, and explicit acceptance of the partial hosted legacy-route evidence.
 
 ## Hosted Validation Harness
 
@@ -224,7 +225,7 @@ Only `app_metadata.role` or `app_metadata.app_role` values `staff`/`admin` are t
 
 ## Synthetic End-to-End Walkthrough
 
-The pre-Utah Release 1 baseline form of this walkthrough passed in the isolated hosted preview and remains valid historical evidence. After preview application of migration `20260810000100`, a fresh revised walkthrough including exact-current-document Utah driver-license verification also passed in retained preview project `cmqsvywbhswrycgxvbgy`. This remains preview workflow evidence: production now has the integrity-verified schema and deployed application, but only fail-closed public rendering and read-only trusted-admin compatibility have been exercised there. Retain the procedure and preview evidence for review and any approved production business smoke test. Use active serialized catalog items and synthetic customer data only.
+The pre-Utah Release 1 baseline form of this walkthrough passed in the isolated hosted preview and remains valid historical evidence. After preview application of migration `20260810000100`, a fresh revised walkthrough including exact-current-document Utah driver-license verification also passed in retained preview project `cmqsvywbhswrycgxvbgy`. This remains preview workflow evidence: production now has the integrity-verified schema and deployed application, but only fail-closed public rendering and read-only trusted-admin/staff compatibility have been exercised there. Retain the procedure and preview evidence for review and any approved production business smoke test. Use active serialized catalog items and synthetic customer data only.
 
 For Release 1, customers send their driver license and insurance to staff, and trusted staff/admin upload both through the protected dashboard. Direct customer document upload remains deferred to Release 1.1.
 
@@ -357,7 +358,7 @@ The preview-only flow proved:
 - both final records were attributed to preview admin `819bee46-dd38-427b-8f36-e99783f5788b`, the Approval event recorded `invoice_paid`, Approval completed successfully, and the request's `approval_status` became `approved`; and
 - after validation, the Agreement remained locked and snapshot-exact, the Invoice remained paid at `$240` with zero balance, `multi_item_rental_requests` was restored to `false`, and `payment_policy` was restored to `unconfigured`.
 
-These results extend rather than replace the earlier pre-Utah hosted baseline. Release 1 still uses trusted staff/admin uploads; direct customer uploads do not exist. Customer self-service uploads, customer notifications/status portal, and an “Accept for Processing” action remain deferred. This preview workflow evidence does not establish production workflow behavior or Release 1 activation; the later production schema, application, fail-closed browser, and read-only trusted-admin compatibility evidence are documented separately below.
+These results extend rather than replace the earlier pre-Utah hosted baseline. Release 1 still uses trusted staff/admin uploads; direct customer uploads do not exist. Customer self-service uploads, customer notifications/status portal, and an “Accept for Processing” action remain deferred. This preview workflow evidence does not establish production workflow behavior or Release 1 activation; the later production schema, application, fail-closed browser, and read-only trusted-admin/staff compatibility evidence are documented separately below.
 
 ### Unexpected automatic production schema application
 
@@ -422,11 +423,35 @@ The Vercel production environment contains no `VITE_ENABLE_MULTI_ITEM_RENTAL_REQ
 
 The production admin dashboard loaded successfully against the production database, displayed the existing three rental requests, rendered the newly deployed Utah driver-license verification interface, and showed the locked lifecycle state for historical/finalized requests. Rendering the document workflow exercised its authenticated read-only request/document/review-history and capability loading. No document upload, verification, rejection, request update, Agreement action, Invoice action, Payment action, Approval action, or other business-data mutation was performed. This is a read-only application/schema compatibility smoke check, not a complete production workflow test.
 
-Jason's refreshed production browser session returned `productionAdminAuthorization: PASS`, `sessionPresent: true`, user ID `d6236d6a-1259-443d-9a1c-01fe1b82e900`, trusted role `admin`, expiry `2026-08-17T03:21:53.000Z`, `expired: false`, and `secretsPrinted: false`. Jason's refreshed trusted admin session is therefore verified. The personal account assigned the `staff` role has not been validated with a refreshed production browser session, and no production customer authorization test has been performed. Do not create a synthetic production user or rental fixture merely to fill those evidence gaps.
+Jason's refreshed production browser session returned `productionAdminAuthorization: PASS`, `sessionPresent: true`, user ID `d6236d6a-1259-443d-9a1c-01fe1b82e900`, trusted role `admin`, expiry `2026-08-17T03:21:53.000Z`, `expired: false`, and `secretsPrinted: false`. Jason's refreshed trusted admin session is therefore verified.
+
+The personal May 9 production account authenticated through `https://www.urbancowboyrentals.com/admin-login`, and the production dashboard loaded the existing three requests. Its refreshed session returned `productionStaffAuthorization: PASS`, `sessionPresent: true`, user ID `4e72c978-ade4-4d1d-9468-74e999f6f985`, trusted role `staff`, expiry `2026-08-17T03:57:05.000Z`, `expired: false`, and `secretsPrinted: false`. This completes refreshed production staff-session verification for read-only authentication, trusted-role, dashboard-read, and schema-compatibility evidence. No rental request, document, Agreement, Invoice, Payment, Approval, configuration, user, or other production business data was mutated.
+
+Production customer authorization remains unverified. Do not create a synthetic production customer or rental fixture merely to fill that evidence gap.
 
 During browser inspection, Command+Shift+R in Safari toggled Reader Mode and produced an unstyled article-like checklist. That observation was browser Reader Mode, not an application rendering failure; the normal production dashboard rendered correctly outside Reader Mode. Safari reload-from-origin is Option+Command+R, while Command+R performs a normal reload.
 
 No synthetic or destructive production workflow testing occurred. Production remains unactivated with backend gate `false`, browser gate fail-closed, and payment policy `unconfigured`. The preview validation project remains retained, Supabase GitHub automatic production database deployment remains disabled, and no rollback is indicated.
+
+### Production apex-domain DNS/TLS incident
+
+Fresh Safari Private and Chrome Incognito sessions could not establish HTTPS connections to `https://urbancowboyrentals.com/admin-login` or `https://urbancowboyrentals.com/admin`. Chrome reported `ERR_SSL_PROTOCOL_ERROR`; Safari reported that it could not establish a secure connection. A read-only apex check resolved `urbancowboyrentals.com` to IPv4 `217.160.0.232`, but the TLS handshake failed with an internal-error alert and `curl (35): OpenSSL SSL routines tlsv1 alert internal error`.
+
+Authoritative DNS is hosted by IONOS through `ns1122.ui-dns.com`, `ns1070.ui-dns.biz`, `ns1056.ui-dns.org`, and `ns1058.ui-dns.de`. The observed DNS inventory was:
+
+| Name | Type | Observed value |
+| --- | --- | --- |
+| `@` / `urbancowboyrentals.com` | A | `217.160.0.232` |
+| `www.urbancowboyrentals.com` | A | `216.198.79.1` |
+| `www.urbancowboyrentals.com` | CNAME | No relevant result |
+
+Vercel reported `urbancowboyrentals.com` as **Invalid Configuration**. The apex is configured for a `307` redirect to `www.urbancowboyrentals.com`, but Vercel requires the apex A record `@ → 216.198.79.1`. The current TLS failure occurs before HTTP redirect processing, so the intended redirect cannot run. Vercel reported `www.urbancowboyrentals.com` and the project's `vercel.app` domain as **Valid Configuration**.
+
+A read-only check of `https://www.urbancowboyrentals.com/admin-login` resolved to `216.198.79.1`, established TLS 1.3, matched and verified certificate CN/SAN `www.urbancowboyrentals.com`, returned HTTP/2 `200` from Vercel, and included strict transport security. The staff login/dashboard validation succeeded through this valid `www` domain. `www` is available for controlled validation, but the apex is unavailable to fresh clients; the working `www` domain is not evidence that overall public-domain availability is healthy.
+
+The required remediation is to recover authorized IONOS access, verify the exact current record in the IONOS console, and replace only the apex A record `@ → 217.160.0.232` with Vercel's required `@ → 216.198.79.1`. Preserve the already-valid `www` record. After DNS propagation, refresh Vercel's domain status, verify apex TLS and the intended `307` redirect, and verify both public and admin routes in a fresh uncached browser session. No DNS change was performed because IONOS credentials were unavailable during validation.
+
+Do not bypass or weaken TLS, and do not delete or recreate the Vercel domain. Do not activate Release 1 while the apex remains broken. This is a production DNS/TLS availability incident, not an application or database regression; it does not indicate a database or application rollback.
 
 ### Automatic-deployment safeguard
 
@@ -438,7 +463,7 @@ Never include values in release evidence.
 
 | Setting/variable | Repository state | Release classification |
 | --- | --- | --- |
-| `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` | Absent from the Vercel production environment; repository behavior resolves missing/anything except exact lowercase `true` to false | Deployed `396e5ae` artifact passed the hard-reload fail-closed check with one Equipment Requested dropdown; do not add the variable yet |
+| `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` | Absent from the Vercel production environment; repository behavior resolves missing/anything except exact lowercase `true` to false | Deployed `396e5ae` artifact passed the `www` hard-reload fail-closed check with one Equipment Requested dropdown; do not add the variable yet |
 | `private.release_feature_flags.multi_item_rental_requests` | Preview and production reverified as `false`, including after the controlled Utah migration | Backend rollout gate remains disabled in both environments |
 | `RENTAL_DOCUMENT_MAX_BYTES` | Edge fallback and bucket constraint are 10,485,760 bytes | Preview passed; confirm production deployment configuration before activation |
 | `RENTAL_DOCUMENT_SIGNED_URL_TTL_SECONDS` | Edge fallback 120 seconds, clamped to 60–300 | Preview passed; confirm production deployment configuration before activation |
@@ -447,6 +472,8 @@ Never include values in release evidence.
 | Production migration version | `20260810000100` | Utah migration applied through the controlled CLI procedure; complete preservation and linked up-to-date dry-run checks passed; activation remains pending |
 | Production application version | `396e5ae` from `main` | Vercel deployment reached Ready; application/schema compatibility and fail-closed browser checks passed; not activation |
 | Supabase GitHub “Deploy to production” | Disabled after the automatic migration incident | Future production migrations require reviewed manual confirmation |
+| Production apex domain | A record `217.160.0.232`; Vercel status Invalid Configuration; TLS fails before redirect | P1 BLOCKER — replace only `@` with `216.198.79.1` through authorized IONOS access, then verify propagation, TLS, redirect, and fresh-browser routes |
+| Production `www` domain | A record `216.198.79.1`; valid TLS 1.3/certificate; HTTP/2 `200` from Vercel with HSTS | AVAILABLE for controlled validation; does not prove apex availability |
 | `VITE_SUPABASE_URL` | Preview project identity passed harness confirmation | Preview passed; production configuration/activation remains pending |
 | `VITE_SUPABASE_ANON_KEY` | Preview key worked without value disclosure | Preview passed; production value must remain unreported |
 | Production `rental-documents` runtime | JWT enforcement, private bucket, 10 MB limit, PDF/JPEG/PNG allowlist, and Edge runtime checked without value disclosure | PASSED; retain staff-only signed-access boundaries |
@@ -455,7 +482,7 @@ Never include values in release evidence.
 | `SUPABASE_SERVICE_ROLE_KEY` | Remained server-side during preview and production runtime checks | PASSED for current document runtime; never expose value |
 | Preview staff/admin `app_metadata` | Trusted claims and securely refreshed preview sessions validated under Node 22.23.1 | PASSED after reconciliation |
 | Production admin `app_metadata` | Jason's refreshed session has trusted role `admin`, is unexpired, and successfully loaded the read-only document workflow/capabilities | PASSED for the trusted-admin application compatibility check; no mutation performed |
-| Production personal staff `app_metadata` | Staff role assigned | PENDING refreshed-session verification |
+| Production personal staff `app_metadata` | Refreshed May 9 session has trusted role `staff`, is unexpired, and loaded the existing three requests through the valid `www` domain | PASSED for read-only authentication/dashboard/schema compatibility; no mutation performed |
 | `VITE_N8N_RENTAL_REQUEST_WEBHOOK` | Existing browser integration variable | CONFIGURED locally; operational endpoint test required |
 | `VITE_N8N_AUTOMATION_WEBHOOK_URL` | Existing browser integration variable | CONFIGURED locally; operational endpoint test required |
 
@@ -494,13 +521,15 @@ No P0 implementation defect is known from local or isolated hosted-preview valid
 - Controlled application of `20260810000100` completed with an exit-code-`0` CLI apply, exact business-table and sequence preservation, clean pending initialization, no fabricated evidence, and a following production-linked up-to-date dry run.
 - The repository link was restored to retained preview project `cmqsvywbhswrycgxvbgy`; production remained at backend gate `false` and payment policy `unconfigured`.
 - Commit `396e5ae` was pushed to `origin/main`, and Vercel produced a successful Ready production deployment after migration `20260810000100` was verified.
-- The deployed public form hard-reloaded with exactly one Equipment Requested dropdown while the Vercel browser variable remained absent and the backend gate remained `false`.
+- The deployed `www` public form hard-reloaded with exactly one Equipment Requested dropdown while the Vercel browser variable remained absent and the backend gate remained `false`.
 - The production admin dashboard loaded all three requests, the Utah interface, and locked historical/finalized lifecycle state under Jason's refreshed trusted admin session without any business-data mutation.
+- The personal May 9 account's refreshed trusted-`staff` session authenticated through the valid `www` domain and loaded the same three requests without any business-data mutation or secret disclosure.
+- The working `www` domain passed DNS, TLS 1.3, certificate, HTTP/2 `200`, Vercel-server, and HSTS checks. The separate broken apex was identified as a P1 DNS/TLS availability incident, not an application/database regression.
 
 ### P1 — resolve before production activation
 
-- Verify the personal staff account's refreshed production session; Jason's trusted admin session has passed.
-- Perform any explicitly approved remaining production authorization checks without creating synthetic production users or rental fixtures merely for coverage.
+- Recover authorized IONOS access, verify the exact current apex record, replace only `@ → 217.160.0.232` with Vercel's required `@ → 216.198.79.1`, preserve the valid `www` record, allow propagation, refresh Vercel domain status, verify apex TLS and the intended `307` redirect, and verify public/admin routes in a fresh uncached browser. Do not activate while the apex remains broken.
+- Perform any explicitly approved remaining production authorization checks, including customer coverage if required, without creating synthetic production customers or rental fixtures merely for coverage.
 - Keep the selected `invoice_paid` policy recorded but leave the database `unconfigured` until the controlled activation step.
 - Client/counsel approves final Agreement, card-authorization, signature, and Business-signing wording.
 - Client defines insurance coverage, effective/expiration rules, and verifier authority.
@@ -526,27 +555,30 @@ These are production-activation blockers, not reasons to redesign the implemente
 
 ## Production Activation Order
 
-Controlled preparatory and verification steps 1–10 may proceed with the approval required for each task. Steps 2–5 are complete. Do not begin step 11, the separately controlled payment-policy configuration, or step 12, the first rollout-gate activation step, until every P1 blocker and owner sign-off is complete.
+Controlled preparatory and verification steps 1–13 may proceed with the approval required for each task. Steps 2–6 are complete. Do not begin step 14, the separately controlled payment-policy configuration, or step 15, the first rollout-gate activation step, until every P1 blocker and owner sign-off is complete.
 
 1. Review and accept this incident, reconciliation, and production-preservation record; tag no release yet.
 2. **Complete:** Automatic production deployment is disabled, retained preview project `cmqsvywbhswrycgxvbgy` records validated migration `20260810000100`, and deployed production history will not be rolled back or rewritten.
 3. **Complete:** Migration `20260810000100_utah_driver_license_verification.sql` was applied to production through the reviewed manual forward-only procedure and integrity-verified without fabricating evidence; the repository link was restored to preview.
 4. **Complete:** Commit `396e5ae` was pushed to `origin/main`, and Vercel produced a Ready production deployment after the required schema migration, with `private.release_feature_flags.multi_item_rental_requests = false` and `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS` absent. The migration-before-application order was mandatory because the application unconditionally queries the new driver-license fields, `rental_driver_license_reviews` history table, `get_rental_document_workflow_capabilities()` RPC, and `review_rental_driver_license()` RPC.
-5. **Complete:** The deployed public form was hard-reloaded and showed one Equipment Requested dropdown; the production admin dashboard loaded under Jason's refreshed trusted admin session and showed the three requests, Utah interface, locked lifecycle presentation, and read-only capability loading without business-data mutation.
-6. Verify the personal staff account's refreshed production session and perform only approved remaining authorization checks; retain Jason's passed trusted-admin evidence and create no synthetic production user or rental fixture merely for coverage.
-7. Resolve and record all legal, insurance, retention, delivery/signature, webhook-owner, and partial legacy-route evidence decisions.
-8. Reconfirm the passed production document/Storage runtime controls and verify the production webhook endpoints.
-9. Run only the approved read-only or explicitly controlled production business smoke test, including the agreed route/PDF and operational checks. Keep the production payment policy `unconfigured` during these preparatory checks.
-10. Confirm the monitoring operator/cadence and remaining activation approvals.
-11. Through separately approved and controlled database administration, set the selected `invoice_paid` policy; until this step begins successfully, the production payment policy must remain `unconfigured`.
-12. **First rollout-gate activation step:** enable the database `multi_item_rental_requests` gate.
-13. Verify server RPCs, legacy behavior, and monitoring before exposing the browser path.
-14. Deploy/configure `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS=true` and verify the built artifact.
-15. Complete the approved operational request → Approval smoke test.
-16. Monitor the signals below through the agreed observation window.
-17. After final production activation sign-off, tag the reviewed `main` commit as `v1.0.0`.
+5. **Complete:** The deployed `www` public form was hard-reloaded and showed one Equipment Requested dropdown; the production admin dashboard loaded under Jason's refreshed trusted admin session and showed the three requests, Utah interface, locked lifecycle presentation, and read-only capability loading without business-data mutation.
+6. **Complete:** The personal May 9 production account authenticated through the valid `www` login, and its refreshed trusted-`staff` session loaded the existing three requests without mutation or secret disclosure.
+7. Recover authorized IONOS access; verify and replace only the apex A record with `216.198.79.1`; preserve `www`; allow propagation; refresh Vercel status; verify apex TLS and the intended `307`; and verify public/admin routes in fresh uncached browsers. Do not bypass TLS, recreate the Vercel domain, or proceed while the apex remains broken.
+8. Perform only approved remaining authorization checks, including production customer coverage if required; retain the passed admin/staff evidence and create no synthetic production customer or rental fixture merely for coverage.
+9. Resolve and record all legal, insurance, retention, delivery/signature, webhook-owner, and partial legacy-route evidence decisions.
+10. Reconfirm the passed production document/Storage runtime controls and verify the production webhook endpoints.
+11. Run only the approved read-only or explicitly controlled production business smoke test, including the agreed route/PDF and operational checks. Keep the production payment policy `unconfigured` during these preparatory checks.
+12. Confirm the monitoring operator/cadence and remaining activation approvals.
+13. Reconfirm both public domains, both rollout gates, and the payment policy immediately before controlled activation.
+14. Through separately approved and controlled database administration, set the selected `invoice_paid` policy; until this step begins successfully, the production payment policy must remain `unconfigured`.
+15. **First rollout-gate activation step:** enable the database `multi_item_rental_requests` gate.
+16. Verify server RPCs, legacy behavior, and monitoring before exposing the browser path.
+17. Deploy/configure `VITE_ENABLE_MULTI_ITEM_RENTAL_REQUESTS=true` and verify the built artifact.
+18. Complete the approved operational request → Approval smoke test.
+19. Monitor the signals below through the agreed observation window.
+20. After final production activation sign-off, tag the reviewed `main` commit as `v1.0.0`.
 
-Migration `20260810000100` passed in retained preview and was deliberately applied and integrity-verified in production before dependent application commit `396e5ae` was pushed and deployed. The deployed artifact retains backend gate `false` and an absent Vercel browser variable; its public form passed the one-dropdown fail-closed check. Backend activation remains later and precedes browser activation so a stale or early browser cannot make the server accept unfinished writes. Neither gate may be enabled until the remaining P1 blockers and sign-offs are complete.
+Migration `20260810000100` passed in retained preview and was deliberately applied and integrity-verified in production before dependent application commit `396e5ae` was pushed and deployed. The deployed artifact retains backend gate `false` and an absent Vercel browser variable; its `www` public form passed the one-dropdown fail-closed check. Backend activation remains later and precedes browser activation so a stale or early browser cannot make the server accept unfinished writes. Neither gate may be enabled until the apex DNS/TLS blocker and every other P1/sign-off requirement are complete.
 
 Do not activate production until every remaining business, legal, security, and operations sign-off is complete. Activation and any rollback action must preserve immutable Agreements, Invoices, Payments, Documents, availability checks, and Approval events.
 
@@ -563,6 +595,8 @@ Do not reverse or destructively edit migrations. If activation reveals a defect:
 
 Finalized Agreement snapshots, issued Invoice snapshots, Payments, document history, and Approval evidence are intentionally immutable and cannot be safely “rolled back.” Operational reversal/cancellation must use their audited workflows.
 
+The apex DNS/TLS incident does not indicate a database or application rollback. Remediate the authoritative IONOS apex A record forward, preserve the valid `www` record and deployed application, and verify TLS/redirect behavior without weakening transport security or recreating the Vercel domain.
+
 ## Minimum Monitoring After Activation
 
 | Signal | Existing source |
@@ -577,11 +611,13 @@ Finalized Agreement snapshots, issued Invoice snapshots, Payments, document hist
 | Approval denial by gate | Checklist state/reason and RPC result |
 | Final availability conflict | `rental_availability_checks` final conflict rows |
 | Approval/reversal volume | Append-only `rental_approval_events` |
+| Apex DNS/TLS and redirect health | Authoritative DNS, Vercel domain status, fresh TLS check, and uncached browser routes |
 
 Assign an operator and alert/check cadence before activation. Do not log document contents, signed URLs, card data, credentials, or customer PII.
 
 ## Post-Activation Smoke Test
 
+- Apex HTTPS succeeds and redirects as intended; `www` remains valid; fresh uncached public and admin routes load without bypassing TLS.
 - Public legacy booking still creates a neutral pending request.
 - Multi-item browser request creates authoritative normalized items and compatible scalar summary.
 - Archived equipment is absent from new selection and still visible historically.
@@ -711,7 +747,11 @@ During the hosted workflow-validation phase, migration `20260810000100` was appl
 
 The Utah workflow evidence above was produced in preview, not production. In a later separately controlled production operation, migration `20260810000100` applied successfully with exit code `0`; exact pre/post business-table hashes, counts, and sequence state matched; all three existing requests initialized pending with null evidence; no review history or other workflow evidence was fabricated; and a subsequent production-linked dry run reported the remote database up to date. The repository link was restored to preview. Production rollout gates remained disabled and payment policy remained `unconfigured`.
 
-Production application/browser compatibility validation then completed after commit `396e5ae` was pushed to `origin/main` and Vercel reported a Ready production deployment. A hard reload of the public rental form showed exactly one Equipment Requested dropdown with the Vercel browser variable absent, proving the deployed artifact remained fail-closed. The production admin dashboard loaded all three existing requests, the new Utah interface, and locked historical/finalized lifecycle state. Jason's refreshed session passed with user ID `d6236d6a-1259-443d-9a1c-01fe1b82e900`, trusted role `admin`, expiry `2026-08-17T03:21:53.000Z`, `expired: false`, and no secrets printed; the rendered workflow exercised read-only capability loading. No business-data mutation or synthetic/destructive production workflow test was performed. Personal staff-session verification, any approved remaining production authorization checks, controlled business smoke testing, and release sign-offs remain pending.
+Production application/browser compatibility validation then completed after commit `396e5ae` was pushed to `origin/main` and Vercel reported a Ready production deployment. A hard reload of the `www` public rental form showed exactly one Equipment Requested dropdown with the Vercel browser variable absent, proving the deployed artifact remained fail-closed. The production admin dashboard loaded all three existing requests, the new Utah interface, and locked historical/finalized lifecycle state. Jason's refreshed session passed with user ID `d6236d6a-1259-443d-9a1c-01fe1b82e900`, trusted role `admin`, expiry `2026-08-17T03:21:53.000Z`, `expired: false`, and no secrets printed; the rendered workflow exercised read-only capability loading.
+
+The personal May 9 account then authenticated at the working `www` admin-login route. Its refreshed production session returned `productionStaffAuthorization: PASS`, `sessionPresent: true`, user ID `4e72c978-ade4-4d1d-9468-74e999f6f985`, trusted role `staff`, expiry `2026-08-17T03:57:05.000Z`, `expired: false`, and `secretsPrinted: false`; the dashboard loaded the existing three requests. This completes read-only production staff authentication/trusted-role/dashboard/schema compatibility evidence. No business-data mutation or synthetic/destructive production workflow test was performed. Production customer authorization and any other explicitly approved checks remain pending; no synthetic production customer or rental fixture should be created merely for coverage.
+
+Separate read-only domain checks discovered that fresh apex clients fail TLS: `urbancowboyrentals.com` resolves to `217.160.0.232`, while Vercel requires `216.198.79.1`; Vercel reports the apex Invalid Configuration; and the TLS failure prevents the configured `307` redirect from running. The `www` domain at `216.198.79.1` passed TLS 1.3/certificate verification, HTTP/2 `200`, Vercel-server, and HSTS checks and remains usable for controlled validation. No DNS change occurred because authorized IONOS credentials were unavailable. This is a P1 production-availability blocker, not an application/database regression, and overall public-domain availability is not healthy until the apex is corrected and freshly verified.
 
 ## Sign-off
 
@@ -731,12 +771,15 @@ Production application/browser compatibility validation then completed after com
 | Production schema migrations | Release operator | Automatic application through `20260809000100` and controlled application of `20260810000100` are integrity-verified; not application deployment or activation |
 | Automatic production deployment safeguard | Release operator | “Deploy to production” disabled after incident |
 | Production admin authorization | Release operator | Jason's refreshed trusted `admin` session passed; unexpired session and read-only workflow/capability loading verified without secrets or mutation |
-| Production personal staff authorization | Release operator | Role assigned; refreshed session pending verification |
+| Production personal staff authorization | Release operator | May 9 account's refreshed trusted `staff` session passed through `www`; unexpired session and three-request dashboard read verified without secrets or mutation |
+| Production customer authorization | Release operator | Unverified; run only if explicitly approved and do not create a synthetic production customer/fixture merely for coverage |
 | Production document/Storage deployment | Release operator | Passed JWT, private-bucket, 10 MB, PDF/JPEG/PNG, signed-access, and Edge runtime verification |
 | Production application deployment | Vercel/release operator | Commit `396e5ae` deployed Ready from `main` after production migration `20260810000100`; not activation |
-| Production frontend rollout baseline | Release operator | Deployed public form hard-reloaded with exactly one Equipment Requested dropdown |
+| Production frontend rollout baseline | Release operator | Deployed `www` public form hard-reloaded with exactly one Equipment Requested dropdown; apex availability is tracked separately |
 | Vercel browser rollout gate | Release operator | Variable absent; deployed `396e5ae` artifact passed the exact-`true` fail-closed check |
 | Production admin/schema compatibility smoke | Release operator | Three requests, Utah interface, locked lifecycle state, and read-only capability loading rendered successfully; no mutation performed |
+| Production `www` availability | Release operator | Valid DNS/TLS/certificate, HTTP/2 `200`, Vercel server, HSTS, and staff login/dashboard validation passed |
+| Production apex availability | DNS owner/release operator | P1 BLOCKED — wrong IONOS apex A record, TLS handshake failure, and Vercel Invalid Configuration; correction and fresh verification pending |
 | Utah driver-license verification | Engineering/release operator | Local and hosted-preview workflow validation passed; production schema/application and trusted-admin read-only compatibility passed; production mutation smoke remains pending |
 | Approved production business smoke test | Release operator | Pending; no synthetic or destructive production workflow test performed |
 | Payment policy activation | Client/release operator | `invoice_paid` selected; database remains `unconfigured` pending controlled activation |
