@@ -2,12 +2,16 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import AgreementHeader from "../components/agreement/AgreementHeader";
+import AgreementDocumentActions from "../components/agreement/AgreementDocumentActions";
+import AgreementEvidenceSummary from "../components/agreement/AgreementEvidenceSummary";
 import CustomerSection from "../components/agreement/CustomerSection";
 import EquipmentSection from "../components/agreement/EquipmentSection";
 import LegalClauses from "../components/agreement/LegalClauses";
 import PricingSummary from "../components/agreement/PricingSummary";
 import SignatureSection from "../components/agreement/SignatureSection";
 import RentalDocumentWorkflowSection from "../components/documents/RentalDocumentWorkflowSection";
+import DocumentBrandFooter from "../components/document/DocumentBrandFooter";
+import DocumentPrintBoundary from "../components/document/DocumentPrintBoundary";
 import MainLayout from "../components/layout/MainLayout";
 import SEO from "../components/seo/SEO";
 import PageTransition from "../components/ui/PageTransition";
@@ -21,6 +25,7 @@ import {
 import { createInvoiceFromAgreement } from "../services/invoiceService";
 import type { RentalDocumentWorkflowState } from "../domain/models/rentalDocument";
 import type { RentalAgreement } from "../types/agreement";
+import { getAgreementPrintReadiness } from "../utils/documentPresentation";
 
 const errorMessage = (error: unknown, fallback: string): string =>
   error instanceof Error && error.message ? error.message : fallback;
@@ -201,6 +206,9 @@ export default function AgreementPage() {
   const isFinalized = Boolean(agreement.locked_at);
   const isAccepted = agreement.signature_status !== "pending";
   const hasVerifiedSnapshot = agreement.snapshot_availability.status === "verified";
+  const printReadiness = getAgreementPrintReadiness(
+    agreement.snapshot_availability
+  );
   const currentDriverLicense = documentState?.documents.find(
     (document) => document.documentType === "driver_license" && document.isCurrent
   );
@@ -231,22 +239,26 @@ export default function AgreementPage() {
         description="Review and manage the Urban Cowboy Rentals equipment rental agreement."
       />
       <MainLayout>
-        <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+        <DocumentPrintBoundary
+          className="document-route mx-auto max-w-6xl px-4 py-20 sm:px-6"
+          documentType="Agreement"
+          readiness={printReadiness}
+        >
           <button
             type="button"
             onClick={() => navigate("/admin")}
-            className="mb-8 rounded-xl border border-yellow-500/30 px-5 py-3 font-bold text-[#fff7ed] transition hover:border-yellow-500/60 hover:bg-yellow-500/10"
+            className="document-no-print mb-8 rounded-xl border border-yellow-500/30 px-5 py-3 font-bold text-[#fff7ed] transition hover:border-yellow-500/60 hover:bg-yellow-500/10"
           >
             ← Back to Dashboard
           </button>
 
-          <div className="rounded-[2rem] border border-yellow-500/20 bg-[#15110d] p-5 shadow-2xl shadow-black/30 sm:p-8">
+          <article className="document-page rounded-[2rem] border border-yellow-500/20 bg-[#15110d] p-5 shadow-2xl shadow-black/30 sm:p-8">
             <div className="space-y-8">
               <AgreementHeader agreement={agreement} />
 
               <div className="grid gap-8 lg:grid-cols-2">
                 <CustomerSection agreement={agreement} />
-                <section className="rounded-3xl border border-yellow-500/10 bg-black/25 p-6">
+                <section className="document-no-print rounded-3xl border border-yellow-500/10 bg-black/25 p-6">
                   <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
                     Agreement Preconditions
                   </p>
@@ -266,11 +278,13 @@ export default function AgreementPage() {
                 <EquipmentSection agreement={agreement} />
               </div>
 
-              <RentalDocumentWorkflowSection
-                rentalRequestId={agreement.rental_request_id}
-                locked={isFinalized}
-                onStateChange={setDocumentState}
-              />
+              <div className="document-no-print">
+                <RentalDocumentWorkflowSection
+                  rentalRequestId={agreement.rental_request_id}
+                  locked={isFinalized}
+                  onStateChange={setDocumentState}
+                />
+              </div>
 
               <PricingSummary
                 agreement={agreement}
@@ -279,6 +293,8 @@ export default function AgreementPage() {
                 isLocked={isFinalized || isAccepted}
                 updateFinancialField={updateFinancialField}
               />
+
+              <AgreementEvidenceSummary agreement={agreement} />
 
               <LegalClauses clauses={agreement.clause_snapshot} />
 
@@ -290,9 +306,9 @@ export default function AgreementPage() {
                   <p className="mt-2">
                     {agreement.snapshot_availability.status === "missing"
                       ? agreement.snapshot_availability.reason
-                      : ""} PDF generation and
-                    acceptance are disabled so current legal terms are never
-                    substituted into this historical Agreement.
+                      : ""} PDF generation, browser printing, and acceptance are
+                    disabled so current legal terms are never substituted into
+                    this historical Agreement.
                   </p>
                 </section>
               )}
@@ -311,56 +327,28 @@ export default function AgreementPage() {
                 onSave={handleRecordAcceptance}
               />
 
-              <section className="rounded-3xl border border-yellow-500/10 bg-black/25 p-6">
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-[#f4b000]">Agreement Status</p>
-                    <p className="mt-2 text-sm text-[#b8a99a]">
-                      {isFinalized
-                        ? "The Agreement snapshot is locked. The existing Invoice workflow is available."
-                        : "Record acceptance evidence, then finalize the Agreement."}
-                    </p>
-                    {notice && <p className="mt-2 text-sm font-bold text-[#fff7ed]">{notice}</p>}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleFinalizeAgreement}
-                    disabled={
-                      isFinalized ||
-                      !hasVerifiedSnapshot ||
-                      !documentPrerequisitesSatisfied ||
-                      isFinalizing ||
-                      isSaving ||
-                      isSavingAcceptance
-                    }
-                    className="rounded-full bg-[#f4b000] px-6 py-4 text-sm font-black uppercase tracking-[0.1em] text-black transition hover:bg-[#f59e0b] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {isFinalized ? "Agreement Finalized" : isFinalizing ? "Finalizing..." : "Finalize Agreement"}
-                  </button>
-                </div>
+              <AgreementDocumentActions
+                agreement={agreement}
+                documentPrerequisitesSatisfied={documentPrerequisitesSatisfied}
+                isCreatingInvoice={isCreatingInvoice}
+                isFinalizing={isFinalizing}
+                isGeneratingPdf={isGeneratingPdf}
+                isSaving={isSaving}
+                isSavingAcceptance={isSavingAcceptance}
+                notice={notice}
+                onCreateInvoice={handleCreateInvoice}
+                onDownloadPdf={handleDownloadPdf}
+                onFinalize={handleFinalizeAgreement}
+                onPrint={() => window.print()}
+              />
 
-                <div className="mt-6 flex flex-col gap-3 border-t border-yellow-500/10 pt-6 sm:flex-row sm:flex-wrap sm:justify-end">
-                  <button
-                    type="button"
-                    onClick={handleCreateInvoice}
-                    disabled={!isFinalized || isCreatingInvoice}
-                    className="rounded-full bg-green-500 px-6 py-4 text-sm font-black uppercase tracking-[0.08em] text-black transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {isCreatingInvoice ? "Opening Invoice..." : "Create / Open Invoice"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDownloadPdf}
-                    disabled={isGeneratingPdf || !hasVerifiedSnapshot}
-                    className="rounded-full border border-yellow-500 px-6 py-4 text-sm font-black uppercase tracking-[0.08em] text-[#f4b000] transition hover:bg-yellow-500/10 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {isGeneratingPdf ? "Generating PDF..." : "Download Agreement PDF"}
-                  </button>
-                </div>
-              </section>
+              <DocumentBrandFooter
+                documentType="Agreement"
+                documentNumber={agreement.agreement_number}
+              />
             </div>
-          </div>
-        </section>
+          </article>
+        </DocumentPrintBoundary>
       </MainLayout>
     </PageTransition>
   );

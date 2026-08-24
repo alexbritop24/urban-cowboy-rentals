@@ -6,7 +6,7 @@ interface Props {
 
 export default function LegalClauses({ clauses }: Props) {
   return (
-    <section className="rounded-3xl border border-yellow-500/20 bg-black/20 p-8">
+    <section className="document-section document-legal rounded-3xl border border-yellow-500/20 bg-black/20 p-8">
       <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
         Terms & Conditions
       </p>

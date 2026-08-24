@@ -1,17 +1,12 @@
 import type { Invoice } from "../../types/invoice";
+import { formatDocumentCurrency } from "../../utils/documentPresentation";
 import { formatInvoiceDate } from "../../utils/invoicePresentation";
-
-const currency = (value: number, currencyCode: string) =>
-  new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: currencyCode || "USD",
-  }).format(value);
 
 export default function InvoiceItemsTable({ invoice }: { invoice: Invoice }) {
   const isLegacy = invoice.item_source !== "normalized";
 
   return (
-    <section className="rounded-3xl border border-yellow-500/10 bg-black/25 p-6">
+    <section className="document-section rounded-3xl border border-yellow-500/10 bg-black/25 p-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
@@ -37,8 +32,8 @@ export default function InvoiceItemsTable({ invoice }: { invoice: Invoice }) {
           Historical item details are unavailable for this Invoice.
         </p>
       ) : (
-        <div className="mt-6 max-w-full overflow-x-auto pb-2">
-          <table className="w-full min-w-[900px] table-fixed text-left text-sm">
+        <div className="document-table-scroll mt-6 max-w-full overflow-x-auto pb-2">
+          <table className="document-data-table w-full min-w-[900px] table-fixed text-left text-sm">
             <colgroup>
               <col className="w-[26%]" />
               <col className="w-[15%]" />
@@ -83,13 +78,15 @@ export default function InvoiceItemsTable({ invoice }: { invoice: Invoice }) {
                     {isLegacy ? "N/A" : item.quantity}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-right">
-                    {isLegacy ? "Not recorded" : currency(item.dailyRate, invoice.currency)}
+                    {isLegacy
+                      ? "Not recorded"
+                      : formatDocumentCurrency(item.dailyRate, invoice.currency)}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-right">
                     {isLegacy ? "Not recorded" : item.billableDays}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-right font-bold text-[#fff7ed]">
-                    {currency(item.lineTotal, invoice.currency)}
+                    {formatDocumentCurrency(item.lineTotal, invoice.currency)}
                   </td>
                 </tr>
               ))}

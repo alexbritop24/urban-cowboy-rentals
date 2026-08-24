@@ -33,7 +33,7 @@ const SignatureSection = ({
   const hasVerifiedSnapshot = agreement.snapshot_availability.status === "verified";
 
   return (
-    <section className="rounded-3xl border border-yellow-500/10 bg-black/25 p-8">
+    <section className="document-section document-signature rounded-3xl border border-yellow-500/10 bg-black/25 p-8">
       <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
         Signature and Authorization
       </p>
@@ -51,7 +51,7 @@ const SignatureSection = ({
         </p>
       )}
 
-      <div className="mt-8 grid gap-5 lg:grid-cols-2">
+      <div className="document-screen-only mt-8 grid gap-5 lg:grid-cols-2">
         <label className="text-sm font-bold text-[#d8cfc4]">
           Signer legal name
           <input
@@ -74,7 +74,7 @@ const SignatureSection = ({
         </label>
       </div>
 
-      <div className="mt-6 space-y-4">
+      <div className="document-screen-only mt-6 space-y-4">
         <label className="flex items-start gap-3 rounded-2xl border border-yellow-500/10 bg-black/30 p-5 text-sm leading-6 text-[#d8cfc4]">
           <input
             type="checkbox"
@@ -102,7 +102,22 @@ const SignatureSection = ({
 
       <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-[#b8a99a]">
+          <p>
+            Signer: <strong className="text-[#fff7ed]">
+              {agreement.authorized_signer_name || "Not recorded"}
+            </strong>
+          </p>
+          {agreement.authorized_signer_title && (
+            <p className="mt-1">Title: {agreement.authorized_signer_title}</p>
+          )}
           <p>Evidence status: <strong className="text-[#fff7ed]">{agreement.signature_status}</strong></p>
+          <p className="mt-1">
+            Agreement accepted: {agreement.acceptance_acknowledged ? "Yes" : "Pending"}
+          </p>
+          <p className="mt-1">
+            Card authorization acknowledgment:{" "}
+            {agreement.credit_card_authorization_acknowledged ? "Acknowledged" : "Pending"}
+          </p>
           <p className="mt-1 break-all">
             Clause reference: {agreement.terms_version || "Unavailable"}
           </p>
@@ -117,7 +132,7 @@ const SignatureSection = ({
           type="button"
           disabled={isReadOnly || !hasVerifiedSnapshot || isSaving}
           onClick={onSave}
-          className="rounded-full border border-yellow-500 bg-yellow-500/10 px-6 py-4 text-sm font-black uppercase tracking-[0.08em] text-[#f4b000] transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+          className="document-no-print rounded-full border border-yellow-500 bg-yellow-500/10 px-6 py-4 text-sm font-black uppercase tracking-[0.08em] text-[#f4b000] transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSaving ? "Recording..." : evidenceRecorded ? "Acceptance Recorded" : "Record Acceptance"}
         </button>

@@ -918,7 +918,8 @@ test("Invoice presentation preserves deposit and legacy-quantity semantics", asy
   ]) {
     assert.equal(invoicePresentationCorpus.includes(forbiddenLabel), false);
   }
-  assert.match(headerSource, /formatInvoiceStatus\(invoice\.status\)/);
+  assert.match(headerSource, /status=\{invoice\.status\}/);
+  assert.match(headerSource, /DocumentBrandHeader/);
   assert.doesNotMatch(headerSource, />\s*\{invoice\.status\}\s*</);
   assert.match(detailsSource, /formatInvoiceDate\(invoice\.rental_start_date/);
   assert.match(detailsSource, /formatInvoiceDate\(invoice\.rental_end_date/);

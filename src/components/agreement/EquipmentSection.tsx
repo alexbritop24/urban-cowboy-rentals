@@ -1,13 +1,15 @@
 import type { RentalAgreement } from "../../types/agreement";
+import {
+  formatDocumentCurrency,
+  formatDocumentDate,
+} from "../../utils/documentPresentation";
 
 interface EquipmentSectionProps {
   agreement: RentalAgreement;
 }
 
-const currency = (value: number) => `$${value.toFixed(2)}`;
-
 const EquipmentSection = ({ agreement }: EquipmentSectionProps) => (
-  <section className="rounded-3xl border border-yellow-500/10 bg-black/25 p-6 lg:col-span-2">
+  <section className="document-section rounded-3xl border border-yellow-500/10 bg-black/25 p-6 lg:col-span-2">
     <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
@@ -18,12 +20,13 @@ const EquipmentSection = ({ agreement }: EquipmentSectionProps) => (
         </h2>
       </div>
       <p className="text-sm text-[#b8a99a]">
-        {agreement.rental_start_date || "—"} → {agreement.rental_end_date || "—"}
+        {formatDocumentDate(agreement.rental_start_date)} →{" "}
+        {formatDocumentDate(agreement.rental_end_date)}
       </p>
     </div>
 
-    <div className="mt-6 overflow-x-auto">
-      <table className="min-w-[980px] w-full text-left text-sm">
+    <div className="document-table-scroll mt-6 overflow-x-auto">
+      <table className="document-data-table min-w-[980px] w-full text-left text-sm">
         <thead className="border-b border-yellow-500/20 text-xs uppercase tracking-[0.1em] text-[#8f8577]">
           <tr>
             <th className="px-3 py-3">Equipment</th>
@@ -44,13 +47,16 @@ const EquipmentSection = ({ agreement }: EquipmentSectionProps) => (
               </td>
               <td className="px-3 py-4">{item.serialNumber || "—"}</td>
               <td className="px-3 py-4">
-                {item.startDate} → {item.endDate}
+                {formatDocumentDate(item.startDate)} →{" "}
+                {formatDocumentDate(item.endDate)}
               </td>
               <td className="px-3 py-4 text-right">{item.quantity}</td>
-              <td className="px-3 py-4 text-right">{currency(item.dailyRate)}</td>
+              <td className="px-3 py-4 text-right">
+                {formatDocumentCurrency(item.dailyRate)}
+              </td>
               <td className="px-3 py-4 text-right">{item.billableDays}</td>
               <td className="px-3 py-4 text-right font-bold text-[#fff7ed]">
-                {currency(item.lineTotal)}
+                {formatDocumentCurrency(item.lineTotal)}
               </td>
             </tr>
           ))}

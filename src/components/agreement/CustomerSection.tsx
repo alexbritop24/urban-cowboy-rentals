@@ -14,7 +14,7 @@ const Detail = ({ label, value }: { label: string; value: string | null }) => (
 );
 
 const CustomerSection = ({ agreement }: CustomerSectionProps) => (
-  <section className="rounded-3xl border border-yellow-500/10 bg-black/25 p-6">
+  <section className="document-section rounded-3xl border border-yellow-500/10 bg-black/25 p-6">
     <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
       Customer Information
     </p>
@@ -36,6 +36,8 @@ const CustomerSection = ({ agreement }: CustomerSectionProps) => (
       <Detail label="Email Address" value={agreement.customer_email} />
       <Detail label="Phone Number" value={agreement.customer_phone} />
       <Detail label="Billing Address" value={agreement.billing_address} />
+      <Detail label="Rental Request" value={agreement.rental_request_id} />
+      <Detail label="Fulfillment" value={agreement.fulfillment_type} />
       {agreement.fulfillment_type === "Delivery" && (
         <Detail label="Service / Delivery Address" value={agreement.service_address} />
       )}

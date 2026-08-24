@@ -8,7 +8,7 @@ interface InvoiceDetailsProps {
 const InvoiceDetails = ({ invoice }: InvoiceDetailsProps) => {
   return (
     <div className="grid gap-8 lg:grid-cols-2">
-      <section className="rounded-3xl border border-yellow-500/10 bg-black/25 p-6">
+      <section className="document-section rounded-3xl border border-yellow-500/10 bg-black/25 p-6">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
           Customer Information
         </p>
@@ -66,7 +66,7 @@ const InvoiceDetails = ({ invoice }: InvoiceDetailsProps) => {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-yellow-500/10 bg-black/25 p-6">
+      <section className="document-section rounded-3xl border border-yellow-500/10 bg-black/25 p-6">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
           Rental Information
         </p>
@@ -84,12 +84,32 @@ const InvoiceDetails = ({ invoice }: InvoiceDetailsProps) => {
 
           <div>
             <p className="text-xs font-black uppercase tracking-[0.12em] text-[#8f8577]">
+              Rental Request
+            </p>
+            <p className="mt-1 break-all text-[#d8cfc4]">
+              {invoice.rental_request_id || "Not recorded on this historical Invoice"}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#8f8577]">
               Source Agreement
             </p>
             <p className="mt-1 break-all text-[#d8cfc4]">
               {invoice.rental_agreement_id || "Not recorded on this historical Invoice"}
             </p>
           </div>
+
+          {invoice.source_agreement_snapshot_hash && (
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-[#8f8577]">
+                Accepted Agreement Snapshot
+              </p>
+              <p className="mt-1 break-all font-mono text-xs leading-5 text-[#d8cfc4]">
+                {invoice.source_agreement_snapshot_hash}
+              </p>
+            </div>
+          )}
 
           <div className="grid gap-5 sm:grid-cols-2">
             <div>

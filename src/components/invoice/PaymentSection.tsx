@@ -68,7 +68,7 @@ export default function PaymentSection({
   };
 
   return (
-    <section className="rounded-3xl border border-yellow-500/10 bg-black/25 p-6">
+    <section className="document-no-print rounded-3xl border border-yellow-500/10 bg-black/25 p-6">
       <div className="mb-6">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-[#f4b000]">
           Payments

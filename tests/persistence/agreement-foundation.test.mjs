@@ -924,6 +924,13 @@ test("Agreement PDF preparation is persisted-snapshot-only", async () => {
     new URL("../../src/utils/generateAgreementPdf.tsx", import.meta.url),
     "utf8"
   );
+  const actionsSource = await readFile(
+    new URL(
+      "../../src/components/agreement/AgreementDocumentActions.tsx",
+      import.meta.url
+    ),
+    "utf8"
+  );
   const pdfSource = await readFile(
     new URL("../../src/components/agreement/pdf/AgreementPdfDocument.tsx", import.meta.url),
     "utf8"
@@ -935,7 +942,13 @@ test("Agreement PDF preparation is persisted-snapshot-only", async () => {
 
   assert.doesNotMatch(pageSource, /getAgreementClauses/);
   assert.doesNotMatch(pageSource, /clause_snapshot\.length\s*>\s*0\s*\?/);
-  assert.match(pageSource, /disabled=\{isGeneratingPdf \|\| !hasVerifiedSnapshot\}/);
+  assert.match(pageSource, /<AgreementDocumentActions/);
+  assert.match(actionsSource, /getAgreementPrintReadiness/);
+  assert.match(actionsSource, /disabled=\{!printReadiness\.enabled\}/);
+  assert.match(
+    actionsSource,
+    /disabled=\{isGeneratingPdf \|\| !printReadiness\.enabled\}/
+  );
   assert.match(generatorSource, /snapshot_availability\.status !== "verified"/);
   assert.doesNotMatch(generatorSource, /AgreementClause/);
   assert.match(pdfSource, /agreement\.clause_snapshot\.map/);

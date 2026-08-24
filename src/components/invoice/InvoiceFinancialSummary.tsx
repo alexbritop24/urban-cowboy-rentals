@@ -1,20 +1,18 @@
 import type { Invoice } from "../../types/invoice";
+import { formatDocumentCurrency } from "../../utils/documentPresentation";
 
 interface InvoiceFinancialSummaryProps {
   invoice: Invoice;
 }
 
 const currency = (value: number | null | undefined, currencyCode: string) =>
-  new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: currencyCode || "USD",
-  }).format(Number(value || 0));
+  formatDocumentCurrency(Number(value || 0), currencyCode);
 
 const InvoiceFinancialSummary = ({ invoice }: InvoiceFinancialSummaryProps) => {
   const amount = (value: number) => currency(value, invoice.currency);
 
   return (
-    <section className="rounded-3xl border border-yellow-500/20 bg-[#11100d] p-8">
+    <section className="document-section document-totals rounded-3xl border border-yellow-500/20 bg-[#11100d] p-8">
       <div>
         <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
           Financial Summary

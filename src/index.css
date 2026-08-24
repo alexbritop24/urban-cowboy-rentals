@@ -117,3 +117,220 @@ img {
   background-clip: text;
   color: transparent;
 }
+
+.document-print-only {
+  display: none;
+}
+
+@page {
+  size: Letter;
+  margin: 0.55in;
+}
+
+@media print {
+  :root {
+    color-scheme: light;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: auto;
+    background: #ffffff !important;
+    color: #18130f !important;
+  }
+
+  body {
+    overflow: visible;
+    font-size: 10pt;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  main {
+    padding-top: 0 !important;
+  }
+
+  .document-no-print,
+  .document-screen-only,
+  .grain-overlay {
+    display: none !important;
+  }
+
+  .document-print-only {
+    display: block !important;
+  }
+
+  .document-print-unverified .document-page,
+  .document-print-invoice-unready .document-page {
+    display: none !important;
+  }
+
+  .document-historical-print-warning,
+  .document-print-readiness-warning {
+    border: 1.5pt solid #7f1d1d;
+    padding: 0.35in;
+    color: #18130f;
+  }
+
+  .document-historical-print-warning h1,
+  .document-print-readiness-warning h1 {
+    margin: 0 0 0.16in;
+    color: #7f1d1d;
+    font-size: 20pt;
+    line-height: 1.15;
+  }
+
+  .document-historical-print-warning p,
+  .document-print-readiness-warning p {
+    margin: 0;
+    color: #18130f;
+    font-size: 11pt;
+    line-height: 1.5;
+  }
+
+  .document-route {
+    width: 100% !important;
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  .document-page {
+    width: 100% !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    color: #18130f !important;
+    padding: 0 !important;
+  }
+
+  .document-page > div {
+    display: block !important;
+  }
+
+  .document-page > div > * + * {
+    margin-top: 0.24in !important;
+  }
+
+  .document-brand-header {
+    border-color: #b7791f !important;
+    padding-bottom: 0.18in !important;
+  }
+
+  .document-brand-header > div {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+  }
+
+  .document-brand-header > div > div:first-child {
+    display: flex !important;
+    flex-direction: row !important;
+    max-width: 68% !important;
+  }
+
+  .document-metadata {
+    min-width: 2.15in !important;
+    max-width: 30% !important;
+    padding: 0.14in !important;
+  }
+
+  .document-brand-header img {
+    width: 0.85in !important;
+    height: 0.85in !important;
+    border-color: #d7c9b8 !important;
+    border-radius: 0.1in !important;
+    box-shadow: none !important;
+  }
+
+  .document-brand-header h1,
+  .document-brand-header p,
+  .document-brand-header address,
+  .document-brand-header dd,
+  .document-brand-footer,
+  .document-brand-footer p,
+  .document-page h2,
+  .document-page h3,
+  .document-page p,
+  .document-page span,
+  .document-page strong,
+  .document-page td,
+  .document-page th,
+  .document-page label {
+    color: #18130f !important;
+  }
+
+  .document-brand-header h1 {
+    font-size: 24pt !important;
+    line-height: 1.05 !important;
+  }
+
+  .document-metadata,
+  .document-section,
+  .document-page article {
+    border-color: #d7c9b8 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+  }
+
+  .document-section {
+    break-inside: avoid;
+    padding: 0.18in !important;
+  }
+
+  .document-legal {
+    break-inside: auto;
+  }
+
+  .document-legal > div > div {
+    break-inside: auto;
+  }
+
+  .document-signature,
+  .document-totals {
+    break-inside: avoid;
+  }
+
+  .document-table-scroll {
+    max-width: none !important;
+    overflow: visible !important;
+    padding-bottom: 0 !important;
+  }
+
+  .document-data-table {
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: fixed !important;
+    border-collapse: collapse;
+    font-size: 8pt !important;
+  }
+
+  .document-data-table thead {
+    display: table-header-group;
+  }
+
+  .document-data-table tr {
+    break-inside: avoid;
+  }
+
+  .document-data-table th,
+  .document-data-table td {
+    border-bottom: 0.5pt solid #ded6cc !important;
+    overflow-wrap: anywhere;
+    padding: 5pt 4pt !important;
+    vertical-align: top;
+  }
+
+  .document-brand-footer {
+    break-inside: avoid;
+    border-color: #b7791f !important;
+    padding-top: 0.12in !important;
+  }
+
+  a {
+    color: #18130f !important;
+    text-decoration: none !important;
+  }
+}
