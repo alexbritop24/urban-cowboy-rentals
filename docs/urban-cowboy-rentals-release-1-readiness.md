@@ -10,6 +10,17 @@ Commit `59acd8d` was pushed to `main`. Because the Supabase GitHub integration s
 
 Detailed behavior remains defined in the [Release 1 specification](urban-cowboy-rentals-release-1-spec.md), [ERD](urban-cowboy-rentals-release-1-erd.md), [security/role contract](urban-cowboy-rentals-release-1-security-roles.md), and [Approval workflow](urban-cowboy-rentals-release-1-approval-workflow.md).
 
+## Current Local Release-Candidate Record
+
+The current local `main` history includes the following completed, locally verified work. These commits are not, by themselves, an authorized production deployment:
+
+- `61a420c` — Invoice PDF print/security hardening.
+- `88ef2c7` — Rental Requirements disclosure page.
+- `278aa3d` — Admin request-load error/retry behavior, including stale-data preservation on refresh failure.
+- `ef4817a` — Node 22.23.1 declaration and the standard presentation/PDF test script.
+
+The exact release candidate still requires final Node 22 validation, cross-browser and mobile smoke testing, an authorized push/deployment, and fresh production verification. Release 1 is not ready to deploy or activate until the attorney-approved 16-page Agreement is available, the apex DNS/TLS defect is remediated and verified, and all remaining operational and release sign-offs are complete. Production payment policy remains `unconfigured`, and the production multi-item feature flags remain intentionally inactive until controlled activation.
+
 ## Readiness Matrix
 
 | Capability | Status | Evidence or remaining proof |
@@ -531,7 +542,7 @@ No P0 implementation defect is known from local or isolated hosted-preview valid
 - Recover authorized IONOS access, verify the exact current apex record, replace only `@ → 217.160.0.232` with Vercel's required `@ → 216.198.79.1`, preserve the valid `www` record, allow propagation, refresh Vercel domain status, verify apex TLS and the intended `307` redirect, and verify public/admin routes in a fresh uncached browser. Do not activate while the apex remains broken.
 - Perform any explicitly approved remaining production authorization checks, including customer coverage if required, without creating synthetic production customers or rental fixtures merely for coverage.
 - Keep the selected `invoice_paid` policy recorded but leave the database `unconfigured` until the controlled activation step.
-- Client/counsel approves final Agreement, card-authorization, signature, and Business-signing wording.
+- Attorney approves the final 16-page Agreement, including card-authorization, signature, and Business-signing wording; this approval is required before Release 1 launch.
 - Client defines insurance coverage, effective/expiration rules, and verifier authority.
 - Client approves identity/insurance retention and deletion procedures.
 - Client confirms the operational Agreement/Invoice delivery and signature channel.
@@ -548,7 +559,7 @@ These are production-activation blockers, not reasons to redesign the implemente
 
 - Persist orphan-document cleanup failures in a durable queue/metric rather than relying only on the Edge Function error.
 - Replace raw uploader UUID presentation with an approved staff display identity if still visible operationally.
-- Upgrade the local/CI Node runtime from 20.17 to a Vite/Supabase-supported Node 22 release; current builds pass with warnings.
+- Keep final release validation on the declared Node 22.23.1 runtime (`.nvmrc`); the presentation/PDF suite is available as `npm run test:presentation`.
 - Add a durable observability platform beyond the minimum signals below.
 - Canonical immutable PDF storage remains explicitly deferred.
 - Customer self-service document uploads, customer notifications/status portal, and an “Accept for Processing” action remain deferred beyond Release 1.
@@ -757,7 +768,7 @@ Separate read-only domain checks discovered that fresh apex clients fail TLS: `u
 
 | Area | Owner | Status/date |
 | --- | --- | --- |
-| Engineering/local validation | Commit `59acd8d` | Passed and pushed to `main` |
+| Engineering/local validation | Commits `61a420c`, `88ef2c7`, `278aa3d`, and `ef4817a` | Completed and locally verified; exact release-candidate checks and production deployment remain pending |
 | Local production-shape migration compatibility | Commit `59acd8d` | Passed 2026-08-14 |
 | Prior isolated preview migration/concurrency | Validation operator | Passed 2026-08-13 before the production-shape reconciliation |
 | Isolated preview reconciliation/idempotency | Validation operator | Passed; apply, dry run, manual rerun, and comparisons complete |
@@ -783,6 +794,6 @@ Separate read-only domain checks discovered that fresh apex clients fail TLS: `u
 | Utah driver-license verification | Engineering/release operator | Local and hosted-preview workflow validation passed; production schema/application and trusted-admin read-only compatibility passed; production mutation smoke remains pending |
 | Approved production business smoke test | Release operator | Pending; no synthetic or destructive production workflow test performed |
 | Payment policy activation | Client/release operator | `invoice_paid` selected; database remains `unconfigured` pending controlled activation |
-| Legal Agreement wording |  | Pending |
+| Attorney-approved 16-page Agreement |  | P0 launch blocker — pending attorney approval; no legal wording changes are made by this runbook |
 | Insurance/retention/delivery operations |  | Pending |
 | Production activation approval |  | Pending |
