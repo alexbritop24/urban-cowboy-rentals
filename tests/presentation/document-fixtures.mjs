@@ -189,6 +189,82 @@ export const invoiceFixture = Object.freeze({
   updated_at: "2028-06-02T16:00:00.000Z",
 });
 
+export const legacyInvoiceFixture = Object.freeze({
+  id: "8cbc5bf3-d48f-4d67-aefc-2938ea831a8a",
+  rental_agreement_id: "574aef93-27a9-48e9-b34d-9def16ebc1d4",
+  rental_request_id: "39fb00aa-3b06-4ce4-bb83-f86e713c5137",
+  invoice_number: "INV-1785282138953",
+  invoice_type: "original_rental",
+  status: "issued",
+  customer_type: "individual",
+  customer_name: "Historical customer snapshot",
+  business_name: null,
+  customer_email: null,
+  customer_phone: null,
+  billing_address: null,
+  service_address: null,
+  equipment_requested: "2025 RawMax Tilt Deck 22'",
+  rental_start_date: null,
+  rental_end_date: null,
+  source_agreement_snapshot_hash: null,
+  currency: "USD",
+  payment_terms: "Due before equipment release",
+  items: [
+    {
+      id: "legacy:invoice:8cbc5bf3-d48f-4d67-aefc-2938ea831a8a",
+      invoiceId: "8cbc5bf3-d48f-4d67-aefc-2938ea831a8a",
+      agreementItemId: null,
+      rentalRequestItemId: null,
+      displayOrder: 0,
+      equipmentId: null,
+      equipmentName: "2025 RawMax Tilt Deck 22'",
+      startDate: "",
+      endDate: "",
+      quantity: null,
+      dailyRate: 0,
+      billableDays: 1,
+      lineTotal: 100,
+      serialNumber: null,
+      notes: null,
+      origin: "legacy",
+      createdAt: null,
+    },
+  ],
+  item_source: "legacy",
+  subtotal: 100,
+  deposit_amount: 49.95,
+  delivery_fee: 0,
+  tax_amount: 0,
+  other_charges_amount: 0,
+  total_amount: 149.95,
+  amount_paid: 0,
+  balance_due: 149.95,
+  payment_status: "unpaid",
+  payment_link: null,
+  notes: null,
+  issue_date: null,
+  issued_at: null,
+  due_at: null,
+  paid_at: null,
+  voided_at: null,
+  pdf_url: null,
+  created_at: "2026-07-28T00:00:00.000Z",
+  updated_at: "2026-07-28T00:00:00.000Z",
+});
+
+export const sensitiveInvoiceFixture = Object.freeze({
+  ...legacyInvoiceFixture,
+  items: [
+    {
+      ...legacyInvoiceFixture.items[0],
+      notes:
+        "Visa 4111111111111111; spaced Visa 4012 8888 8888 1881; CVV: 123; benign item ID 1234567890123.",
+    },
+  ],
+  notes:
+    "Mastercard 5555-5555-5555-4444; Amex 3782 822463 10005; CVC=999; security-code value is 1234; phone 801-903-9380; date 2028-06-10; amount $149.95; Agreement 574aef93-27a9-48e9-b34d-9def16ebc1d4; request 39fb00aa-3b06-4ce4-bb83-f86e713c5137.",
+});
+
 export const invoicePayments = Object.freeze([
   {
     id: "74fa3098-4b19-44ef-9078-089f567fbef8",

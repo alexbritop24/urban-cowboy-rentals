@@ -11,6 +11,10 @@ import {
   PdfBrandFooter,
   PdfBrandHeader,
 } from "../../document/pdf/DocumentPdfChrome";
+import {
+  invoicePdfRedactionLabel,
+  sanitizeInvoicePdfText,
+} from "./sanitizeInvoicePdfText";
 
 const styles = StyleSheet.create({
   page: {
@@ -129,13 +133,22 @@ const styles = StyleSheet.create({
   },
 });
 
+const preservePdfRedactionLabel = (
+  word: string,
+  fallback?: (value: string) => string[]
+): string[] =>
+  word.includes(invoicePdfRedactionLabel)
+    ? [word]
+    : (fallback?.(word) ?? [word]);
+
 export default function InvoicePdfDocument({ invoice }: { invoice: Invoice }) {
   const legacy = invoice.item_source !== "normalized";
   const issueDate = invoice.issued_at || invoice.issue_date || invoice.created_at;
+  const pdfText = sanitizeInvoicePdfText;
 
   return (
     <Document
-      title={`Equipment Rental Invoice ${invoice.invoice_number}`}
+      title={`Equipment Rental Invoice ${pdfText(invoice.invoice_number)}`}
       author="Urban Cowboy Rentals LLC"
       subject="Immutable equipment rental Invoice snapshot"
       keywords="Urban Cowboy Rentals, equipment rental, invoice"
@@ -148,42 +161,42 @@ export default function InvoicePdfDocument({ invoice }: { invoice: Invoice }) {
           fixed
           render={({ pageNumber }) =>
             pageNumber > 1
-              ? `Equipment Rental Invoice ${invoice.invoice_number} - Continued`
+              ? `Equipment Rental Invoice ${pdfText(invoice.invoice_number)} - Continued`
               : ""
           }
         />
         <PdfBrandFooter
           documentType="Invoice"
-          documentNumber={invoice.invoice_number}
+          documentNumber={pdfText(invoice.invoice_number)}
         />
 
         <PdfBrandHeader
           documentType="Equipment Rental Invoice"
-          documentNumber={invoice.invoice_number}
-          status={invoice.status}
+          documentNumber={pdfText(invoice.invoice_number)}
+          status={pdfText(invoice.status)}
           dateLabel={invoice.issued_at || invoice.issue_date ? "Issued" : "Created"}
-          dateValue={issueDate}
+          dateValue={pdfText(issueDate)}
         />
 
         <View style={[styles.section, styles.twoColumn]}>
           <View style={styles.column}>
             <Text style={styles.sectionTitle}>Bill To</Text>
-            <Detail label="Customer type" value={invoice.customer_type ? formatDocumentStatus(invoice.customer_type) : "Not recorded"} />
-            <Detail label="Legal name" value={invoice.customer_name} />
-            {invoice.business_name && <Detail label="Business" value={invoice.business_name} />}
-            {invoice.customer_email && <Detail label="Email" value={invoice.customer_email} />}
-            {invoice.customer_phone && <Detail label="Phone" value={invoice.customer_phone} />}
-            <Detail label="Billing address" value={invoice.billing_address || "Not provided"} />
+            <Detail label="Customer type" value={invoice.customer_type ? pdfText(formatDocumentStatus(invoice.customer_type)) : "Not recorded"} />
+            <Detail label="Legal name" value={pdfText(invoice.customer_name)} />
+            {invoice.business_name && <Detail label="Business" value={pdfText(invoice.business_name)} />}
+            {invoice.customer_email && <Detail label="Email" value={pdfText(invoice.customer_email)} />}
+            {invoice.customer_phone && <Detail label="Phone" value={pdfText(invoice.customer_phone)} />}
+            <Detail label="Billing address" value={pdfText(invoice.billing_address || "Not provided")} />
           </View>
           <View style={styles.column}>
             <Text style={styles.sectionTitle}>Invoice Details</Text>
-            <Detail label="Payment terms" value={invoice.payment_terms} />
-            <Detail label="Payment status" value={formatDocumentStatus(invoice.payment_status || invoice.status)} />
-            <Detail label="Due" value={formatDocumentDate(invoice.due_at, "Not set")} />
-            <Detail label="Rental request" value={invoice.rental_request_id || "Not recorded"} />
-            <Detail label="Source Agreement" value={invoice.rental_agreement_id || "Not recorded"} />
+            <Detail label="Payment terms" value={pdfText(invoice.payment_terms)} />
+            <Detail label="Payment status" value={pdfText(formatDocumentStatus(invoice.payment_status || invoice.status))} />
+            <Detail label="Due" value={pdfText(formatDocumentDate(invoice.due_at, "Not set"))} />
+            <Detail label="Rental request" value={pdfText(invoice.rental_request_id || "Not recorded")} />
+            <Detail label="Source Agreement" value={pdfText(invoice.rental_agreement_id || "Not recorded")} />
             {invoice.service_address && (
-              <Detail label="Service / delivery address" value={invoice.service_address} />
+              <Detail label="Service / delivery address" value={pdfText(invoice.service_address)} />
             )}
           </View>
         </View>
@@ -212,14 +225,21 @@ export default function InvoicePdfDocument({ invoice }: { invoice: Invoice }) {
               {invoice.items.map((item) => (
                 <View key={item.id} style={styles.tableRow} wrap={false}>
                   <View style={[styles.cell, styles.equipmentCell]}>
-                    <Text style={styles.equipmentName}>{item.equipmentName}</Text>
-                    {item.notes && <Text style={styles.equipmentNotes}>{item.notes}</Text>}
+                    <Text style={styles.equipmentName}>{pdfText(item.equipmentName)}</Text>
+                    {item.notes && (
+                      <Text
+                        style={styles.equipmentNotes}
+                        hyphenationCallback={preservePdfRedactionLabel}
+                      >
+                        <SanitizedFreeText value={item.notes} />
+                      </Text>
+                    )}
                   </View>
                   <Text style={[styles.cell, styles.serialCell]}>
-                    {formatDocumentSerial(item.serialNumber)}
+                    {pdfText(formatDocumentSerial(item.serialNumber))}
                   </Text>
                   <Text style={[styles.cell, styles.periodCell]}>
-                    {formatDocumentDate(item.startDate)} - {formatDocumentDate(item.endDate)}
+                    {pdfText(formatDocumentDate(item.startDate))} - {pdfText(formatDocumentDate(item.endDate))}
                   </Text>
                   <Text style={[styles.cell, styles.quantityCell]}>
                     {legacy ? "N/A" : item.quantity}
@@ -259,23 +279,42 @@ export default function InvoicePdfDocument({ invoice }: { invoice: Invoice }) {
             <Text style={styles.sectionTitle}>Agreement Traceability</Text>
             <View style={styles.traceability}>
               <Text style={styles.traceabilityLine}>
-                Source Agreement: {invoice.rental_agreement_id || "Not recorded"}
+                Source Agreement: {pdfText(invoice.rental_agreement_id || "Not recorded")}
               </Text>
               <Text style={styles.traceabilityLine}>
-                Rental Request: {invoice.rental_request_id || "Not recorded"}
+                Rental Request: {pdfText(invoice.rental_request_id || "Not recorded")}
               </Text>
               {invoice.source_agreement_snapshot_hash && (
                 <Text style={styles.hash}>
-                  Accepted Agreement snapshot: {invoice.source_agreement_snapshot_hash}
+                  Accepted Agreement snapshot: {pdfText(invoice.source_agreement_snapshot_hash)}
                 </Text>
               )}
             </View>
-            {invoice.notes && <Text style={styles.notes}>Notes: {invoice.notes}</Text>}
+            {invoice.notes && (
+              <Text
+                style={styles.notes}
+                hyphenationCallback={preservePdfRedactionLabel}
+              >
+                Notes: <SanitizedFreeText value={invoice.notes} />
+              </Text>
+            )}
           </View>
         </View>
       </Page>
     </Document>
   );
+}
+
+function SanitizedFreeText({ value }: { value: string }) {
+  return sanitizeInvoicePdfText(value)
+    .split(/(\[REDACTED\])/g)
+    .map((segment, index) =>
+      segment === invoicePdfRedactionLabel ? (
+        <Text key={index}>{segment}</Text>
+      ) : (
+        segment
+      )
+    );
 }
 
 function Detail({ label, value }: { label: string; value: string }) {

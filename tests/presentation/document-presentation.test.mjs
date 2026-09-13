@@ -20,13 +20,14 @@ import {
   formatDocumentStatus,
   getAgreementEvidenceRows,
   getAgreementPrintReadiness,
-  getInvoicePrintReadiness,
   urbanCowboyDocumentBrand,
 } from "../../src/utils/documentPresentation.ts";
 import {
   agreementFixture,
   invoiceFixture,
   invoicePayments,
+  legacyInvoiceFixture,
+  sensitiveInvoiceFixture,
   unverifiedAgreementFixture,
 } from "./document-fixtures.mjs";
 
@@ -43,6 +44,22 @@ let DocumentPrintBoundary;
 let InvoiceDocumentActions;
 let InvoicePdfDocument;
 let PaymentHistoryContent;
+let createInvoicePdfBlob;
+let downloadInvoicePdf;
+let generateInvoicePdf;
+let invoicePdfBrowserDependencies;
+let invoicePdfFallbackRevokeDelayMs;
+let invoicePdfObjectUrlRevokeDelayMs;
+let invoicePdfPopupClosePollDelayMs;
+let printInvoicePdf;
+let safeInvoicePdfFilename;
+let invoicePdfGenericPrintErrorMessage;
+let invoicePdfPopupBlockedMessage;
+let invoicePdfWindowClosedMessage;
+let openInvoicePdfPrintDestination;
+let startInvoicePdfPrint;
+let invoicePdfRedactionLabel;
+let sanitizeInvoicePdfText;
 
 before(async () => {
   vite = await createServer({
@@ -82,6 +99,25 @@ before(async () => {
     { default: InvoiceDocumentActions },
     { default: InvoicePdfDocument },
     { default: PaymentHistoryContent },
+    {
+      createInvoicePdfBlob,
+      downloadInvoicePdf,
+      generateInvoicePdf,
+      invoicePdfBrowserDependencies,
+      invoicePdfFallbackRevokeDelayMs,
+      invoicePdfObjectUrlRevokeDelayMs,
+      invoicePdfPopupClosePollDelayMs,
+      printInvoicePdf,
+      safeInvoicePdfFilename,
+    },
+    {
+      invoicePdfGenericPrintErrorMessage,
+      invoicePdfPopupBlockedMessage,
+      invoicePdfWindowClosedMessage,
+      openInvoicePdfPrintDestination,
+      startInvoicePdfPrint,
+    },
+    { invoicePdfRedactionLabel, sanitizeInvoicePdfText },
   ] = await Promise.all([
     vite.ssrLoadModule(
       "/src/components/agreement/AgreementDocumentActions.tsx"
@@ -96,6 +132,11 @@ before(async () => {
       "/src/components/agreement/pdf/InvoicePdfDocument.tsx"
     ),
     vite.ssrLoadModule("/src/components/invoice/PaymentHistoryContent.tsx"),
+    vite.ssrLoadModule("/src/utils/generateInvoicePdf.tsx"),
+    vite.ssrLoadModule("/src/utils/invoicePdfWindow.ts"),
+    vite.ssrLoadModule(
+      "/src/components/agreement/pdf/sanitizeInvoicePdfText.ts"
+    ),
   ]);
 });
 
@@ -126,13 +167,17 @@ const inspectPdf = async (buffer) => {
 
   try {
     const pages = [];
+    const pageSizes = [];
     for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
       const page = await document.getPage(pageNumber);
       const content = await page.getTextContent();
+      const viewport = page.getViewport({ scale: 1 });
       pages.push(content.items.map((item) => item.str).join(" "));
+      pageSizes.push({ height: viewport.height, width: viewport.width });
     }
     return {
       pageCount: document.numPages,
+      pageSizes,
       text: pages.join("\n"),
       metadata: (await document.getMetadata()).info,
       raw,
@@ -143,7 +188,10 @@ const inspectPdf = async (buffer) => {
 };
 
 const assertNoSensitiveCardData = (text) => {
-  assert.doesNotMatch(text, /\b(?:PAN|card number|expiration date|expiry|CVV)\s*:/i);
+  assert.doesNotMatch(
+    text,
+    /\b(?:CVV2?|CVC2?|security[ -]?code)\b[ \t]*(?:(?::|=)|(?:is|was)|(?:value(?:[ \t]+is)?))?[ \t]*\d{3,4}\b/i
+  );
   const numericCandidates = text.match(/\b[\d -]{13,25}\b/g) ?? [];
   const luhnValid = numericCandidates.some((candidate) => {
     const digits = candidate.replace(/\D/g, "");
@@ -164,6 +212,99 @@ const assertNoSensitiveCardData = (text) => {
   assert.equal(luhnValid, false, "No card-number-shaped Luhn value may render");
 };
 
+const createPrintDestination = ({
+  addEventListener,
+  removeEventListener,
+  replace,
+} = {}) => {
+  const listeners = new Map();
+  const navigation = [];
+  const state = { closeCalls: 0 };
+  const destination = {
+    closed: false,
+    document: { title: "", body: { textContent: "" } },
+    location: {
+      replace(url) {
+        navigation.push(url);
+        replace?.(url, destination, listeners);
+      },
+    },
+    addEventListener(type, listener, options) {
+      if (addEventListener) {
+        addEventListener(type, listener, options, destination, listeners);
+        return;
+      }
+      listeners.set(type, listener);
+    },
+    removeEventListener(type, listener) {
+      if (removeEventListener) {
+        removeEventListener(type, listener, destination, listeners);
+        return;
+      }
+      if (listeners.get(type) === listener) listeners.delete(type);
+    },
+    close() {
+      state.closeCalls += 1;
+      this.closed = true;
+    },
+  };
+
+  return { destination, listeners, navigation, state };
+};
+
+const createPdfBrowserHarness = (overrides = {}) => {
+  const blob = new Blob(["canonical invoice PDF"], {
+    type: "application/pdf",
+  });
+  const renderedInvoices = [];
+  const revokedUrls = [];
+  const scheduled = [];
+  const cleanupErrors = [];
+  const links = [];
+  let urlSequence = 0;
+
+  const dependencies = {
+    renderPdf: async (invoice) => {
+      renderedInvoices.push(invoice);
+      return blob;
+    },
+    createObjectUrl: () => `blob:invoice-${++urlSequence}`,
+    revokeObjectUrl: (url) => revokedUrls.push(url),
+    schedule: (callback, delayMs) => {
+      scheduled.push({ callback, delayMs });
+      return scheduled.length;
+    },
+    createDownloadLink: () => {
+      const link = {
+        href: "",
+        download: "",
+        clicked: false,
+        removed: false,
+        click() {
+          this.clicked = true;
+        },
+        remove() {
+          this.removed = true;
+        },
+      };
+      links.push(link);
+      return link;
+    },
+    reportCleanupError: (error) => cleanupErrors.push(error),
+    ...overrides,
+  };
+
+  return {
+    blob,
+    cleanupErrors,
+    dependencies,
+    links,
+    renderedInvoices,
+    revokedUrls,
+    scheduled,
+  };
+};
+
 test("shared document presentation preserves authoritative labels and deterministic values", () => {
   assert.deepEqual(urbanCowboyDocumentBrand, {
     legalName: "Urban Cowboy Rentals LLC",
@@ -182,6 +323,35 @@ test("shared document presentation preserves authoritative labels and determinis
   assert.equal(formatDocumentDateTime(null), "Not recorded");
   assert.equal(formatDocumentCurrency(120, "USD"), "$120.00");
   assert.equal(formatDocumentSerial("WNCRD12AEPUM06214"), "WNCRD1 2AEPUM 06214");
+});
+
+test("Invoice PDF text sanitizer redacts plausible PANs and labeled security codes only", () => {
+  const adversarial =
+    "Visa 4111111111111111; spaced Visa 4012 8888 8888 1881; Mastercard 5555-5555-5555-4444; Amex 3782 822463 10005; CVV: 123; CVC=999; security-code value is 1234.";
+  const sanitized = sanitizeInvoicePdfText(adversarial);
+
+  for (const sensitiveValue of [
+    "4111111111111111",
+    "4012 8888 8888 1881",
+    "5555-5555-5555-4444",
+    "3782 822463 10005",
+    "CVV: 123",
+    "CVC=999",
+    "security-code value is 1234",
+  ]) {
+    assert.doesNotMatch(sanitized, new RegExp(sensitiveValue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+  assert.equal(
+    sanitized.split(invoicePdfRedactionLabel).length - 1,
+    7
+  );
+  assert.match(sanitized, /CVV: \[REDACTED\]/);
+  assert.match(sanitized, /CVC=\[REDACTED\]/);
+  assert.match(sanitized, /security-code value is \[REDACTED\]/);
+
+  const benign =
+    "Order ID 1234567890123; phone 801-903-9380; date 2028-06-10; amount $149.95; Agreement 574aef93-27a9-48e9-b34d-9def16ebc1d4; request 39fb00aa-3b06-4ce4-bb83-f86e713c5137.";
+  assert.equal(sanitizeInvoicePdfText(benign), benign);
 });
 
 test("Agreement print controls render the verified snapshot boundary", () => {
@@ -259,54 +429,51 @@ test("historical Agreement boundary renders a print-only warning around the supp
   );
 });
 
-test("Invoice print controls render loading, failure, empty-ready, and populated-ready states", () => {
-  const renderState = (paymentHistoryState) =>
-    renderHtml(InvoiceDocumentActions, {
-      invoice: invoiceFixture,
-      isIssuing: false,
-      notice: "",
-      onDownloadPdf: noop,
-      onIssue: noop,
-      onPrint: noop,
-      paymentHistoryState,
-    });
-
-  const loading = renderState({ status: "loading", paymentCount: 0 });
-  assert.equal(buttonWithText(loading, "Print Invoice").hasAttribute("disabled"), true);
-  assert.match(loading.text, /payment history is loading/);
-
-  const failed = renderState({
-    status: "error",
-    paymentCount: 0,
-    message: "Could not load payment history.",
+test("Invoice PDF actions stay available independently of browser payment-history state", async () => {
+  const actions = renderHtml(InvoiceDocumentActions, {
+    invoice: invoiceFixture,
+    isIssuing: false,
+    notice: "",
+    onDownloadPdf: noop,
+    onIssue: noop,
+    onPrint: noop,
   });
-  assert.equal(buttonWithText(failed, "Print Invoice").hasAttribute("disabled"), true);
-  assert.match(failed.text, /payment history could not be loaded/);
 
-  const emptyReady = renderState({ status: "ready", paymentCount: 0 });
   assert.equal(
-    buttonWithText(emptyReady, "Print Invoice").hasAttribute("disabled"),
+    buttonWithText(actions, "Download Invoice PDF").hasAttribute("disabled"),
     false
   );
-  assert.match(emptyReady.text, /No payments are recorded/);
-  assert.doesNotMatch(emptyReady.text, /Loading payments/i);
-
-  const populatedReady = renderState({ status: "ready", paymentCount: 2 });
   assert.equal(
-    buttonWithText(populatedReady, "Print Invoice").hasAttribute("disabled"),
+    buttonWithText(actions, "Print Invoice").hasAttribute("disabled"),
     false
   );
-  assert.match(populatedReady.text, /loaded with 2 payments/);
-  assert.doesNotMatch(populatedReady.text, /Loading payments/i);
+  assert.match(actions.text, /same official Invoice PDF snapshot/);
+  assert.match(actions.text, /Payment history remains available on this page/);
 
-  const renderedEmptyHistory = renderHtml(PaymentHistoryContent, {
+  const loadingHistory = renderHtml(PaymentHistoryContent, {
+    payments: [],
+    state: { status: "loading", paymentCount: 0 },
+  });
+  assert.match(loadingHistory.text, /Loading payments/);
+
+  const failedHistory = renderHtml(PaymentHistoryContent, {
+    payments: [],
+    state: {
+      status: "error",
+      paymentCount: 0,
+      message: "Could not load payment history.",
+    },
+  });
+  assert.match(failedHistory.text, /Could not load payment history/);
+
+  const emptyHistory = renderHtml(PaymentHistoryContent, {
     payments: [],
     state: { status: "ready", paymentCount: 0 },
   });
-  assert.match(renderedEmptyHistory.text, /No payments have been recorded/);
-  assert.doesNotMatch(renderedEmptyHistory.text, /Loading payments/i);
+  assert.match(emptyHistory.text, /No payments have been recorded/);
+  assert.doesNotMatch(emptyHistory.text, /Loading payments/i);
 
-  const renderedPaymentHistory = renderHtml(PaymentHistoryContent, {
+  const populatedHistory = renderHtml(PaymentHistoryContent, {
     payments: invoicePayments.map((payment) => ({
       id: payment.id,
       amount: payment.amount,
@@ -317,9 +484,359 @@ test("Invoice print controls render loading, failure, empty-ready, and populated
     })),
     state: { status: "ready", paymentCount: invoicePayments.length },
   });
-  assert.match(renderedPaymentHistory.text, /SAFE-REF-001/);
-  assert.match(renderedPaymentHistory.text, /Jun 3, 2028, 10:30 AM MDT/);
-  assert.doesNotMatch(renderedPaymentHistory.text, /Loading payments/i);
+  assert.match(populatedHistory.text, /SAFE-REF-001/);
+  assert.match(populatedHistory.text, /Jun 3, 2028, 10:30 AM MDT/);
+  assert.doesNotMatch(populatedHistory.text, /Loading payments/i);
+
+  const invoicePageSource = await source("src/pages/InvoicePage.tsx");
+  assert.doesNotMatch(invoicePageSource, /window\.print\s*\(/);
+  assert.doesNotMatch(invoicePageSource, /getInvoicePrintReadiness/);
+  assert.doesNotMatch(invoicePageSource, /paymentHistoryState/);
+  assert.match(invoicePageSource, /startInvoicePdfPrint\(invoice/);
+});
+
+test("Invoice print prepares its popup before loading or rendering the PDF", async () => {
+  const order = [];
+  const { destination } = createPrintDestination();
+
+  const operation = startInvoicePdfPrint(invoiceFixture, {
+    openDestination: () => {
+      order.push("popup");
+      return openInvoicePdfPrintDestination(() => destination);
+    },
+    loadPrintModule: () => {
+      order.push("dynamic import");
+      return Promise.resolve({
+        printInvoicePdf: async (_invoice, preparedDestination) => {
+          order.push("render");
+          assert.strictEqual(preparedDestination, destination);
+          assert.equal(destination.document.title, "Preparing Invoice PDF");
+          assert.match(
+            destination.document.body.textContent,
+            /Preparing the official Invoice PDF/
+          );
+        },
+      });
+    },
+  });
+
+  assert.deepEqual(order, ["popup", "dynamic import"]);
+  await operation;
+  assert.deepEqual(order, ["popup", "dynamic import", "render"]);
+});
+
+test("Invoice print closes its prepared popup after render and dynamic-import rejection", async () => {
+  for (const failurePoint of ["render", "dynamic import"]) {
+    const { destination, state } = createPrintDestination();
+    const messages = [];
+    const technicalError = new Error(failurePoint + " technical detail");
+
+    await startInvoicePdfPrint(invoiceFixture, {
+      openDestination: () => destination,
+      loadPrintModule: () =>
+        failurePoint === "dynamic import"
+          ? Promise.reject(technicalError)
+          : Promise.resolve({
+              printInvoicePdf: async () => {
+                throw technicalError;
+              },
+            }),
+      onError: (error, message) => messages.push({ error, message }),
+    });
+
+    assert.equal(destination.closed, true);
+    assert.equal(state.closeCalls, 1);
+    assert.strictEqual(messages[0].error, technicalError);
+    assert.equal(messages[0].message, invoicePdfGenericPrintErrorMessage);
+    assert.doesNotMatch(messages[0].message, /technical detail/);
+  }
+});
+
+test("Invoice print detects a destination closed during PDF generation", async () => {
+  const { destination } = createPrintDestination();
+  const harness = createPdfBrowserHarness({
+    renderPdf: async () => {
+      destination.closed = true;
+      return new Blob(["PDF"], { type: "application/pdf" });
+    },
+  });
+
+  await assert.rejects(
+    printInvoicePdf(invoiceFixture, destination, harness.dependencies),
+    new RegExp(invoicePdfWindowClosedMessage.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+  );
+  assert.deepEqual(harness.revokedUrls, []);
+  assert.deepEqual(harness.scheduled, []);
+
+  const messages = [];
+  await startInvoicePdfPrint(invoiceFixture, {
+    openDestination: () => createPrintDestination().destination,
+    loadPrintModule: () =>
+      Promise.resolve({
+        printInvoicePdf: async () => {
+          throw new Error(invoicePdfWindowClosedMessage);
+        },
+      }),
+    onError: (_error, message) => messages.push(message),
+  });
+  assert.deepEqual(messages, [invoicePdfWindowClosedMessage]);
+});
+
+test("Invoice print revokes and closes after listener or navigation failure", async () => {
+  for (const failurePoint of ["listener", "navigation"]) {
+    const technicalError = new Error(failurePoint + " failed");
+    const fixture =
+      failurePoint === "listener"
+        ? createPrintDestination({
+            addEventListener: () => {
+              throw technicalError;
+            },
+          })
+        : createPrintDestination({
+            replace: () => {
+              throw technicalError;
+            },
+          });
+    const harness = createPdfBrowserHarness();
+
+    await assert.rejects(
+      printInvoicePdf(
+        invoiceFixture,
+        fixture.destination,
+        harness.dependencies
+      ),
+      technicalError
+    );
+    assert.deepEqual(harness.revokedUrls, ["blob:invoice-1"]);
+    assert.equal(fixture.destination.closed, true);
+    assert.equal(fixture.state.closeCalls, 1);
+
+    for (const timer of harness.scheduled) timer.callback();
+    assert.deepEqual(
+      harness.revokedUrls,
+      ["blob:invoice-1"],
+      "Cleanup timers must remain idempotent after setup failure"
+    );
+  }
+});
+
+test("Invoice print handles timer and cleanup-operation failures without losing the primary error", async () => {
+  const timerFailure = new Error("timer failed");
+  const timerFixture = createPrintDestination();
+  const timerHarness = createPdfBrowserHarness({
+    schedule: () => {
+      throw timerFailure;
+    },
+  });
+
+  await assert.rejects(
+    printInvoicePdf(
+      invoiceFixture,
+      timerFixture.destination,
+      timerHarness.dependencies
+    ),
+    timerFailure
+  );
+  assert.deepEqual(timerHarness.revokedUrls, ["blob:invoice-1"]);
+  assert.equal(timerFixture.destination.closed, true);
+
+  const navigationFailure = new Error("navigation failed");
+  const revokeFailure = new Error("revoke failed");
+  const closeFailure = new Error("close failed");
+  const cleanupFixture = createPrintDestination({
+    replace: () => {
+      throw navigationFailure;
+    },
+  });
+  cleanupFixture.destination.close = () => {
+    throw closeFailure;
+  };
+  const cleanupHarness = createPdfBrowserHarness({
+    revokeObjectUrl: () => {
+      throw revokeFailure;
+    },
+  });
+
+  await assert.rejects(
+    printInvoicePdf(
+      invoiceFixture,
+      cleanupFixture.destination,
+      cleanupHarness.dependencies
+    ),
+    navigationFailure
+  );
+  assert.ok(cleanupHarness.cleanupErrors.includes(revokeFailure));
+  assert.ok(cleanupHarness.cleanupErrors.includes(closeFailure));
+});
+
+test("Invoice print handles a synchronous load/navigation race without early revocation", async () => {
+  const fixture = createPrintDestination({
+    replace: (_url, _destination, listeners) => {
+      listeners.get("load")(new Event("load"));
+    },
+  });
+  const harness = createPdfBrowserHarness();
+
+  await printInvoicePdf(
+    invoiceFixture,
+    fixture.destination,
+    harness.dependencies
+  );
+
+  assert.deepEqual(fixture.navigation, ["blob:invoice-1"]);
+  assert.deepEqual(harness.revokedUrls, []);
+  assert.equal(fixture.listeners.has("load"), false);
+  assert.ok(
+    harness.scheduled.some(
+      ({ delayMs }) => delayMs === invoicePdfFallbackRevokeDelayMs
+    )
+  );
+  const postLoadCleanup = harness.scheduled.find(
+    ({ delayMs }) => delayMs === invoicePdfObjectUrlRevokeDelayMs
+  );
+  assert.ok(postLoadCleanup);
+  postLoadCleanup.callback();
+  postLoadCleanup.callback();
+  for (const timer of harness.scheduled) timer.callback();
+  assert.deepEqual(harness.revokedUrls, ["blob:invoice-1"]);
+});
+
+test("Invoice print fallback handles missing load and early popup closure", async () => {
+  const missingLoad = createPrintDestination();
+  const missingLoadHarness = createPdfBrowserHarness();
+  await printInvoicePdf(
+    invoiceFixture,
+    missingLoad.destination,
+    missingLoadHarness.dependencies
+  );
+  assert.deepEqual(missingLoadHarness.revokedUrls, []);
+
+  const fallback = missingLoadHarness.scheduled.find(
+    ({ delayMs }) => delayMs === invoicePdfFallbackRevokeDelayMs
+  );
+  assert.ok(fallback);
+  fallback.callback();
+  assert.deepEqual(missingLoadHarness.revokedUrls, ["blob:invoice-1"]);
+  assert.equal(missingLoad.listeners.has("load"), false);
+
+  const earlyClose = createPrintDestination();
+  const earlyCloseHarness = createPdfBrowserHarness();
+  await printInvoicePdf(
+    invoiceFixture,
+    earlyClose.destination,
+    earlyCloseHarness.dependencies
+  );
+  earlyClose.destination.closed = true;
+  const closurePoll = earlyCloseHarness.scheduled.find(
+    ({ delayMs }) => delayMs === invoicePdfPopupClosePollDelayMs
+  );
+  assert.ok(closurePoll);
+  closurePoll.callback();
+  assert.deepEqual(earlyCloseHarness.revokedUrls, ["blob:invoice-1"]);
+  assert.equal(earlyClose.listeners.has("load"), false);
+});
+
+test("Invoice download revokes after link creation, click, scheduling, or removal failure", async () => {
+  for (const failurePoint of ["creation", "click", "scheduling", "removal"]) {
+    const technicalError = new Error(failurePoint + " failed");
+    const harness = createPdfBrowserHarness();
+    const baseCreateLink = harness.dependencies.createDownloadLink;
+
+    if (failurePoint === "creation") {
+      harness.dependencies.createDownloadLink = () => {
+        throw technicalError;
+      };
+    } else {
+      harness.dependencies.createDownloadLink = () => {
+        const link = baseCreateLink();
+        if (failurePoint === "click") {
+          link.click = () => {
+            throw technicalError;
+          };
+        }
+        if (failurePoint === "removal") {
+          link.remove = () => {
+            throw technicalError;
+          };
+        }
+        return link;
+      };
+      if (failurePoint === "scheduling") {
+        harness.dependencies.schedule = () => {
+          throw technicalError;
+        };
+      }
+    }
+
+    await assert.rejects(
+      downloadInvoicePdf(invoiceFixture, harness.dependencies),
+      technicalError
+    );
+    assert.deepEqual(harness.revokedUrls, ["blob:invoice-1"]);
+    if (failurePoint !== "creation" && failurePoint !== "removal") {
+      assert.equal(harness.links[0].removed, true);
+    }
+  }
+});
+
+test("Invoice download cleanup is delayed, idempotent, and uses a safe filename", async () => {
+  const harness = createPdfBrowserHarness();
+  await downloadInvoicePdf(invoiceFixture, harness.dependencies);
+
+  assert.strictEqual(harness.renderedInvoices[0], invoiceFixture);
+  assert.equal(harness.links[0].download, "INV-2028-000037.pdf");
+  assert.equal(harness.links[0].clicked, true);
+  assert.equal(harness.links[0].removed, true);
+  assert.deepEqual(harness.revokedUrls, []);
+  assert.equal(
+    harness.scheduled[0].delayMs,
+    invoicePdfObjectUrlRevokeDelayMs
+  );
+  harness.scheduled[0].callback();
+  harness.scheduled[0].callback();
+  assert.deepEqual(harness.revokedUrls, ["blob:invoice-1"]);
+
+  assert.equal(safeInvoicePdfFilename(" INV / 2028 \\ 37 "), "INV-2028-37.pdf");
+  assert.equal(safeInvoicePdfFilename("Fáctura № １２３"), "Factura-No-123.pdf");
+  assert.equal(safeInvoicePdfFilename("東京"), "invoice.pdf");
+  assert.equal(safeInvoicePdfFilename("   "), "invoice.pdf");
+});
+
+test("Invoice PDF compatibility export and browser operations share the canonical renderer", async () => {
+  assert.strictEqual(generateInvoicePdf, downloadInvoicePdf);
+  assert.strictEqual(
+    invoicePdfBrowserDependencies.renderPdf,
+    createInvoicePdfBlob
+  );
+
+  const harness = createPdfBrowserHarness();
+  const fixture = createPrintDestination();
+  await downloadInvoicePdf(invoiceFixture, harness.dependencies);
+  await printInvoicePdf(
+    invoiceFixture,
+    fixture.destination,
+    harness.dependencies
+  );
+  assert.deepEqual(harness.renderedInvoices, [invoiceFixture, invoiceFixture]);
+
+  const generatorSource = await source("src/utils/generateInvoicePdf.tsx");
+  assert.doesNotMatch(generatorSource, /payment(?:History|Rows|Events)/i);
+  const invoicePageSource = await source("src/pages/InvoicePage.tsx");
+  assert.doesNotMatch(invoicePageSource, /window\.print\s*\(/);
+});
+
+test("Invoice popup-blocked errors retain their specific retry guidance", async () => {
+  assert.throws(
+    () => openInvoicePdfPrintDestination(() => null),
+    new RegExp(invoicePdfPopupBlockedMessage.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+  );
+
+  const messages = [];
+  await startInvoicePdfPrint(invoiceFixture, {
+    openDestination: () => openInvoicePdfPrintDestination(() => null),
+    onError: (_error, message) => messages.push(message),
+  });
+  assert.deepEqual(messages, [invoicePdfPopupBlockedMessage]);
 });
 
 test("DocumentBrandHeader renders valid labeled description-list semantics", () => {
@@ -408,6 +925,71 @@ test("three-item Invoice PDF renders one complete snapshot-summary page", async 
   assert.match(pdf.raw, /\/Lang \(en-US\)/);
 });
 
+test("official Invoice PDF visibly redacts adversarial notes without changing benign identifiers", async () => {
+  const blob = await createInvoicePdfBlob(sensitiveInvoiceFixture);
+  const pdf = await inspectPdf(await blob.arrayBuffer());
+
+  assert.equal(pdf.pageCount, 1);
+  assert.deepEqual(pdf.pageSizes, [{ height: 792, width: 612 }]);
+  assertNoSensitiveCardData(pdf.text);
+  for (const sensitiveValue of [
+    "4111111111111111",
+    "4012 8888 8888 1881",
+    "5555-5555-5555-4444",
+    "3782 822463 10005",
+    "CVV: 123",
+    "CVC=999",
+    "security-code value is 1234",
+  ]) {
+    assert.doesNotMatch(pdf.text, new RegExp(sensitiveValue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+  assert.ok(
+    pdf.text.split(invoicePdfRedactionLabel).length - 1 >= 7,
+    "Every adversarial value should render as a visible redaction label"
+  );
+  assert.match(pdf.text, /1234567890123/);
+  assert.match(pdf.text, /801-903-9380/);
+  assert.match(pdf.text, /2028-06-10/);
+  assert.match(pdf.text, /\$149\.95/);
+  assert.match(pdf.text, new RegExp(sensitiveInvoiceFixture.rental_agreement_id));
+  assert.match(pdf.text, new RegExp(sensitiveInvoiceFixture.rental_request_id));
+});
+
+test("production Invoice generator renders the known legacy snapshot as one Letter page", async () => {
+  const blob = await createInvoicePdfBlob(legacyInvoiceFixture);
+  const pdf = await inspectPdf(await blob.arrayBuffer());
+
+  assert.equal(pdf.pageCount, 1);
+  assert.deepEqual(pdf.pageSizes, [{ height: 792, width: 612 }]);
+  assert.match(pdf.text, /INV-1785282138953/);
+  assert.match(pdf.text, /Issued/i);
+  assert.match(pdf.text, /Payment status\s+Unpaid/i);
+  assert.match(pdf.text, /Historical Invoice/);
+  assert.match(pdf.text, /2025 RawMax Tilt Deck 22'/);
+  assert.match(pdf.text, /Rental subtotal\s+\$100\.00/);
+  assert.match(pdf.text, /Deposit required\s+\$49\.95/);
+  assert.match(pdf.text, /Total\s+\$149\.95/);
+  assert.match(pdf.text, /Amount paid\s+\$0\.00/);
+  assert.match(pdf.text, /Balance due\s+\$149\.95/);
+  assert.match(pdf.text, new RegExp(legacyInvoiceFixture.rental_agreement_id));
+  assert.match(pdf.text, new RegExp(legacyInvoiceFixture.rental_request_id));
+  assert.doesNotMatch(pdf.text, /Payment History/i);
+  assert.doesNotMatch(pdf.text, /SAFE-REF-001/);
+  assertNoSensitiveCardData(pdf.text);
+
+  assert.equal(
+    pdf.metadata.Title,
+    "Equipment Rental Invoice INV-1785282138953"
+  );
+  assert.equal(pdf.metadata.Author, "Urban Cowboy Rentals LLC");
+  assert.equal(
+    pdf.metadata.Subject,
+    "Immutable equipment rental Invoice snapshot"
+  );
+  assert.equal(pdf.metadata.Creator, "Urban Cowboy Rentals application");
+  assert.match(pdf.raw, /\/Lang \(en-US\)/);
+});
+
 test("helper evidence remains exact and counsel brief remains non-approved", async () => {
   const evidence = Object.fromEntries(
     getAgreementEvidenceRows(agreementFixture).map(({ label, value }) => [label, value])
@@ -416,10 +998,6 @@ test("helper evidence remains exact and counsel brief remains non-approved", asy
   assert.equal(evidence["Acceptance recorded"], "Jun 1, 2028, 10:15 AM MDT");
   assert.equal(evidence["Card authorization recorded"], "Jun 1, 2028, 10:16 AM MDT");
   assert.match(agreementEvidenceLimitation, /not embedded in the Agreement record/);
-  assert.equal(
-    getInvoicePrintReadiness({ status: "ready", paymentCount: 0 }).enabled,
-    true
-  );
 
   const brief = await source(
     "docs/urban-cowboy-rentals-agreement-counsel-review.md"

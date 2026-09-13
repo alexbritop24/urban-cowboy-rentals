@@ -1,8 +1,4 @@
 import type { Invoice } from "../../types/invoice";
-import {
-  getInvoicePrintReadiness,
-  type PaymentHistoryLoadState,
-} from "../../utils/documentPresentation";
 
 interface InvoiceDocumentActionsProps {
   invoice: Invoice;
@@ -11,7 +7,6 @@ interface InvoiceDocumentActionsProps {
   onDownloadPdf: () => void;
   onIssue: () => void;
   onPrint: () => void;
-  paymentHistoryState: PaymentHistoryLoadState;
 }
 
 export default function InvoiceDocumentActions({
@@ -21,10 +16,8 @@ export default function InvoiceDocumentActions({
   onDownloadPdf,
   onIssue,
   onPrint,
-  paymentHistoryState,
 }: InvoiceDocumentActionsProps) {
   const isDraft = invoice.status === "draft";
-  const printReadiness = getInvoicePrintReadiness(paymentHistoryState);
 
   return (
     <section className="document-no-print flex flex-col gap-4 rounded-3xl border border-yellow-500/10 bg-black/25 p-6 sm:flex-row sm:items-center sm:justify-between">
@@ -45,12 +38,11 @@ export default function InvoiceDocumentActions({
           <p className="mt-2 text-sm font-bold text-[#fff7ed]">{notice}</p>
         )}
         <p
-          id="invoice-print-readiness"
-          className={`mt-2 text-sm font-bold ${
-            printReadiness.enabled ? "text-[#b8a99a]" : "text-amber-200"
-          }`}
+          id="invoice-pdf-action-description"
+          className="mt-2 text-sm font-bold text-[#b8a99a]"
         >
-          {printReadiness.message}
+          Download and print use the same official Invoice PDF snapshot. Payment
+          history remains available on this page.
         </p>
       </div>
 
@@ -79,9 +71,8 @@ export default function InvoiceDocumentActions({
         <button
           type="button"
           onClick={onPrint}
-          disabled={!printReadiness.enabled}
-          aria-describedby="invoice-print-readiness"
-          className="rounded-full border border-[#fff7ed]/30 px-6 py-4 text-sm font-black uppercase tracking-[0.1em] text-[#fff7ed] transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+          aria-describedby="invoice-pdf-action-description"
+          className="rounded-full border border-[#fff7ed]/30 px-6 py-4 text-sm font-black uppercase tracking-[0.1em] text-[#fff7ed] transition hover:bg-white/5"
         >
           Print Invoice
         </button>

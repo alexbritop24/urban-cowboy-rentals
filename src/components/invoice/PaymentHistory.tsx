@@ -12,7 +12,7 @@ import PaymentHistoryContent, {
 interface PaymentHistoryProps {
   invoiceId: string;
   refreshKey: number;
-  onStateChange: (state: PaymentHistoryLoadState) => void;
+  onStateChange?: (state: PaymentHistoryLoadState) => void;
 }
 
 export default function PaymentHistory({
@@ -30,7 +30,7 @@ export default function PaymentHistory({
 
     const loadPayments = async () => {
       setLoadState(loadingPaymentHistoryState);
-      onStateChange(loadingPaymentHistoryState);
+      onStateChange?.(loadingPaymentHistoryState);
 
       try {
         const result = await getInvoicePayments(invoiceId);
@@ -43,7 +43,7 @@ export default function PaymentHistory({
         };
         setPayments(loadedPayments);
         setLoadState(readyState);
-        onStateChange(readyState);
+        onStateChange?.(readyState);
       } catch (error) {
         if (!active) return;
 
@@ -55,7 +55,7 @@ export default function PaymentHistory({
         };
         setPayments([]);
         setLoadState(errorState);
-        onStateChange(errorState);
+        onStateChange?.(errorState);
       }
     };
 

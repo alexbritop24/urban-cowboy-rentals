@@ -14,12 +14,7 @@ import type { Invoice } from "../types/invoice";
 import PaymentSection from "../components/invoice/PaymentSection";
 import PaymentHistory from "../components/invoice/PaymentHistory";
 import DocumentBrandFooter from "../components/document/DocumentBrandFooter";
-import DocumentPrintBoundary from "../components/document/DocumentPrintBoundary";
-import {
-  getInvoicePrintReadiness,
-  loadingPaymentHistoryState,
-  type PaymentHistoryLoadState,
-} from "../utils/documentPresentation";
+import { startInvoicePdfPrint } from "../utils/invoicePdfWindow";
 
 export default function InvoicePage() {
   const { id } = useParams();
@@ -29,8 +24,6 @@ export default function InvoicePage() {
   const [loading, setLoading] = useState(true);
   const [isIssuing, setIsIssuing] = useState(false);
   const [paymentRefreshKey, setPaymentRefreshKey] = useState(0);
-  const [paymentHistoryState, setPaymentHistoryState] =
-    useState<PaymentHistoryLoadState>(loadingPaymentHistoryState);
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
@@ -100,7 +93,29 @@ export default function InvoicePage() {
     );
   }
 
-  const printReadiness = getInvoicePrintReadiness(paymentHistoryState);
+  const handleDownloadInvoicePdf = async () => {
+    setNotice("");
+
+    try {
+      const { downloadInvoicePdf } = await import(
+        "../utils/generateInvoicePdf"
+      );
+      await downloadInvoicePdf(invoice);
+    } catch (error) {
+      console.error("DOWNLOAD INVOICE PDF ERROR:", error);
+      setNotice("Could not download the Invoice PDF. Please try again.");
+    }
+  };
+
+  const handlePrintInvoicePdf = () => {
+    setNotice("");
+    void startInvoicePdfPrint(invoice, {
+      onError: (error, userMessage) => {
+        console.error("PRINT INVOICE PDF ERROR:", error);
+        setNotice(userMessage);
+      },
+    });
+  };
 
   return (
     <PageTransition>
@@ -110,11 +125,7 @@ export default function InvoicePage() {
       />
 
       <MainLayout>
-        <DocumentPrintBoundary
-          className="document-route mx-auto max-w-6xl px-4 py-20 sm:px-6"
-          documentType="Invoice"
-          readiness={printReadiness}
-        >
+        <section className="document-route mx-auto max-w-6xl px-4 py-20 sm:px-6">
           <button
             type="button"
             onClick={() => navigate(-1)}
@@ -137,7 +148,6 @@ export default function InvoicePage() {
                 invoice={invoice}
                 onInvoiceUpdated={setInvoice}
                 onPaymentRecorded={() => {
-                  setPaymentHistoryState(loadingPaymentHistoryState);
                   setPaymentRefreshKey((current) => current + 1);
                 }}
               />
@@ -145,22 +155,15 @@ export default function InvoicePage() {
               <PaymentHistory
                 invoiceId={invoice.id}
                 refreshKey={paymentRefreshKey}
-                onStateChange={setPaymentHistoryState}
               />
 
               <InvoiceDocumentActions
                 invoice={invoice}
                 isIssuing={isIssuing}
                 notice={notice}
-                onDownloadPdf={async () => {
-                  const { generateInvoicePdf } = await import(
-                    "../utils/generateInvoicePdf"
-                  );
-                  await generateInvoicePdf(invoice);
-                }}
+                onDownloadPdf={() => void handleDownloadInvoicePdf()}
                 onIssue={handleIssueInvoice}
-                onPrint={() => window.print()}
-                paymentHistoryState={paymentHistoryState}
+                onPrint={handlePrintInvoicePdf}
               />
 
               <DocumentBrandFooter
@@ -169,7 +172,7 @@ export default function InvoicePage() {
               />
             </div>
           </article>
-        </DocumentPrintBoundary>
+        </section>
       </MainLayout>
     </PageTransition>
   );
