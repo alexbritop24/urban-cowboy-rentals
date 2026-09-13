@@ -13,6 +13,10 @@ import { supabase } from "../lib/supabase";
 import { createRentalAgreement } from "../services/agreementService";
 import { applicationFeatureFlags } from "../config/featureFlags";
 import { getCurrentStaffAuthorization } from "../services/authorizationService";
+import {
+  createAdminRequestLoader,
+  type AdminRequestLoader,
+} from "../services/adminRequestLoader";
 
 interface RentalRequest {
   id: string;
@@ -96,15 +100,26 @@ const formatLabel = (value: string) => value.replaceAll("_", " ");
 
 const automationWebhookUrl = import.meta.env.VITE_N8N_AUTOMATION_WEBHOOK_URL;
 
+type RequestLoadState = "loading" | "ready" | "error";
+
+const requestLoadErrorMessage =
+  "Rental requests could not be loaded. Please try again.";
+
 const AdminDashboardPage = () => {
   const navigate = useNavigate();
 
   const [requests, setRequests] = useState<RentalRequest[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [requestLoadState, setRequestLoadState] =
+    useState<RequestLoadState>("loading");
+  const [requestLoadError, setRequestLoadError] = useState("");
+  const [isRefreshingRequests, setIsRefreshingRequests] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [adminNotice, setAdminNotice] = useState("");
+
+  const lifecycle = useRef({ isMounted: true });
+  const requestLoaderRef = useRef<AdminRequestLoader | null>(null);
 
   useEffect(() => {
   if (!adminNotice) return;
@@ -125,26 +140,55 @@ const AdminDashboardPage = () => {
     {}
   );
 
-  const fetchRequests = async () => {
-    setIsLoading(true);
-
-    const { data, error } = await supabase
-      .from("rental_requests")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("FETCH RENTAL REQUESTS ERROR:", error);
-      setRequests([]);
-      setIsLoading(false);
-      return;
-    }
-
-    setRequests(data || []);
-    setIsLoading(false);
+  const fetchRequests = () => {
+    return requestLoaderRef.current?.load() ?? Promise.resolve();
   };
 
   useEffect(() => {
+  lifecycle.current.isMounted = true;
+  const mountedLifecycle = lifecycle.current;
+  let isActive = true;
+
+  if (!requestLoaderRef.current) {
+    requestLoaderRef.current = createAdminRequestLoader<RentalRequest[]>(
+      async () => {
+        const { data, error } = await supabase
+          .from("rental_requests")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+        return data || [];
+      },
+      {
+        onInitialLoading: () => {
+          if (!lifecycle.current.isMounted) return;
+          setRequestLoadState("loading");
+          setRequestLoadError("");
+        },
+        onRefreshing: () => {
+          if (!lifecycle.current.isMounted) return;
+          setIsRefreshingRequests(true);
+          setRequestLoadError("");
+        },
+        onSuccess: (data) => {
+          if (!lifecycle.current.isMounted) return;
+          setRequests(data);
+          setRequestLoadState("ready");
+          setRequestLoadError("");
+          setIsRefreshingRequests(false);
+        },
+        onFailure: (error, isInitialLoad) => {
+          console.error("FETCH RENTAL REQUESTS ERROR:", error);
+          if (!lifecycle.current.isMounted) return;
+          setRequestLoadState(isInitialLoad ? "error" : "ready");
+          setRequestLoadError(requestLoadErrorMessage);
+          setIsRefreshingRequests(false);
+        },
+      }
+    );
+  }
+
   const initializeAdmin = async () => {
     try {
       const authorization = await getCurrentStaffAuthorization();
@@ -157,6 +201,8 @@ const AdminDashboardPage = () => {
       navigate("/admin-login");
       return null;
     }
+
+    if (!isActive) return null;
 
     void fetchRequests();
 
@@ -182,10 +228,16 @@ const AdminDashboardPage = () => {
   const pendingNoteSaveTimers = noteSaveTimers.current;
 
   initializeAdmin().then((channel) => {
-    if (channel) activeChannel = channel;
+    if (channel && isActive) {
+      activeChannel = channel;
+    } else if (channel) {
+      void supabase.removeChannel(channel);
+    }
   });
 
   return () => {
+    isActive = false;
+    mountedLifecycle.isMounted = false;
     if (activeChannel) {
       supabase.removeChannel(activeChannel);
     }
@@ -780,15 +832,54 @@ const hasDateConflict = (
                   <button
                     type="button"
                     onClick={fetchRequests}
-                    className="rounded-full border border-yellow-500/20 bg-[#1a1612] px-5 py-3 text-sm font-black uppercase tracking-[0.08em] text-[#fff7ed] transition hover:border-yellow-500/50"
+                    disabled={isRefreshingRequests}
+                    className="rounded-full border border-yellow-500/20 bg-[#1a1612] px-5 py-3 text-sm font-black uppercase tracking-[0.08em] text-[#fff7ed] transition hover:border-yellow-500/50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Refresh
+                    {isRefreshingRequests ? "Refreshing..." : "Refresh"}
                   </button>
                 </div>
               </div>
 
-              {isLoading ? (
-                <p className="text-[#b8a99a]">Loading requests...</p>
+              {requestLoadError && requestLoadState === "ready" && (
+                <div
+                  role="alert"
+                  className="mb-6 flex flex-col gap-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <p className="text-sm font-semibold text-red-300">
+                    {requestLoadError}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void fetchRequests()}
+                    disabled={isRefreshingRequests}
+                    className="w-fit rounded-full border border-red-400/40 px-4 py-2 text-xs font-black uppercase tracking-[0.08em] text-red-200 transition hover:border-red-300 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isRefreshingRequests ? "Retrying..." : "Retry"}
+                  </button>
+                </div>
+              )}
+
+              {requestLoadState === "loading" ? (
+                <p role="status" className="text-[#b8a99a]">
+                  Loading requests...
+                </p>
+              ) : requestLoadState === "error" ? (
+                <div
+                  role="alert"
+                  className="flex flex-col items-start gap-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <p className="text-sm font-semibold text-red-300">
+                    {requestLoadError || requestLoadErrorMessage}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void fetchRequests()}
+                    disabled={isRefreshingRequests}
+                    className="w-fit rounded-full border border-red-400/40 px-4 py-2 text-xs font-black uppercase tracking-[0.08em] text-red-200 transition hover:border-red-300 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isRefreshingRequests ? "Retrying..." : "Retry"}
+                  </button>
+                </div>
               ) : requests.length === 0 ? (
                 <p className="text-[#b8a99a]">No rental requests yet.</p>
               ) : filteredRequests.length === 0 ? (
