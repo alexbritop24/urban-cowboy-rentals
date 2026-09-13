@@ -50,6 +50,13 @@ const Footer = () => {
             >
               Rental Policies
             </Link>
+
+            <Link
+              to="/rental-requirements"
+              className="transition hover:text-[#f4b000]"
+            >
+              Rental Requirements
+            </Link>
           </div>
         </div>
 

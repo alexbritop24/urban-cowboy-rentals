@@ -10,6 +10,7 @@ const links = [
   { label: "Equipment", href: "/equipment" },
   { label: "About", href: "/about" },
   { label: "Contact", href: "/contact" },
+  { label: "Rental Requirements", href: "/rental-requirements" },
 ];
 
 const Navbar = () => {

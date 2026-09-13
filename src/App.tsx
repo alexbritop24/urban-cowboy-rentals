@@ -13,6 +13,7 @@ import EquipmentPage from "./pages/EquipmentPage";
 import HomePage from "./pages/HomePage";
 import InvoicePage from "./pages/InvoicePage";
 import PoliciesPage from "./pages/PoliciesPage";
+import RentalRequirementsPage from "./pages/RentalRequirementsPage";
 
 function App() {
   const location = useLocation();
@@ -27,6 +28,7 @@ function App() {
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/book" element={<BookingPage />} />
         <Route path="/policies" element={<PoliciesPage />} />
+        <Route path="/rental-requirements" element={<RentalRequirementsPage />} />
         <Route path="/admin-login" element={<AdminLoginPage />} />
 
         <Route

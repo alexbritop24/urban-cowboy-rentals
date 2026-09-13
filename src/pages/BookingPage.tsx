@@ -2,6 +2,7 @@ import MainLayout from "../components/layout/MainLayout";
 import BookingForm from "../components/forms/BookingForm";
 import PageTransition from "../components/ui/PageTransition";
 import SEO from "../components/seo/SEO";
+import { Link } from "react-router-dom";
 
 
 const BookingPage = () => {
@@ -27,6 +28,17 @@ const BookingPage = () => {
               availability, pricing, pickup or delivery, and next steps.
             </p>
           </div>
+
+          <p className="mb-6 text-sm leading-relaxed text-[#b8a99a]">
+            Submitting a request does not reserve equipment. Review{" "}
+            <Link
+              to="/rental-requirements"
+              className="font-bold text-[#f4b000] underline decoration-[#f4b000]/50 underline-offset-4 transition hover:text-[#fff7ed]"
+            >
+              Rental Requirements
+            </Link>
+            .
+          </p>
 
           <BookingForm />
         </div>
