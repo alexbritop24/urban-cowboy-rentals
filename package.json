@@ -13,6 +13,7 @@
     "test:approval": "node --test tests/persistence/approval-foundation.test.mjs",
     "test:documents": "node --test tests/persistence/document-*.test.mjs",
     "test:hosted": "node scripts/validate-release-hosted.mjs",
+    "test:presentation": "node --test tests/presentation/document-presentation.test.mjs",
     "test:persistence": "node --test tests/persistence/*.test.mjs"
   },
   "dependencies": {
