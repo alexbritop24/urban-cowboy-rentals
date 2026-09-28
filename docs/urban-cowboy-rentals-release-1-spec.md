@@ -65,7 +65,7 @@ Finalization is denied unless all required customer fields are present; there is
 
 Catalog behavior for this release:
 
-- **2024 Bobcat T550 Track Loader** — serial **B57T133070**, daily rate **$120/day**.
+- **2024 Bobcat T550 Track Loader** — serial **B57T133070**, daily rate **$280/day**.
 - **2025 Bobcat E35 Compact Excavator** — serial **B57920400**.
 - **2025 Wacker Neuson Roller Compactor** — serial **WNCRD12AEPUM06214**; this is the current Wacker Neuson RD12 Roller catalog unit and remains active.
 - Archive **2025 RawMax Tilt Deck 22'** and **Utility Trailer** so they cannot be selected for new requests; retain historical display by stored snapshots.
@@ -74,7 +74,7 @@ Catalog behavior for this release:
 
 ### Sprint 1 Catalog Outcome — Approved
 
-Sprint 1 archived **2025 RawMax Tilt Deck 22'** and **Utility Trailer** while retaining their records and stable IDs for historical display and direct-detail compatibility. Archived items no longer appear in new-request selectors. The existing Bobcat ID now displays **2024 Bobcat T550 Track Loader** at **$120/day**. Confirmed internal serial metadata was added for that Bobcat, the **2025 Bobcat E35 Compact Excavator**, and the **Wacker Neuson RD12 Roller**; public pages do not render serial numbers, VINs, or asset identifiers.
+Sprint 1 archived **2025 RawMax Tilt Deck 22'** and **Utility Trailer** while retaining their records and stable IDs for historical display and direct-detail compatibility. Archived items no longer appear in new-request selectors. The existing Bobcat ID now displays **2024 Bobcat T550 Track Loader** at **$280/day**, with displayed rental rates of **$1,200/week**, **$2,000/two weeks**, and **$2,800/four weeks**. Confirmed internal serial metadata was added for that Bobcat, the **2025 Bobcat E35 Compact Excavator**, and the **Wacker Neuson RD12 Roller**; public pages do not render serial numbers, VINs, or asset identifiers.
 
 The reusable **🔥 Most Popular** badge is enabled through metadata for the Bobcat and Wacker Roller. The Wacker is included on the Home page through centralized active/featured selectors, without duplicated Home-page components. Lint and the production build passed. No Agreement or Invoice code changed.
 

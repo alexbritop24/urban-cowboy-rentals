@@ -19,7 +19,7 @@ import { getCatalogMetadata } from "./catalogContract";
 export const equipmentData: readonly EquipmentItem[] = [
   {
     ...getCatalogMetadata("bobcat-t550-skid-steer"),
-    startingPrice: 120,
+    startingPrice: 280,
     image: bobcatT550Image,
     description:
       "Compact track skid steer built for grading, loading, clearing, and heavy jobsite work.",
@@ -31,8 +31,8 @@ export const equipmentData: readonly EquipmentItem[] = [
       "68” heavy duty grading bucket",
     ],
     rates: [
-      { label: "1 Day", price: 120 },
-      { label: "1 Week", price: 1000 },
+      { label: "1 Day", price: 280 },
+      { label: "1 Week", price: 1200 },
       { label: "2 Weeks", price: 2000 },
       { label: "4 Weeks", price: 2800 },
     ],

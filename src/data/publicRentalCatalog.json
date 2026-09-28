@@ -1,5 +1,5 @@
 [
-  { "id": "bobcat-t550-skid-steer", "name": "2024 Bobcat T550 Track Loader", "category": "Heavy Equipment", "status": "active", "catalogOrder": 20, "dailyRate": 120, "featured": true, "mostPopular": true },
+  { "id": "bobcat-t550-skid-steer", "name": "2024 Bobcat T550 Track Loader", "category": "Heavy Equipment", "status": "active", "catalogOrder": 20, "dailyRate": 280, "featured": true, "mostPopular": true },
   { "id": "bobcat-e35r2-compact-excavator", "name": "2025 Bobcat E35 Compact Excavator", "category": "Heavy Equipment", "status": "active", "catalogOrder": 30, "dailyRate": 275, "featured": false, "mostPopular": false },
   { "id": "lamar-telescopic-dump-9-ton", "name": "2025 Lamar Telescopic Dump 9 Ton Trailer", "category": "Trailers", "status": "active", "catalogOrder": 110, "dailyRate": 175, "featured": false, "mostPopular": false },
   { "id": "rawmax-tilt-deck-22", "name": "2025 RawMax Tilt Deck 22’", "category": "Trailers", "status": "archived", "catalogOrder": 120, "dailyRate": 150, "featured": false, "mostPopular": false },

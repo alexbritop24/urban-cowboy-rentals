@@ -16,6 +16,7 @@ const migrationUrls = [
   new URL("../../supabase/migrations/20260808000100_rental_approval_workflow.sql", import.meta.url),
   new URL("../../supabase/migrations/20260809000100_release1_production_shape_reconciliation.sql", import.meta.url),
   new URL("../../supabase/migrations/20260810000100_utah_driver_license_verification.sql", import.meta.url),
+  new URL("../../supabase/migrations/20260928000100_update_bobcat_t550_rate.sql", import.meta.url),
 ];
 const sqlTestUrl = new URL("../../supabase/tests/multi_item_hardening.sql", import.meta.url);
 const publicCatalogUrl = new URL("../../src/data/publicRentalCatalog.json", import.meta.url);
@@ -514,6 +515,7 @@ test("public catalog projection matches the authoritative server seed", async (t
   await applyMigration(database, 0);
   await applyMigration(database, 1);
   await applyMigration(database, 2);
+  await applyMigration(database, 10);
 
   const publicCatalog = JSON.parse(await readFile(publicCatalogUrl, "utf8"));
   assert.equal(publicCatalog.some((item) => "serialNumber" in item || "serial_number" in item), false);
@@ -533,6 +535,6 @@ test("public catalog projection matches the authoritative server seed", async (t
     ["bobcat-t550-skid-steer", "wacker-rd12-roller"]
   );
   assert.equal(publicCatalog.find((item) => item.id === "wacker-rd12-roller").category, "Heavy Equipment");
-  assert.equal(publicCatalog.find((item) => item.id === "bobcat-t550-skid-steer").dailyRate, 120);
+  assert.equal(publicCatalog.find((item) => item.id === "bobcat-t550-skid-steer").dailyRate, 280);
   assert.equal(publicCatalog.filter((item) => item.status === "archived").every((item) => !item.featured), true);
 });
