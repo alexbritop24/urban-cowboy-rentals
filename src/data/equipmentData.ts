@@ -39,7 +39,7 @@ export const equipmentData: readonly EquipmentItem[] = [
   },
   {
     ...getCatalogMetadata("bobcat-e35r2-compact-excavator"),
-    startingPrice: 225,
+    startingPrice: 280,
     image: miniExcavatorImage,
     description:
       "Compact diesel excavator with long arm reach and optional bucket attachments for digging, trenching, and grading.",
@@ -54,11 +54,9 @@ export const equipmentData: readonly EquipmentItem[] = [
       "Boom swing: left 75° / right 55°",
     ],
     rates: [
-      { label: "4hr", price: 225 },
-      { label: "1 Day", price: 275 },
-      { label: "1 Week", price: 1000 },
+      { label: "1 Day", price: 280 },
+      { label: "1 Week", price: 1200 },
       { label: "2 Weeks", price: 2000 },
-      { label: "3 Weeks", price: 2400 },
       { label: "4 Weeks", price: 2800 },
     ],
     addOns: [
