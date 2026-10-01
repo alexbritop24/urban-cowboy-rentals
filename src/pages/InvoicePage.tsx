@@ -134,7 +134,7 @@ export default function InvoicePage() {
             ← Back
           </button>
 
-          <article className="document-page rounded-[2rem] border border-yellow-500/20 bg-[#15110d] p-5 shadow-2xl shadow-black/30 sm:p-8">
+          <article className="document-page border border-[#d8d0c6] bg-[#fffdf8] p-5 text-[#211d18] shadow-2xl shadow-black/30 sm:p-10">
             <div className="space-y-8">
               <InvoiceHeader invoice={invoice} />
 
@@ -144,26 +144,9 @@ export default function InvoicePage() {
 
               <InvoiceFinancialSummary invoice={invoice} />
 
-              <PaymentSection
-                invoice={invoice}
-                onInvoiceUpdated={setInvoice}
-                onPaymentRecorded={() => {
-                  setPaymentRefreshKey((current) => current + 1);
-                }}
-              />
-
               <PaymentHistory
                 invoiceId={invoice.id}
                 refreshKey={paymentRefreshKey}
-              />
-
-              <InvoiceDocumentActions
-                invoice={invoice}
-                isIssuing={isIssuing}
-                notice={notice}
-                onDownloadPdf={() => void handleDownloadInvoicePdf()}
-                onIssue={handleIssueInvoice}
-                onPrint={handlePrintInvoicePdf}
               />
 
               <DocumentBrandFooter
@@ -172,6 +155,25 @@ export default function InvoicePage() {
               />
             </div>
           </article>
+
+          <div className="document-no-print mt-8 space-y-8">
+            <PaymentSection
+              invoice={invoice}
+              onInvoiceUpdated={setInvoice}
+              onPaymentRecorded={() => {
+                setPaymentRefreshKey((current) => current + 1);
+              }}
+            />
+
+            <InvoiceDocumentActions
+              invoice={invoice}
+              isIssuing={isIssuing}
+              notice={notice}
+              onDownloadPdf={() => void handleDownloadInvoicePdf()}
+              onIssue={handleIssueInvoice}
+              onPrint={handlePrintInvoicePdf}
+            />
+          </div>
         </section>
       </MainLayout>
     </PageTransition>

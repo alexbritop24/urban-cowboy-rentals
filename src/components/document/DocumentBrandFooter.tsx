@@ -10,9 +10,9 @@ export default function DocumentBrandFooter({
   documentNumber,
 }: DocumentBrandFooterProps) {
   return (
-    <footer className="document-brand-footer border-t border-yellow-500/20 pt-6 text-sm text-[#8f8577]">
+    <footer className="document-brand-footer border-t border-[#9a6a28] pt-4 text-xs text-[#5f574f]">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="font-bold text-[#d8cfc4]">
+        <p className="font-bold text-[#211d18]">
           {urbanCowboyDocumentBrand.legalName} · {documentType} {documentNumber}
         </p>
         <p>

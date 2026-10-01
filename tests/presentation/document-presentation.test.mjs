@@ -42,6 +42,10 @@ let AgreementPdfDocument;
 let DocumentBrandHeader;
 let DocumentPrintBoundary;
 let InvoiceDocumentActions;
+let InvoiceDetails;
+let InvoiceFinancialSummary;
+let InvoiceHeader;
+let InvoiceItemsTable;
 let InvoicePdfDocument;
 let PaymentHistoryContent;
 let createInvoicePdfBlob;
@@ -97,6 +101,10 @@ before(async () => {
     { default: DocumentBrandHeader },
     { default: DocumentPrintBoundary },
     { default: InvoiceDocumentActions },
+    { default: InvoiceDetails },
+    { default: InvoiceFinancialSummary },
+    { default: InvoiceHeader },
+    { default: InvoiceItemsTable },
     { default: InvoicePdfDocument },
     { default: PaymentHistoryContent },
     {
@@ -128,6 +136,10 @@ before(async () => {
     vite.ssrLoadModule("/src/components/document/DocumentBrandHeader.tsx"),
     vite.ssrLoadModule("/src/components/document/DocumentPrintBoundary.tsx"),
     vite.ssrLoadModule("/src/components/invoice/InvoiceDocumentActions.tsx"),
+    vite.ssrLoadModule("/src/components/invoice/InvoiceDetails.tsx"),
+    vite.ssrLoadModule("/src/components/invoice/InvoiceFinancialSummary.tsx"),
+    vite.ssrLoadModule("/src/components/invoice/InvoiceHeader.tsx"),
+    vite.ssrLoadModule("/src/components/invoice/InvoiceItemsTable.tsx"),
     vite.ssrLoadModule(
       "/src/components/agreement/pdf/InvoicePdfDocument.tsx"
     ),
@@ -884,6 +896,14 @@ test("Agreement PDF renders exact persisted evidence and supported metadata", as
   assert.match(pdf.text, /Final Agreement status\s+Finalized and locked/);
   assert.match(pdf.text, /Snapshot schema version\s+1/);
   assert.match(pdf.text, /Accepted snapshot matches current snapshot/);
+  for (const item of agreementFixture.items) {
+    assert.match(pdf.text, new RegExp(item.equipmentName));
+    assert.match(pdf.text, new RegExp(formatDocumentSerial(item.serialNumber)));
+  }
+  assert.match(pdf.text, /Delivery/i);
+  assert.match(pdf.text, /Deposit required\s+\$500\.00/);
+  assert.ok(pdf.pageCount >= 2);
+  assert.ok(pdf.pageSizes.every(({ height, width }) => height === 792 && width === 612));
   assertNoSensitiveCardData(pdf.text);
 
   assert.equal(pdf.metadata.Title, "Equipment Rental Agreement UCR-2028-000042");
@@ -891,6 +911,100 @@ test("Agreement PDF renders exact persisted evidence and supported metadata", as
   assert.equal(pdf.metadata.Subject, "Immutable equipment rental Agreement snapshot");
   assert.equal(pdf.metadata.Creator, "Urban Cowboy Rentals application");
   assert.match(pdf.raw, /\/Lang \(en-US\)/);
+});
+
+test("Agreement PDF preserves individual, pickup, non-serialized, and zero-deposit snapshots", async () => {
+  const individualAgreement = {
+    ...agreementFixture,
+    customer_type: "individual",
+    business_name: null,
+    fulfillment_type: "Pickup",
+    service_address: null,
+    deposit_amount: 0,
+    total_amount: agreementFixture.total_amount - agreementFixture.deposit_amount,
+    items: [
+      {
+        ...agreementFixture.items[0],
+        id: "agreement-item-nonserialized",
+        equipmentId: "kobalt-hand-tamper",
+        equipmentName: "Kobalt Hand Tamper",
+        serialNumber: null,
+        quantity: 2,
+        dailyRate: 10,
+        billableDays: 2,
+        lineTotal: 40,
+        notes: null,
+      },
+    ],
+  };
+  const buffer = await renderToBuffer(
+    React.createElement(AgreementPdfDocument, { agreement: individualAgreement })
+  );
+  const pdf = await inspectPdf(buffer);
+
+  assert.match(pdf.text, /LESSEE TYPE\s+Individual/);
+  assert.doesNotMatch(pdf.text, /High Desert Sample Services LLC/);
+  assert.match(pdf.text, /FULFILLMENT\s+Pickup/);
+  assert.match(pdf.text, /Kobalt Hand Tamper/);
+  assert.match(pdf.text, /Not recorded/);
+  assert.match(pdf.text, /Deposit required\s+\$0\.00/);
+  assertNoSensitiveCardData(pdf.text);
+});
+
+test("browser Invoice hierarchy preserves snapshot fields and all payment status labels", () => {
+  const components = [
+    InvoiceHeader,
+    InvoiceDetails,
+    InvoiceItemsTable,
+    InvoiceFinancialSummary,
+  ];
+  const combinedText = components
+    .map((component) => renderHtml(component, { invoice: invoiceFixture }).text)
+    .join(" ");
+
+  assert.match(combinedText, /Bill To/);
+  assert.match(combinedText, /Invoice and Rental Details/);
+  assert.match(combinedText, /Itemized Rental/);
+  assert.match(combinedText, /Invoice Summary/);
+  assert.match(combinedText, /High Desert Sample Services LLC/);
+  assert.match(combinedText, /\$500\.00/);
+  for (const status of [
+    "draft",
+    "issued",
+    "partially_paid",
+    "paid",
+    "overdue",
+    "cancelled",
+    "void",
+  ]) {
+    const header = renderHtml(InvoiceHeader, {
+      invoice: { ...invoiceFixture, status },
+    });
+    assert.match(header.text, new RegExp(formatDocumentStatus(status)));
+  }
+});
+
+test("browser document free-text fields visibly redact card numbers and security codes", () => {
+  const itemTable = renderHtml(InvoiceItemsTable, {
+    invoice: sensitiveInvoiceFixture,
+  });
+  const paymentHistory = renderHtml(PaymentHistoryContent, {
+    payments: [
+      {
+        id: "sensitive-browser-payment",
+        amount: 25,
+        payment_method: "card",
+        reference_number: "4111111111111111",
+        notes: "CVV: 123",
+        received_at: "2028-06-03T16:30:00.000Z",
+      },
+    ],
+    state: { status: "ready", paymentCount: 1 },
+  });
+  const text = `${itemTable.text} ${paymentHistory.text}`;
+
+  assert.match(text, /\[REDACTED\]/);
+  assertNoSensitiveCardData(text);
 });
 
 test("three-item Invoice PDF renders one complete snapshot-summary page", async () => {

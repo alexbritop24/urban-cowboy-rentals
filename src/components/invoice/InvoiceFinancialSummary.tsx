@@ -12,20 +12,20 @@ const InvoiceFinancialSummary = ({ invoice }: InvoiceFinancialSummaryProps) => {
   const amount = (value: number) => currency(value, invoice.currency);
 
   return (
-    <section className="document-section document-totals rounded-3xl border border-yellow-500/20 bg-[#11100d] p-8">
+    <section className="document-section document-totals border-t border-[#d8d0c6] pt-7">
       <div>
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
-          Financial Summary
+        <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#76572f]">
+          Charges and Balance
         </p>
-        <h2 className="mt-2 text-3xl font-black text-[#fff7ed]">
-          Immutable Invoice Charges
+        <h2 className="mt-1 font-serif text-2xl font-bold text-[#211d18]">
+          Invoice Summary
         </h2>
-        <p className="mt-2 text-sm text-[#8f8577]">
+        <p className="mt-2 text-sm text-[#6f665c]">
           These amounts were copied from the finalized Agreement snapshot.
         </p>
       </div>
 
-      <div className="mt-8 space-y-4">
+      <div className="mt-6 ml-auto max-w-xl space-y-2">
         <SummaryRow label="Rental subtotal" value={amount(invoice.subtotal)} />
         <SummaryRow label="Deposit required" value={amount(invoice.deposit_amount)} />
         <SummaryRow label="Delivery" value={amount(invoice.delivery_fee)} />
@@ -38,9 +38,9 @@ const InvoiceFinancialSummary = ({ invoice }: InvoiceFinancialSummaryProps) => {
         )}
       </div>
 
-      <div className="my-8 border-t border-yellow-500/20" />
+      <div className="my-6 border-t border-[#9a6a28]" />
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="ml-auto grid max-w-2xl gap-3 sm:grid-cols-3">
         <SummaryCard label="Total" value={amount(invoice.total_amount)} />
         <SummaryCard label="Paid" value={amount(invoice.amount_paid)} />
         <SummaryCard label="Balance Due" value={amount(invoice.balance_due)} />
@@ -50,11 +50,11 @@ const InvoiceFinancialSummary = ({ invoice }: InvoiceFinancialSummaryProps) => {
 };
 
 const SummaryRow = ({ label, value }: { label: string; value: string }) => (
-  <div className="flex items-center justify-between gap-4 rounded-2xl border border-yellow-500/10 bg-black/30 px-5 py-4">
-    <span className="text-sm font-black uppercase tracking-[0.12em] text-[#8f8577]">
+  <div className="flex items-center justify-between gap-4 border-b border-[#e4ddd4] px-1 py-3">
+    <span className="text-sm font-bold uppercase tracking-[0.1em] text-[#6f665c]">
       {label}
     </span>
-    <span className="text-xl font-bold text-[#fff7ed]">{value}</span>
+    <span className="text-lg font-bold text-[#211d18]">{value}</span>
   </div>
 );
 
@@ -64,11 +64,11 @@ interface SummaryCardProps {
 }
 
 const SummaryCard = ({ label, value }: SummaryCardProps) => (
-  <div className="rounded-2xl border border-yellow-500/10 bg-black/30 p-5">
-    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
+  <div className="border border-[#d8d0c6] bg-[#faf7f2] p-4">
+    <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#6f665c]">
       {label}
     </p>
-    <p className="mt-2 text-2xl font-black text-[#fff7ed]">{value}</p>
+    <p className="mt-2 text-xl font-black text-[#211d18]">{value}</p>
   </div>
 );
 

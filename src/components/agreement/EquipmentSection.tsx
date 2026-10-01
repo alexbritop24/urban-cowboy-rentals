@@ -3,31 +3,32 @@ import {
   formatDocumentCurrency,
   formatDocumentDate,
 } from "../../utils/documentPresentation";
+import { sanitizeInvoicePdfText } from "./pdf/sanitizeInvoicePdfText";
 
 interface EquipmentSectionProps {
   agreement: RentalAgreement;
 }
 
 const EquipmentSection = ({ agreement }: EquipmentSectionProps) => (
-  <section className="document-section rounded-3xl border border-yellow-500/10 bg-black/25 p-6 lg:col-span-2">
+  <section className="document-section border-t border-[#d8d0c6] pt-6 lg:col-span-2">
     <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
-          Agreement Equipment
+        <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#76572f]">
+          Equipment Schedule
         </p>
-        <h2 className="mt-2 text-2xl font-black text-[#fff7ed]">
-          {agreement.items.length} item{agreement.items.length === 1 ? "" : "s"}
+        <h2 className="mt-1 font-serif text-xl font-bold text-[#211d18]">
+          {agreement.items.length} rental item{agreement.items.length === 1 ? "" : "s"}
         </h2>
       </div>
-      <p className="text-sm text-[#b8a99a]">
+      <p className="text-sm text-[#5f574f]">
         {formatDocumentDate(agreement.rental_start_date)} →{" "}
         {formatDocumentDate(agreement.rental_end_date)}
       </p>
     </div>
 
     <div className="document-table-scroll mt-6 overflow-x-auto">
-      <table className="document-data-table min-w-[980px] w-full text-left text-sm">
-        <thead className="border-b border-yellow-500/20 text-xs uppercase tracking-[0.1em] text-[#8f8577]">
+      <table className="document-data-table w-full min-w-[980px] border-collapse border border-[#d8d0c6] text-left text-sm">
+        <thead className="bg-[#f4eee5] text-xs uppercase tracking-[0.08em] text-[#5f574f]">
           <tr>
             <th className="px-3 py-3">Equipment</th>
             <th className="px-3 py-3">Serial</th>
@@ -38,12 +39,16 @@ const EquipmentSection = ({ agreement }: EquipmentSectionProps) => (
             <th className="px-3 py-3 text-right">Line Total</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-yellow-500/10">
+        <tbody className="divide-y divide-[#d8d0c6]">
           {agreement.items.map((item) => (
-            <tr key={item.id} className="align-top text-[#d8cfc4]">
+            <tr key={item.id} className="align-top text-[#211d18]">
               <td className="px-3 py-4">
-                <p className="font-bold text-[#fff7ed]">{item.equipmentName}</p>
-                {item.notes && <p className="mt-1 text-xs text-[#8f8577]">{item.notes}</p>}
+                <p className="font-bold text-[#211d18]">{item.equipmentName}</p>
+                {item.notes && (
+                  <p className="mt-1 text-xs text-[#6f665c]">
+                    {sanitizeInvoicePdfText(item.notes)}
+                  </p>
+                )}
               </td>
               <td className="px-3 py-4">{item.serialNumber || "—"}</td>
               <td className="px-3 py-4">
@@ -55,7 +60,7 @@ const EquipmentSection = ({ agreement }: EquipmentSectionProps) => (
                 {formatDocumentCurrency(item.dailyRate)}
               </td>
               <td className="px-3 py-4 text-right">{item.billableDays}</td>
-              <td className="px-3 py-4 text-right font-bold text-[#fff7ed]">
+              <td className="px-3 py-4 text-right font-bold text-[#211d18]">
                 {formatDocumentCurrency(item.lineTotal)}
               </td>
             </tr>

@@ -6,30 +6,30 @@ interface CustomerSectionProps {
 
 const Detail = ({ label, value }: { label: string; value: string | null }) => (
   <div>
-    <p className="text-xs font-black uppercase tracking-[0.12em] text-[#8f8577]">
+    <dt className="text-xs font-bold uppercase tracking-[0.12em] text-[#776b60]">
       {label}
-    </p>
-    <p className="mt-1 break-words text-[#d8cfc4]">{value || "Not provided"}</p>
+    </dt>
+    <dd className="mt-1 break-words text-[#211d18]">{value || "Not provided"}</dd>
   </div>
 );
 
 const CustomerSection = ({ agreement }: CustomerSectionProps) => (
-  <section className="document-section rounded-3xl border border-yellow-500/10 bg-black/25 p-6">
-    <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
-      Customer Information
-    </p>
+  <section className="document-section border-t border-[#d8d0c6] pt-6">
+    <h2 className="font-serif text-xl font-bold text-[#211d18]">
+      Lessee and Rental Information
+    </h2>
 
-    <div className="mt-6 space-y-5">
+    <dl className="mt-5 grid gap-x-8 gap-y-5 sm:grid-cols-2">
       <div>
-        <p className="text-xs font-black uppercase tracking-[0.12em] text-[#8f8577]">
-          Customer Type
-        </p>
-        <p className="mt-1 text-sm font-black uppercase tracking-[0.1em] text-[#f4b000]">
+        <dt className="text-xs font-bold uppercase tracking-[0.12em] text-[#776b60]">
+          Lessee Type
+        </dt>
+        <dd className="mt-1 text-sm font-bold capitalize text-[#211d18]">
           {agreement.customer_type}
-        </p>
+        </dd>
       </div>
 
-      <Detail label="Legal Name" value={agreement.customer_name} />
+      <Detail label="Lessee Legal Name" value={agreement.customer_name} />
       {agreement.customer_type === "business" && (
         <Detail label="Business Name" value={agreement.business_name} />
       )}
@@ -38,10 +38,10 @@ const CustomerSection = ({ agreement }: CustomerSectionProps) => (
       <Detail label="Billing Address" value={agreement.billing_address} />
       <Detail label="Rental Request" value={agreement.rental_request_id} />
       <Detail label="Fulfillment" value={agreement.fulfillment_type} />
-      {agreement.fulfillment_type === "Delivery" && (
+      {agreement.service_address && (
         <Detail label="Service / Delivery Address" value={agreement.service_address} />
       )}
-    </div>
+    </dl>
   </section>
 );
 

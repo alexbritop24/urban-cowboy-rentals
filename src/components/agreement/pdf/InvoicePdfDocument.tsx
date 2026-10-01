@@ -189,12 +189,12 @@ export default function InvoicePdfDocument({ invoice }: { invoice: Invoice }) {
             <Detail label="Billing address" value={pdfText(invoice.billing_address || "Not provided")} />
           </View>
           <View style={styles.column}>
-            <Text style={styles.sectionTitle}>Invoice Details</Text>
+            <Text style={styles.sectionTitle}>Invoice and Rental Details</Text>
             <Detail label="Payment terms" value={pdfText(invoice.payment_terms)} />
             <Detail label="Payment status" value={pdfText(formatDocumentStatus(invoice.payment_status || invoice.status))} />
             <Detail label="Due" value={pdfText(formatDocumentDate(invoice.due_at, "Not set"))} />
             <Detail label="Rental request" value={pdfText(invoice.rental_request_id || "Not recorded")} />
-            <Detail label="Source Agreement" value={pdfText(invoice.rental_agreement_id || "Not recorded")} />
+            <Detail label="Source Agreement record" value={pdfText(invoice.rental_agreement_id || "Not recorded")} />
             {invoice.service_address && (
               <Detail label="Service / delivery address" value={pdfText(invoice.service_address)} />
             )}
@@ -279,7 +279,7 @@ export default function InvoicePdfDocument({ invoice }: { invoice: Invoice }) {
             <Text style={styles.sectionTitle}>Agreement Traceability</Text>
             <View style={styles.traceability}>
               <Text style={styles.traceabilityLine}>
-                Source Agreement: {pdfText(invoice.rental_agreement_id || "Not recorded")}
+                Source Agreement record: {pdfText(invoice.rental_agreement_id || "Not recorded")}
               </Text>
               <Text style={styles.traceabilityLine}>
                 Rental Request: {pdfText(invoice.rental_request_id || "Not recorded")}
