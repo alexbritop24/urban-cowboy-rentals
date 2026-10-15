@@ -1,3 +1,5 @@
+import ApprovedAgreementTerms from "../components/agreement/ApprovedAgreementTerms";
+import { hasApprovedDocument } from "../utils/approvedAgreementDocument";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -295,7 +297,9 @@ export default function AgreementPage() {
                 updateFinancialField={updateFinancialField}
               />
 
-              <LegalClauses clauses={agreement.clause_snapshot} />
+              {hasApprovedDocument(agreement.clause_snapshot)
+                ? <ApprovedAgreementTerms agreement={agreement} />
+                : <LegalClauses clauses={agreement.clause_snapshot} />}
 
               {!hasVerifiedSnapshot && (
                 <section className="rounded-3xl border border-amber-500/30 bg-amber-500/10 p-6 text-sm leading-7 text-amber-100">

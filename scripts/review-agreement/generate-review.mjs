@@ -5,15 +5,16 @@ import React from "react";
 import { renderToBuffer, StyleSheet, Font } from "@react-pdf/renderer";
 import { createServer } from "vite";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
-import { populateReview } from "./populate-review.mjs";
+import { populateReview, cleanReview } from "./populate-review.mjs";
 import { sampleAgreement } from "./sample-snapshot.mjs";
 
 const root=fileURLToPath(new URL("../../",import.meta.url));
 Font.registerHyphenationCallback(word=>[word]);
 const source=JSON.parse(await readFile(new URL("./jason-review.fixture.json",import.meta.url),"utf8"));
 const populated=process.argv.includes("--populated");
-const fixture=populated?populateReview(source,sampleAgreement,{sample:true}):source;
-const name=populated?"urban-cowboy-jason-agreement-populated-review":"urban-cowboy-jason-agreement-review";
+const clean=process.argv.includes("--clean");
+const fixture=populated?(clean?cleanReview:populateReview)(source,sampleAgreement,{sample:true}):source;
+const name=clean?"urban-cowboy-jason-agreement-clean-review":populated?"urban-cowboy-jason-agreement-populated-review":"urban-cowboy-jason-agreement-review";
 // Use the current Agreement styling verbatim without exporting or changing active code.
 const production=await readFile(path.join(root,"src/components/agreement/pdf/AgreementPdfDocument.tsx"),"utf8");
 const styleLiteral=production.match(/const styles = StyleSheet\.create\((\{[\s\S]*?\n\})\);/)[1];
@@ -29,6 +30,7 @@ try {
   const output=path.join(root,"output/pdf");await mkdir(output,{recursive:true});
   await writeFile(path.join(output,`${name}.pdf`),buffer);
   await mkdir(path.join(root,"tmp/pdfs/jason-review"),{recursive:true});
+  if(clean)await writeFile(path.join(output,"urban-cowboy-jason-agreement-clean-checklist.json"),JSON.stringify(fixture.population,null,2)+"\n");
   if(populated)await writeFile(path.join(root,"tmp/pdfs/jason-review/populated-fixture.json"),JSON.stringify(fixture,null,2)+"\n");
   const pdf=await getDocument({data:new Uint8Array(buffer),standardFontDataUrl:path.join(root,"node_modules/pdfjs-dist/standard_fonts/")}).promise;
   const pageTexts=[];

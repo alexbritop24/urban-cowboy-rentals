@@ -13,6 +13,7 @@ const review = StyleSheet.create({
 export default function ReviewAgreementPdf({ fixture, styles }: any) {
   const documentNumber=fixture.population?.agreementNumber || "REVIEW-JASON";
   const sample=fixture.population?.sample===true;
+  const approved=fixture.population?.approved===true;
   // Use the production footer's layout, with dynamic text to repeat reliably on
   // continuation pages produced by this long review fixture.
   const footer = PdfBrandFooter({documentType:"Agreement",documentNumber});
@@ -23,16 +24,18 @@ export default function ReviewAgreementPdf({ fixture, styles }: any) {
     return [<View key={`footer-rule-${index}`} style={child.props.style} fixed />,
       <Text key={`footer-text-${index}`} style={{...textStyle,top:759}} fixed render={()=>text} />];
   });
-  return <Document title="Jason Agreement - Review Draft" author="Urban Cowboy Rentals LLC" subject="Review only; source wording and amounts retained; not for customer signature" language="en-US">
+  return <Document title={approved?"Equipment Lease Agreement":"Jason Agreement - Review Draft"} author="Urban Cowboy Rentals LLC" subject={approved?"Snapshot-backed equipment lease agreement":"Review only; source wording and amounts retained; not for customer signature"} language="en-US">
     <Page size="LETTER" style={styles.page} wrap>
-      <Text style={review.marker} fixed render={()=>`REVIEW DRAFT — NOT FOR CUSTOMER SIGNATURE${sample?" — SAMPLE DATA":""}`} />
+      {(!approved || sample) && <Text style={review.marker} fixed render={()=>approved?"SAMPLE DATA — NOT FOR CUSTOMER USE":`REVIEW DRAFT — NOT FOR CUSTOMER SIGNATURE${sample?" — SAMPLE DATA":""}`} />}
       {footerChildren}
-      <PdfBrandHeader documentType="Equipment Lease Agreement" documentNumber={documentNumber} status="review draft" dateLabel={fixture.population?"Stored effective":"Review fixture"} dateValue={fixture.population?.effectiveAt || "2026-10-12"} />
-      <Text style={review.note}>{fixture.population
+      <PdfBrandHeader documentType="Equipment Lease Agreement" documentNumber={documentNumber} status={approved?fixture.population.status:"review draft"} dateLabel={fixture.population?"Stored effective":"Review fixture"} dateValue={fixture.population?.effectiveAt || "2026-10-12"} />
+      {!approved && <Text style={review.note}>{fixture.population?.clean
+        ? `REVIEW DRAFT — NOT FOR CUSTOMER SIGNATURE${sample ? " — SAMPLE DATA" : ""}. Known details are populated. Blank fields require completion when applicable; signatures and authorization are not recorded for these proposed terms. Recorded charges are shown; source reference prices and policy provisions remain pending reconciliation. See the separate staff checklist for pending decisions and proposed wording changes.`
+        : fixture.population
         ? `${sample?"REVIEW DRAFT — NOT FOR CUSTOMER SIGNATURE. SAMPLE DATA: fictional customer, rental, and recorded evidence from a local snapshot fixture. All dates, amounts, contacts, and evidence examples are sample data.":"REVIEW DRAFT — NOT FOR CUSTOMER SIGNATURE. Details come from the supplied persisted Agreement snapshot."} Existing snapshot fields populate supported details; unresolved fields are marked. Acceptance and authorization evidence belongs to the stored Agreement only, not Jason’s proposed terms. No signature or lessor execution is represented. Jason’s source reference prices, deposits, and legal-policy conflicts remain unresolved.`
-        : "REVIEW DRAFT — NOT FOR CUSTOMER SIGNATURE. Source: Jason’s 18-page Rental Agreement for Alex to view.pdf. Source wording, placeholders, duplicate text, equipment identifiers and amounts are retained for comparison, except the Schedule 1 omissions identified in the accompanying report. No sample renter, transaction, approval, or signature is represented."}</Text>
+        : "REVIEW DRAFT — NOT FOR CUSTOMER SIGNATURE. Source: Jason’s 18-page Rental Agreement for Alex to view.pdf. Source wording, placeholders, duplicate text, equipment identifiers and amounts are retained for comparison, except the Schedule 1 omissions identified in the accompanying report. No sample renter, transaction, approval, or signature is represented."}</Text>}
       {fixture.blocks.map((block: any,index: number) => {
-        if(block.kind==="section") return <View key={index} style={{marginTop:8,marginBottom:10}} minPresenceAhead={fixture.population&&["EXHIBIT C","EXHIBIT D"].includes(block.title)?180:80} wrap={false}>
+        if(block.kind==="section") return <View key={index} style={{marginTop:8,marginBottom:10}} minPresenceAhead={fixture.population?.clean&&["EXHIBIT A","EXHIBIT B","EXHIBIT C"].includes(block.title)?450:fixture.population&&["EXHIBIT C","EXHIBIT D"].includes(block.title)?180:80} wrap={false}>
           <Text style={styles.sectionTitle}>{block.title}</Text>
           <Text style={styles.clauseTitle}>{block.subtitle}</Text>
         </View>;

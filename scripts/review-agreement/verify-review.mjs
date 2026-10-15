@@ -2,9 +2,10 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import path from "node:path";
+const clean=process.argv.includes("--clean");
 const populated=process.argv.includes("--populated");
 const fixture=JSON.parse(await readFile(populated?"tmp/pdfs/jason-review/populated-fixture.json":"scripts/review-agreement/jason-review.fixture.json","utf8"));
-const bytes=await readFile(`output/pdf/urban-cowboy-jason-agreement-${populated?"populated-":""}review.pdf`);
+const bytes=await readFile(`output/pdf/urban-cowboy-jason-agreement-${clean?"clean-":populated?"populated-":""}review.pdf`);
 const pdf=await getDocument({data:new Uint8Array(bytes),standardFontDataUrl:path.resolve("node_modules/pdfjs-dist/standard_fonts")+"/"}).promise;
 const body=[];const pages=[];
 for(let n=1;n<=pdf.numPages;n++) {
@@ -22,6 +23,6 @@ const missing=fixture.blocks.flatMap((block,index)=>{
   return strings.filter(s=>!combined.includes(normalize(s))).map(text=>({index,text}));
 });
 const result={pageCount:pdf.numPages,pages,missingFixtureContent:missing,forbiddenSchedule1Fields:body.join(" ").match(/Card Number:|CVV:|LLC to retain this authorization form and card information/g)||[]};
-await writeFile(`tmp/pdfs/jason-review/${populated?"populated-":""}content-verification.json`,JSON.stringify(result,null,2)+"\n");
+await writeFile(`tmp/pdfs/jason-review/${clean?"clean-":populated?"populated-":""}content-verification.json`,JSON.stringify(result,null,2)+"\n");
 console.log(JSON.stringify(result,null,2));
 if(missing.length||result.forbiddenSchedule1Fields.length||pages.some(p=>!p.reviewMarker||!p.footer||!p.sampleMarker))process.exitCode=1;

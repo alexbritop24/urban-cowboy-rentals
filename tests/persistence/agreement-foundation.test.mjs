@@ -1020,3 +1020,41 @@ test("remediation migration preserves finalized historical Agreements without si
     locked: true,
   });
 });
+
+
+test("approved terms apply only to new Agreements and preserve prior drafts and acceptance", async (t) => {
+  const database = await createDatabase();
+  t.after(() => database.close());
+  await enableMultiItemGate(database);
+  const oldId = await createAgreement(database, await createNormalizedRequest(database));
+  await recordAcceptance(database, oldId);
+  const draftItems = normalizedItems().map((item,index)=>({...item,start_date:isoDaysFromNow(40+index*7),end_date:isoDaysFromNow(42+index*7)}));
+  const draftId = await createAgreement(database, await createNormalizedRequest(database,draftItems));
+  const before = await database.query("select * from public.rental_agreements order by id");
+  const oldItems = await database.query("select * from public.agreement_items order by id");
+  const migration = await readFile(new URL("../../supabase/migrations/20261014000100_approved_equipment_lease_terms.sql", import.meta.url), "utf8");
+  const selectedBefore = await database.query("select private.current_agreement_clause_snapshot() as clauses");
+  await database.exec(migration);
+  assert.deepEqual((await database.query("select private.current_agreement_clause_snapshot() as clauses")).rows, selectedBefore.rows);
+  await database.exec(await readFile(new URL("../../supabase/operations/activate-approved-equipment-lease.sql", import.meta.url),"utf8"));
+  assert.deepEqual((await database.query("select * from public.rental_agreements order by id")).rows, before.rows);
+  assert.deepEqual((await database.query("select * from public.agreement_items order by id")).rows, oldItems.rows);
+  assert.notEqual(oldId, draftId);
+  const futureItems = normalizedItems().map((item,index)=>({...item,start_date:isoDaysFromNow(70+index*7),end_date:isoDaysFromNow(72+index*7)}));
+  const newId = await createAgreement(database, await createNormalizedRequest(database,futureItems));
+  const created = (await database.query("select * from public.rental_agreements where id=$1",[newId])).rows[0];
+  assert.equal(created.clause_snapshot.length, 1);
+  assert.equal(created.clause_snapshot[0].category, "ucr_document_v1");
+  const payload = JSON.parse(created.clause_snapshot[0].body);
+  assert.equal(payload.schema, "ucr-approved-equipment-lease/v1");
+  assert.equal(payload.sourceSha256, "06344564c4b9e69807e970eb4b7fae8dd2e8c77f059220687602718719f3e2ac");
+  assert.ok(payload.blocks.some(block=>block.title==="EXHIBIT D"));
+  assert.equal(created.acceptance_acknowledged, false);
+  await recordAcceptance(database, newId);
+  await setRole(database, "authenticated", {app_metadata:{role:"staff"},sub:"11111111-1111-4111-8111-111111111111"});
+  await database.query("select public.finalize_rental_agreement($1::uuid)",[newId]);
+  await resetRole(database);
+  const final = (await database.query("select accepted_terms_version=terms_version as bound, accepted_snapshot_hash=current_snapshot_hash as exact, locked_at is not null as locked from public.rental_agreements where id=$1",[newId])).rows[0];
+  assert.deepEqual(final,{bound:true,exact:true,locked:true});
+  assert.deepEqual((await database.query("select * from public.rental_agreements where id<>$1 order by id",[newId])).rows,before.rows);
+});

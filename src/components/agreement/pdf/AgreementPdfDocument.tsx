@@ -1,3 +1,5 @@
+import { buildApprovedDocument } from "../../../utils/approvedAgreementDocument";
+import ApprovedDocumentPdf from "../../../../scripts/review-agreement/ReviewAgreementPdf";
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
 import type { RentalAgreement } from "../../../types/agreement";
@@ -20,7 +22,9 @@ interface Props {
   agreement: RentalAgreement;
 }
 
-const styles = StyleSheet.create({
+// Shared by the staff-only replacement review; active rendering is unchanged.
+// eslint-disable-next-line react-refresh/only-export-components
+export const styles = StyleSheet.create({
   page: {
     paddingTop: 30,
     paddingRight: 32,
@@ -136,6 +140,9 @@ const styles = StyleSheet.create({
 
 export default function AgreementPdfDocument({ agreement }: Props) {
   const evidence = getAgreementEvidenceRows(agreement);
+
+  const approved = buildApprovedDocument(agreement);
+  if (approved) return <ApprovedDocumentPdf fixture={approved} styles={styles} />;
 
   return (
     <Document

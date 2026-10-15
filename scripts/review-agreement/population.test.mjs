@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {readFile} from "node:fs/promises";
-import {populateReview} from "./populate-review.mjs";
+import {populateReview,cleanReview} from "./populate-review.mjs";
 import {sampleAgreement} from "./sample-snapshot.mjs";
 const source=JSON.parse(await readFile(new URL("./jason-review.fixture.json",import.meta.url),"utf8"));
 const renderText=fixture=>JSON.stringify(fixture.blocks);
@@ -67,4 +67,20 @@ test("unverified snapshots are refused and prohibited provider properties are ne
   const text=renderText(result);
   assert.ok(!text.includes(prohibited));assert.ok(!text.includes("CVV: 987"));
   assert.match(text,/REDACTED/);
+});
+
+
+test("clean review separates decisions and never carries prior execution into proposed signature fields",()=>{
+  const result=cleanReview(source,sampleAgreement,{sample:true});
+  const text=renderText(result);
+  assert.doesNotMatch(text,/UNRESOLVED|UNRECORDED|STATE OF ORGANIZATION|LESSEE BUSINESS ADDRESS/);
+  assert.ok(!result.blocks.some(b=>b.title==="Stored Acceptance and Authorization Evidence"));
+  assert.ok(!result.blocks.some(b=>b.kind==="notice"));
+  assert.match(text,/recorded billing address of/);
+  assert.match(text,/High Desert Sample Services LLC/);
+  assert.ok(result.blocks.some(b=>b.text==="Date: ____________________"));
+  assert.ok(result.population.blockers.length>0);
+  assert.ok(result.population.wordingChanges.length>0);
+  const individual=cleanReview(source,{...sampleAgreement,customer_type:"individual",business_name:null});
+  assert.match(individual.blocks.find(b=>b.text?.startsWith("This Equipment Lease Agreement")).text,/Jordan Sample, with a recorded billing address/);
 });

@@ -403,6 +403,19 @@ test("Agreement print controls render the verified snapshot boundary", () => {
   );
 });
 
+test("Agreement actions expose one snapshot-backed PDF download and no review action", () => {
+  const html = renderHtml(AgreementDocumentActions, {
+    agreement: agreementFixture, documentPrerequisitesSatisfied: true,
+    isCreatingInvoice: false, isFinalizing: false, isGeneratingPdf: false,
+    isSaving: false, isSavingAcceptance: false, notice: "",
+    onCreateInvoice: noop, onDownloadPdf: noop, onFinalize: noop, onPrint: noop,
+  });
+  const downloads = html.querySelectorAll("button").filter(button => /Download/i.test(button.text));
+  assert.equal(downloads.length, 1);
+  assert.equal(downloads[0].text.trim(), "Download Agreement PDF");
+  assert.doesNotMatch(html.text, /Replacement Review Draft|Preparing Review Draft/);
+});
+
 test("historical Agreement boundary renders a print-only warning around the suppressed legal region", async () => {
   const readiness = getAgreementPrintReadiness(
     unverifiedAgreementFixture.snapshot_availability
@@ -1121,4 +1134,52 @@ test("helper evidence remains exact and counsel brief remains non-approved", asy
   assert.match(brief, /semantic browser Agreement and Invoice HTML/);
   assert.doesNotMatch(brief, /\/Users\/alexbrito\/Downloads/);
   assert.doesNotMatch(brief, /attorney-approved/i);
+});
+
+
+test("staff replacement PDF uses supplied snapshot without sample labels or transferred consent", async () => {
+  const { cleanReview } = await import("../../scripts/review-agreement/populate-review.mjs");
+  const template = JSON.parse(await source("scripts/review-agreement/jason-review.fixture.json"));
+  const fixture = cleanReview(template, agreementFixture, {sample: false});
+  const before = JSON.stringify(agreementFixture);
+  const { default: Review } = await vite.ssrLoadModule("/scripts/review-agreement/ReviewAgreementPdf.tsx");
+  const { styles } = await vite.ssrLoadModule("/src/components/agreement/pdf/AgreementPdfDocument.tsx");
+  const buffer = await renderToBuffer(React.createElement(Review, {fixture, styles}));
+  const loadingTask = getDocument({data: new Uint8Array(buffer), standardFontDataUrl: path.join(repository, "node_modules/pdfjs-dist/standard_fonts/")});
+  const document = await loadingTask.promise;
+  const texts = [];
+  for(let i=1;i<=document.numPages;i++) {
+    const page = await document.getPage(i);
+    texts.push((await page.getTextContent()).items.map(item=>item.str).join(" "));
+  }
+  const text = texts.join(" ");
+  assert.match(text, /REVIEW DRAFT/);
+  assert.match(text, /Jordan Sample/);
+  assert.doesNotMatch(text, /SAMPLE DATA|UNRESOLVED|UNRECORDED/);
+  assert.ok(!text.includes(agreementFixture.accepted_snapshot_hash));
+  assert.equal(JSON.stringify(agreementFixture), before);
+  await loadingTask.destroy();
+});
+
+
+test("approved document browser and PDF render frozen approved terms without draft labels", async () => {
+  const { buildApprovedDocument } = await vite.ssrLoadModule("/src/utils/approvedAgreementDocument.ts");
+  const template = JSON.parse(await source("scripts/review-agreement/jason-review.fixture.json"));
+  template.schema = "ucr-approved-equipment-lease/v1";
+  template.blocks[1].text = "FROZEN APPROVED SNAPSHOT SENTINEL";
+  const agreement = {...agreementFixture, clause_snapshot:[{...agreementFixture.clause_snapshot[0],category:"ucr_document_v1",body:JSON.stringify(template)}]};
+  const fixture = buildApprovedDocument(agreement);
+  assert.equal(fixture.population.approved,true);
+  assert.equal(buildApprovedDocument(agreementFixture),null);
+  assert.throws(()=>buildApprovedDocument({...agreement,clause_snapshot:[...agreement.clause_snapshot,...agreementFixture.clause_snapshot]}),/conflicting/);
+  assert.throws(()=>buildApprovedDocument({...agreement,clause_snapshot:[{...agreement.clause_snapshot[0],body:"{}"}]}),/unsupported/);
+  const {default: Browser} = await vite.ssrLoadModule("/src/components/agreement/ApprovedAgreementTerms.tsx");
+  const html = renderHtml(Browser,{agreement});
+  assert.match(html.text,/FROZEN APPROVED SNAPSHOT SENTINEL/);
+  const buffer = await renderToBuffer(React.createElement(AgreementPdfDocument,{agreement}));
+  const result = await inspectPdf(buffer);
+  assert.match(result.text,/FROZEN APPROVED SNAPSHOT SENTINEL/);
+  assert.match(result.text,/Jordan Sample/);
+  assert.doesNotMatch(result.text,/REVIEW DRAFT|SAMPLE DATA|UNRESOLVED|UNRECORDED/);
+  assert.equal(result.pageCount>10,true);
 });

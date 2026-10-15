@@ -1,0 +1,54 @@
+{
+  "sample": true,
+  "agreementNumber": "UCR-2028-000042",
+  "effectiveAt": "2028-06-01T16:20:00.000Z",
+  "blockers": [
+    {
+      "key": "delivery_date",
+      "decision": "distinct delivery date not recorded"
+    },
+    {
+      "key": "lessor_execution",
+      "decision": "lessor execution/signature not recorded"
+    },
+    {
+      "key": "lessor_date",
+      "decision": "lessor execution date not recorded"
+    },
+    {
+      "key": "proposed_execution",
+      "decision": "execution/acceptance of these proposed terms not recorded"
+    },
+    {
+      "key": "provider_identification",
+      "decision": "provider card identification not recorded in Agreement"
+    },
+    {
+      "key": "cardholder",
+      "decision": "cardholder identity not recorded; customer/signer is not automatically the cardholder"
+    },
+    {
+      "key": "card_signature",
+      "decision": "separate cardholder signature not recorded"
+    },
+    {
+      "key": "card_signature_date",
+      "decision": "separate cardholder signature date not recorded; acknowledgment is shown separately"
+    },
+    {
+      "key": "entity_representations",
+      "decision": "Sections 14–16 retain the source entity/business representations. Confirm applicability and approve individual-renter alternatives; Section 14.1 still requires completion for a business entity."
+    }
+  ],
+  "optionalOmissions": [
+    "Expiration Date: _____________",
+    "Billing ZIP Code: _______________________",
+    "Billing Address: _______________________________________",
+    "City/State/Zip: _______________________________________"
+  ],
+  "clean": true,
+  "wordingChanges": [
+    "Opening paragraph uses the recorded business name for business renters, or customer name for individuals, and explicitly identifies the address as the recorded billing address. Entity formation particulars are removed from this paragraph only. Jason must review this proposed wording; Sections 14–16 remain unchanged and still require individual/business applicability review.",
+    "Old acceptance evidence is excluded from the proposed agreement signature area. Signatures and dates are blank until actual execution of these proposed terms."
+  ]
+}

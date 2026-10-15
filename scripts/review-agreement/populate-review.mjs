@@ -166,3 +166,37 @@ export function populateReview(source, agreement, { sample = false } = {}) {
   fixture.population={sample,agreementNumber:number,effectiveAt:agreement.effective_at,blockers:[...blockers].map(([key,decision])=>({key,decision})),optionalOmissions};
   return fixture;
 }
+
+
+// Customer-style review presentation; decision metadata stays in the staff checklist.
+export function cleanReview(source, agreement, options = {}) {
+  const fixture = populateReview(source, agreement, options);
+  const safeText = value => typeof value === "string" && value.trim() ? safe(value.trim()) : "____________________";
+  const partyName = agreement.customer_type === "business"
+    ? safeText(agreement.business_name) : safeText(agreement.customer_name);
+  const effective = typeof agreement.effective_at === "string" && !Number.isNaN(new Date(agreement.effective_at).getTime())
+    ? date(agreement.effective_at) : "____________________";
+  fixture.population.clean = true;
+  fixture.population.wordingChanges = [
+    "Opening paragraph uses the recorded business name for business renters, or customer name for individuals, and explicitly identifies the address as the recorded billing address. Entity formation particulars are removed from this paragraph only. Jason must review this proposed wording; Sections 14–16 remain unchanged and still require individual/business applicability review.",
+    "Old acceptance evidence is excluded from the proposed agreement signature area. Signatures and dates are blank until actual execution of these proposed terms."
+  ];
+  fixture.blocks = fixture.blocks.filter(block => block.kind !== "notice" && block.title !== "Stored Acceptance and Authorization Evidence").map(original => {
+    const block = structuredClone(original);
+    const clean = value => String(value).replace(/\[UNRESOLVED: [^\]]*\]|\[UNRECORDED: [^\]]*\]/g, "____________________");
+    if (block.text) {
+      if (block.text.startsWith("This Equipment Lease Agreement")) {
+        block.text = `This Equipment Lease Agreement (as it may be amended from time to time, this "Agreement"), dated as of ${effective}, is entered into by and between ${brand.legalName}, a Utah limited liability company having its principal place of business at ${brand.streetAddress}, ${brand.locality} ("Lessor"), and ${partyName}, with a recorded billing address of ${safeText(agreement.billing_address)} ("Lessee," and together with Lessor, the "Parties," and each, a "Party").`;
+      }
+      if (block.text.startsWith("Date:") && block.text.includes("recorded acceptance of stored Agreement only")) block.text = "Date: ____________________";
+      block.text = clean(block.text);
+      if (block.text.startsWith("14.1 ")) block.text = block.text.replace(/^14\.1 (.*?) duly/, "14.1 Lessee is a $1 duly").replace(/law\.Lessee is a \[?\s*$/, "law.");
+    }
+    if (block.rows) block.rows = block.rows.map(row => row.map(clean));
+    if (block.title === "Customer and Rental Context (not verified cardholder data)") block.title = "Customer and Rental Details";
+    return block;
+  });
+  fixture.population.blockers = fixture.population.blockers.filter(blocker => !["organization_state", "entity_type", "address_alternative", "legal_address"].includes(blocker.key));
+  fixture.population.blockers.push({key:"entity_representations", decision:"Sections 14–16 retain the source entity/business representations. Confirm applicability and approve individual-renter alternatives; Section 14.1 still requires completion for a business entity."});
+  return fixture;
+}
