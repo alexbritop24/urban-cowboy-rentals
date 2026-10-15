@@ -1183,3 +1183,19 @@ test("approved document browser and PDF render frozen approved terms without dra
   assert.doesNotMatch(result.text,/REVIEW DRAFT|SAMPLE DATA|UNRESOLVED|UNRECORDED/);
   assert.equal(result.pageCount>10,true);
 });
+
+
+test("approved dates use real acceptance events and Square card data is never inferred", async () => {
+  const {buildApprovedDocument} = await vite.ssrLoadModule("/src/utils/approvedAgreementDocument.ts");
+  const template=JSON.parse(await source("scripts/review-agreement/jason-review.fixture.json"));
+  template.schema="ucr-approved-equipment-lease/v1";
+  const agreement={...agreementFixture,clause_snapshot:[{...agreementFixture.clause_snapshot[0],category:"ucr_document_v1",body:JSON.stringify(template)}]};
+  const text = JSON.stringify(buildApprovedDocument(agreement).blocks);
+  assert.match(text,/Square card — last 4 digits: Not recorded/);
+  assert.ok(text.includes(formatDocumentDateTime(agreement.signed_at)));
+  assert.ok(text.includes(formatDocumentDateTime(agreement.credit_card_authorization_acknowledged_at)));
+  assert.doesNotMatch(text,/Card Type:/);
+  const pending = JSON.stringify(buildApprovedDocument({...agreement,acceptance_acknowledged:false}).blocks);
+  assert.match(pending,/Populated upon acceptance/);
+  assert.match(pending,/Populated upon acknowledgment/);
+});
