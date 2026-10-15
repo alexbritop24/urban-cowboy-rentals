@@ -1,3 +1,5 @@
+import { buildApprovedDocument } from "../../../utils/approvedAgreementDocument";
+import ApprovedDocumentPdf from "../../../../scripts/review-agreement/ReviewAgreementPdf";
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
 import type { RentalAgreement } from "../../../types/agreement";
@@ -14,12 +16,15 @@ import {
   PdfBrandFooter,
   PdfBrandHeader,
 } from "../../document/pdf/DocumentPdfChrome";
+import { sanitizeInvoicePdfText } from "./sanitizeInvoicePdfText";
 
 interface Props {
   agreement: RentalAgreement;
 }
 
-const styles = StyleSheet.create({
+// Shared by the staff-only replacement review; active rendering is unchanged.
+// eslint-disable-next-line react-refresh/only-export-components
+export const styles = StyleSheet.create({
   page: {
     paddingTop: 30,
     paddingRight: 32,
@@ -39,6 +44,14 @@ const styles = StyleSheet.create({
     color: "#211d18",
     fontSize: 11,
     fontWeight: "bold",
+  },
+  continuation: {
+    position: "absolute",
+    top: 10,
+    right: 32,
+    color: "#776b60",
+    fontSize: 6.8,
+    textAlign: "right",
   },
   twoColumn: { flexDirection: "row", gap: 18 },
   column: { flexGrow: 1, flexBasis: 0 },
@@ -107,7 +120,12 @@ const styles = StyleSheet.create({
   snapshot: { marginTop: 6, fontSize: 6.2, color: "#5f574f" },
   clause: { marginBottom: 7 },
   clauseTitle: { marginBottom: 2, fontSize: 8.6, fontWeight: "bold" },
-  clauseBody: { fontSize: 7.4, lineHeight: 1.35 },
+  clauseBody: {
+    fontFamily: "Times-Roman",
+    fontSize: 8.2,
+    lineHeight: 1.38,
+    textAlign: "justify",
+  },
   signatureRow: { flexDirection: "row", justifyContent: "space-between", gap: 20 },
   signatureBox: { width: "48%" },
   signatureLine: { marginTop: 18, borderTopWidth: 0.75, paddingTop: 4 },
@@ -123,6 +141,9 @@ const styles = StyleSheet.create({
 export default function AgreementPdfDocument({ agreement }: Props) {
   const evidence = getAgreementEvidenceRows(agreement);
 
+  const approved = buildApprovedDocument(agreement);
+  if (approved) return <ApprovedDocumentPdf fixture={approved} styles={styles} />;
+
   return (
     <Document
       title={`Equipment Rental Agreement ${agreement.agreement_number}`}
@@ -133,6 +154,15 @@ export default function AgreementPdfDocument({ agreement }: Props) {
       language="en-US"
     >
       <Page size="LETTER" style={styles.page} wrap>
+        <Text
+          style={styles.continuation}
+          fixed
+          render={({ pageNumber }) =>
+            pageNumber > 1
+              ? `Equipment Rental Agreement ${agreement.agreement_number} - Continued`
+              : ""
+          }
+        />
         <PdfBrandFooter
           documentType="Agreement"
           documentNumber={agreement.agreement_number}
@@ -148,8 +178,8 @@ export default function AgreementPdfDocument({ agreement }: Props) {
 
         <View style={[styles.section, styles.twoColumn]}>
           <View style={styles.column}>
-            <Text style={styles.sectionTitle}>Customer</Text>
-            <Detail label="Customer type" value={formatDocumentStatus(agreement.customer_type)} />
+            <Text style={styles.sectionTitle}>Lessee</Text>
+            <Detail label="Lessee type" value={formatDocumentStatus(agreement.customer_type)} />
             <Detail label="Legal name" value={agreement.customer_name} />
             {agreement.business_name && (
               <Detail label="Business" value={agreement.business_name} />
@@ -159,7 +189,7 @@ export default function AgreementPdfDocument({ agreement }: Props) {
             <Detail label="Billing address" value={agreement.billing_address || "Not provided"} />
           </View>
           <View style={styles.column}>
-            <Text style={styles.sectionTitle}>Rental Details</Text>
+            <Text style={styles.sectionTitle}>Rental Information</Text>
             <Detail label="Rental request" value={agreement.rental_request_id} />
             <Detail label="Fulfillment" value={agreement.fulfillment_type || "Not provided"} />
             {agreement.service_address && (
@@ -171,7 +201,7 @@ export default function AgreementPdfDocument({ agreement }: Props) {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Equipment</Text>
+          <Text style={styles.sectionTitle}>Equipment Schedule</Text>
           <View style={styles.table}>
             <View style={styles.tableHeader} fixed>
               <Text style={[styles.cell, styles.equipmentCell]}>Equipment</Text>
@@ -186,7 +216,11 @@ export default function AgreementPdfDocument({ agreement }: Props) {
               <View key={item.id} style={styles.tableRow} wrap={false}>
                 <View style={[styles.cell, styles.equipmentCell]}>
                   <Text style={styles.equipmentName}>{item.equipmentName}</Text>
-                  {item.notes && <Text style={styles.equipmentNotes}>{item.notes}</Text>}
+                  {item.notes && (
+                    <Text style={styles.equipmentNotes}>
+                      {sanitizeInvoicePdfText(item.notes)}
+                    </Text>
+                  )}
                 </View>
                 <Text style={[styles.cell, styles.serialCell]}>
                   {formatDocumentSerial(item.serialNumber)}
@@ -208,7 +242,7 @@ export default function AgreementPdfDocument({ agreement }: Props) {
         </View>
 
         <View style={styles.section} wrap={false}>
-          <Text style={styles.sectionTitle}>Financial Summary</Text>
+          <Text style={styles.sectionTitle}>Rental Charges</Text>
           <View style={styles.financials}>
             <FinancialRow label="Rental subtotal" value={agreement.quote_amount} />
             <FinancialRow label="Deposit required" value={agreement.deposit_amount} />
@@ -218,35 +252,8 @@ export default function AgreementPdfDocument({ agreement }: Props) {
           </View>
         </View>
 
-        <View style={styles.section} break wrap={false}>
-          <Text style={styles.sectionTitle}>Persisted Agreement Evidence</Text>
-          <View style={styles.evidenceGrid}>
-            {evidence.map((item) => (
-              <Evidence key={item.label} label={item.label} value={item.value} />
-            ))}
-          </View>
-          {agreement.credit_card_authorization_terms && (
-            <Text style={styles.legalNotice}>
-              {agreement.credit_card_authorization_terms}
-            </Text>
-          )}
-          <Text style={styles.snapshot}>
-            Current clause snapshot: {agreement.terms_version || "Not recorded"}
-          </Text>
-          <Text style={styles.snapshot}>
-            Accepted clause snapshot: {agreement.accepted_terms_version || "Not recorded"}
-          </Text>
-          <Text style={styles.snapshot}>
-            Current material snapshot: {agreement.current_snapshot_hash || "Not recorded"}
-          </Text>
-          <Text style={styles.snapshot}>
-            Accepted material snapshot: {agreement.accepted_snapshot_hash || "Not recorded"}
-          </Text>
-          <Text style={styles.legalNotice}>{agreementEvidenceLimitation}</Text>
-        </View>
-
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Terms and Conditions</Text>
+          <Text style={styles.sectionTitle}>Agreement Terms and Conditions</Text>
           {agreement.clause_snapshot.map((clause) => (
             <View key={clause.id} style={styles.clause}>
               <Text style={styles.clauseTitle} minPresenceAhead={18}>{clause.title}</Text>
@@ -254,6 +261,17 @@ export default function AgreementPdfDocument({ agreement }: Props) {
             </View>
           ))}
         </View>
+
+        {agreement.credit_card_authorization_terms && (
+          <View style={styles.section} wrap={false}>
+            <Text style={styles.sectionTitle}>
+              Credit-Card Authorization Acknowledgment
+            </Text>
+            <Text style={styles.legalNotice}>
+              {agreement.credit_card_authorization_terms}
+            </Text>
+          </View>
+        )}
 
         <View style={[styles.section, styles.signatureRow]} wrap={false}>
           <View style={styles.signatureBox}>
@@ -267,6 +285,31 @@ export default function AgreementPdfDocument({ agreement }: Props) {
           <View style={styles.signatureBox}>
             <Text style={styles.signatureLine}>Urban Cowboy Rentals Representative</Text>
           </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Internal Agreement Record</Text>
+          <Text style={styles.legalNotice}>
+            Administrative snapshot and acceptance evidence retained with this Agreement.
+          </Text>
+          <View style={styles.evidenceGrid}>
+            {evidence.map((item) => (
+              <Evidence key={item.label} label={item.label} value={item.value} />
+            ))}
+          </View>
+          <Text style={styles.snapshot}>
+            Current clause snapshot: {agreement.terms_version || "Not recorded"}
+          </Text>
+          <Text style={styles.snapshot}>
+            Accepted clause snapshot: {agreement.accepted_terms_version || "Not recorded"}
+          </Text>
+          <Text style={styles.snapshot}>
+            Current material snapshot: {agreement.current_snapshot_hash || "Not recorded"}
+          </Text>
+          <Text style={styles.snapshot}>
+            Accepted material snapshot: {agreement.accepted_snapshot_hash || "Not recorded"}
+          </Text>
+          <Text style={styles.legalNotice}>{agreementEvidenceLimitation}</Text>
         </View>
       </Page>
     </Document>

@@ -1,3 +1,5 @@
+import ApprovedAgreementTerms from "../components/agreement/ApprovedAgreementTerms";
+import { hasApprovedDocument } from "../utils/approvedAgreementDocument";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -252,38 +254,39 @@ export default function AgreementPage() {
             ← Back to Dashboard
           </button>
 
-          <article className="document-page rounded-[2rem] border border-yellow-500/20 bg-[#15110d] p-5 shadow-2xl shadow-black/30 sm:p-8">
+          <section className="document-no-print mb-8 rounded-3xl border border-yellow-500/10 bg-[#15110d] p-6">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
+              Agreement Preconditions
+            </p>
+            <div className="mt-6 grid gap-4 text-sm text-[#d8cfc4] sm:grid-cols-2 lg:grid-cols-3">
+              <StatusRow label="Driver license" value={hasCurrentDriverLicense ? "uploaded" : "missing"} />
+              <StatusRow
+                label="Utah license verification"
+                value={hasCurrentUtahDriverLicenseVerification ? "verified" : currentDriverLicenseStatus}
+              />
+              <StatusRow label="Insurance document" value={hasCurrentInsurance ? "uploaded" : "missing"} />
+              <StatusRow label="Insurance verification" value={currentInsuranceStatus} />
+              <StatusRow label="Availability confirmation" value={agreement.availability_confirmation_status} />
+              <StatusRow label="Signature evidence" value={agreement.signature_status} />
+              <StatusRow label="Card authorization" value={agreement.credit_card_authorization_acknowledged ? "acknowledged" : "pending"} />
+            </div>
+          </section>
+
+          <div className="document-no-print mb-8">
+            <RentalDocumentWorkflowSection
+              rentalRequestId={agreement.rental_request_id}
+              locked={isFinalized}
+              onStateChange={setDocumentState}
+            />
+          </div>
+
+          <article className="document-page border border-[#d8d0c6] bg-[#fffdf8] p-5 text-[#211d18] shadow-2xl shadow-black/30 sm:p-10">
             <div className="space-y-8">
               <AgreementHeader agreement={agreement} />
 
-              <div className="grid gap-8 lg:grid-cols-2">
+              <div>
                 <CustomerSection agreement={agreement} />
-                <section className="document-no-print rounded-3xl border border-yellow-500/10 bg-black/25 p-6">
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
-                    Agreement Preconditions
-                  </p>
-                  <div className="mt-6 space-y-4 text-sm text-[#d8cfc4]">
-                    <StatusRow label="Driver license" value={hasCurrentDriverLicense ? "uploaded" : "missing"} />
-                    <StatusRow
-                      label="Utah license verification"
-                      value={hasCurrentUtahDriverLicenseVerification ? "verified" : currentDriverLicenseStatus}
-                    />
-                    <StatusRow label="Insurance document" value={hasCurrentInsurance ? "uploaded" : "missing"} />
-                    <StatusRow label="Insurance verification" value={currentInsuranceStatus} />
-                    <StatusRow label="Availability confirmation" value={agreement.availability_confirmation_status} />
-                    <StatusRow label="Signature evidence" value={agreement.signature_status} />
-                    <StatusRow label="Card authorization" value={agreement.credit_card_authorization_acknowledged ? "acknowledged" : "pending"} />
-                  </div>
-                </section>
                 <EquipmentSection agreement={agreement} />
-              </div>
-
-              <div className="document-no-print">
-                <RentalDocumentWorkflowSection
-                  rentalRequestId={agreement.rental_request_id}
-                  locked={isFinalized}
-                  onStateChange={setDocumentState}
-                />
               </div>
 
               <PricingSummary
@@ -294,9 +297,9 @@ export default function AgreementPage() {
                 updateFinancialField={updateFinancialField}
               />
 
-              <AgreementEvidenceSummary agreement={agreement} />
-
-              <LegalClauses clauses={agreement.clause_snapshot} />
+              {hasApprovedDocument(agreement.clause_snapshot)
+                ? <ApprovedAgreementTerms agreement={agreement} />
+                : <LegalClauses clauses={agreement.clause_snapshot} />}
 
               {!hasVerifiedSnapshot && (
                 <section className="rounded-3xl border border-amber-500/30 bg-amber-500/10 p-6 text-sm leading-7 text-amber-100">
@@ -327,20 +330,7 @@ export default function AgreementPage() {
                 onSave={handleRecordAcceptance}
               />
 
-              <AgreementDocumentActions
-                agreement={agreement}
-                documentPrerequisitesSatisfied={documentPrerequisitesSatisfied}
-                isCreatingInvoice={isCreatingInvoice}
-                isFinalizing={isFinalizing}
-                isGeneratingPdf={isGeneratingPdf}
-                isSaving={isSaving}
-                isSavingAcceptance={isSavingAcceptance}
-                notice={notice}
-                onCreateInvoice={handleCreateInvoice}
-                onDownloadPdf={handleDownloadPdf}
-                onFinalize={handleFinalizeAgreement}
-                onPrint={() => window.print()}
-              />
+              <AgreementEvidenceSummary agreement={agreement} />
 
               <DocumentBrandFooter
                 documentType="Agreement"
@@ -348,6 +338,23 @@ export default function AgreementPage() {
               />
             </div>
           </article>
+
+          <div className="mt-8">
+            <AgreementDocumentActions
+              agreement={agreement}
+              documentPrerequisitesSatisfied={documentPrerequisitesSatisfied}
+              isCreatingInvoice={isCreatingInvoice}
+              isFinalizing={isFinalizing}
+              isGeneratingPdf={isGeneratingPdf}
+              isSaving={isSaving}
+              isSavingAcceptance={isSavingAcceptance}
+              notice={notice}
+              onCreateInvoice={handleCreateInvoice}
+              onDownloadPdf={handleDownloadPdf}
+              onFinalize={handleFinalizeAgreement}
+              onPrint={() => window.print()}
+            />
+          </div>
         </DocumentPrintBoundary>
       </MainLayout>
     </PageTransition>

@@ -3,6 +3,7 @@ import {
   formatDocumentDateTime,
   type PaymentHistoryLoadState,
 } from "../../utils/documentPresentation";
+import { sanitizeInvoicePdfText } from "../agreement/pdf/sanitizeInvoicePdfText";
 
 export interface PaymentHistoryEntry {
   id: string;
@@ -24,59 +25,59 @@ export default function PaymentHistoryContent({
 }: PaymentHistoryContentProps) {
   if (state.status === "loading") {
     return (
-      <section className="document-section rounded-3xl border border-yellow-500/10 bg-black/25 p-6 text-[#b8a99a]">
+      <section className="document-section border-t border-[#d8d0c6] pt-6 text-[#5f574f]">
         Loading payments...
       </section>
     );
   }
 
   return (
-    <section className="document-section rounded-3xl border border-yellow-500/10 bg-black/25 p-6">
+    <section className="document-section border-t border-[#d8d0c6] pt-6">
       <div className="mb-6">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#f4b000]">
+        <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#76572f]">
           Payment History
         </p>
 
-        <h2 className="mt-2 text-2xl font-black text-[#fff7ed]">Payments</h2>
+        <h2 className="mt-1 font-serif text-xl font-bold text-[#211d18]">Recorded Payments</h2>
       </div>
 
       {state.status === "error" ? (
-        <p className="text-red-300">{state.message}</p>
+        <p className="text-red-700">{state.message}</p>
       ) : payments.length === 0 ? (
-        <p className="text-[#b8a99a]">No payments have been recorded.</p>
+        <p className="text-[#5f574f]">No payments have been recorded.</p>
       ) : (
         <div className="space-y-4">
           {payments.map((payment) => (
             <article
               key={payment.id}
-              className="rounded-2xl border border-yellow-500/10 bg-black/20 p-4"
+              className="border-b border-[#e4ddd4] pb-4"
             >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <p className="text-xl font-black text-[#fff7ed]">
+                  <p className="text-lg font-black text-[#211d18]">
                     {formatDocumentCurrency(payment.amount)}
                   </p>
 
-                  <p className="mt-1 text-sm font-bold capitalize text-[#f4b000]">
+                  <p className="mt-1 text-sm font-bold capitalize text-[#76572f]">
                     {payment.payment_method.replaceAll("_", " ")}
                   </p>
 
                   {payment.reference_number && (
-                    <p className="mt-2 text-sm text-[#b8a99a]">
-                      Reference: {payment.reference_number}
+                    <p className="mt-2 text-sm text-[#5f574f]">
+                      Reference: {sanitizeInvoicePdfText(payment.reference_number)}
                     </p>
                   )}
 
                   {payment.notes && (
-                    <p className="mt-2 text-sm leading-6 text-[#b8a99a]">
-                      {payment.notes}
+                    <p className="mt-2 text-sm leading-6 text-[#5f574f]">
+                      {sanitizeInvoicePdfText(payment.notes)}
                     </p>
                   )}
                 </div>
 
                 <time
                   dateTime={payment.received_at}
-                  className="text-sm text-[#8f8577]"
+                  className="text-sm text-[#6f665c]"
                 >
                   {formatDocumentDateTime(payment.received_at)}
                 </time>

@@ -33,49 +33,54 @@ const SignatureSection = ({
   const hasVerifiedSnapshot = agreement.snapshot_availability.status === "verified";
 
   return (
-    <section className="document-section document-signature rounded-3xl border border-yellow-500/10 bg-black/25 p-8">
-      <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f4b000]">
-        Signature and Authorization
+    <section className="document-section document-signature border-t border-[#d8d0c6] pt-7">
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#76572f]">
+        Acceptance and Authorization
       </p>
-      <h2 className="mt-2 text-2xl font-black text-[#fff7ed]">
-        Agreement acceptance evidence
+      <h2 className="mt-1 font-serif text-2xl font-bold text-[#211d18]">
+        Lessee Acceptance
       </h2>
-      <p className="mt-3 max-w-3xl text-sm leading-7 text-[#b8a99a]">
+      <p className="mt-3 max-w-3xl text-sm leading-6 text-[#5f574f]">
         Record the signer’s typed legal name and explicit acknowledgments. No full
         card number or CVV is collected or stored by this application.
       </p>
 
       {agreement.credit_card_authorization_terms && (
-        <p className="mt-5 rounded-2xl border border-yellow-500/10 bg-black/30 p-5 text-sm leading-7 text-[#d4c8bb]">
+        <div className="mt-5 border border-[#d8d0c6] bg-[#faf7f2] p-5">
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#776b60]">
+            Credit-card authorization acknowledgment
+          </p>
+          <p className="mt-2 text-sm leading-6 text-[#3f3933]">
           {agreement.credit_card_authorization_terms}
-        </p>
+          </p>
+        </div>
       )}
 
       <div className="document-screen-only mt-8 grid gap-5 lg:grid-cols-2">
-        <label className="text-sm font-bold text-[#d8cfc4]">
+        <label className="text-sm font-bold text-[#3f3933]">
           Signer legal name
           <input
             type="text"
             value={signerName}
             disabled={isReadOnly || !hasVerifiedSnapshot}
             onChange={(event) => onSignerNameChange(event.target.value)}
-            className="mt-2 w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-5 py-4 text-[#fff7ed] outline-none focus:border-yellow-500/40 disabled:opacity-60"
+            className="mt-2 w-full border border-[#b8afa4] bg-white px-4 py-3 text-[#211d18] outline-none focus:border-[#9a6a28] disabled:bg-[#f4eee5] disabled:opacity-70"
           />
         </label>
-        <label className="text-sm font-bold text-[#d8cfc4]">
+        <label className="text-sm font-bold text-[#3f3933]">
           Business title, when applicable
           <input
             type="text"
             value={signerTitle}
             disabled={isReadOnly || !hasVerifiedSnapshot}
             onChange={(event) => onSignerTitleChange(event.target.value)}
-            className="mt-2 w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-5 py-4 text-[#fff7ed] outline-none focus:border-yellow-500/40 disabled:opacity-60"
+            className="mt-2 w-full border border-[#b8afa4] bg-white px-4 py-3 text-[#211d18] outline-none focus:border-[#9a6a28] disabled:bg-[#f4eee5] disabled:opacity-70"
           />
         </label>
       </div>
 
       <div className="document-screen-only mt-6 space-y-4">
-        <label className="flex items-start gap-3 rounded-2xl border border-yellow-500/10 bg-black/30 p-5 text-sm leading-6 text-[#d8cfc4]">
+        <label className="flex items-start gap-3 border border-[#d8d0c6] bg-[#faf7f2] p-4 text-sm leading-6 text-[#3f3933]">
           <input
             type="checkbox"
             checked={agreementAccepted}
@@ -87,7 +92,7 @@ const SignatureSection = ({
           version and its item, pricing, and legal snapshots.
         </label>
 
-        <label className="flex items-start gap-3 rounded-2xl border border-yellow-500/10 bg-black/30 p-5 text-sm leading-6 text-[#d8cfc4]">
+        <label className="flex items-start gap-3 border border-[#d8d0c6] bg-[#faf7f2] p-4 text-sm leading-6 text-[#3f3933]">
           <input
             type="checkbox"
             checked={cardAuthorizationAcknowledged}
@@ -101,16 +106,16 @@ const SignatureSection = ({
       </div>
 
       <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-sm text-[#b8a99a]">
+        <div className="text-sm text-[#5f574f]">
           <p>
-            Signer: <strong className="text-[#fff7ed]">
+            Signer: <strong className="text-[#211d18]">
               {agreement.authorized_signer_name || "Not recorded"}
             </strong>
           </p>
           {agreement.authorized_signer_title && (
             <p className="mt-1">Title: {agreement.authorized_signer_title}</p>
           )}
-          <p>Evidence status: <strong className="text-[#fff7ed]">{agreement.signature_status}</strong></p>
+          <p>Evidence status: <strong className="text-[#211d18]">{agreement.signature_status}</strong></p>
           <p className="mt-1">
             Agreement accepted: {agreement.acceptance_acknowledged ? "Yes" : "Pending"}
           </p>
@@ -132,13 +137,13 @@ const SignatureSection = ({
           type="button"
           disabled={isReadOnly || !hasVerifiedSnapshot || isSaving}
           onClick={onSave}
-          className="document-no-print rounded-full border border-yellow-500 bg-yellow-500/10 px-6 py-4 text-sm font-black uppercase tracking-[0.08em] text-[#f4b000] transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+          className="document-no-print rounded-full border border-[#9a6a28] bg-[#fff8e7] px-6 py-4 text-sm font-black uppercase tracking-[0.08em] text-[#76572f] transition hover:bg-[#f4eee5] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSaving ? "Recording..." : evidenceRecorded ? "Acceptance Recorded" : "Record Acceptance"}
         </button>
       </div>
 
-      <p className="mt-6 rounded-2xl border border-yellow-500/10 bg-black/30 p-5 text-sm leading-7 text-[#d4c8bb]">
+      <p className="document-no-print mt-6 border-l-2 border-amber-600 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
         Legal sufficiency and final Agreement wording require client and attorney approval
         before public launch.
       </p>
