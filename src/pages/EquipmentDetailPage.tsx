@@ -45,6 +45,7 @@ const EquipmentDetailPage = () => {
 
   return (
     <PageTransition>
+    <SEO noIndex={equipment.status !== "active"} title={`${equipment.name} Rental | Urban Cowboy Rentals`} description={`Rent ${equipment.name} from Urban Cowboy Rentals. Review rates and request your rental.`} />
     <MainLayout>
       <section className="relative overflow-hidden px-6 py-24">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(244,176,0,0.12),transparent_30%)]" />

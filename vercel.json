@@ -1,6 +1,18 @@
 {
   "rewrites": [
     {
+      "source": "/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/equipment/:id",
+      "destination": "/seo/equipment/:id.html"
+    },
+    {
+      "source": "/:page(equipment|about|contact|book|policies|rental-requirements)",
+      "destination": "/seo/:page.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
