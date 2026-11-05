@@ -5,7 +5,7 @@ const Footer = () => {
     <footer className="relative overflow-hidden border-t border-yellow-500/10 bg-[#050402] px-6 py-20">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(244,176,0,0.05),transparent_40%)]" />
 
-      <div className="mx-auto grid max-w-7xl gap-14 md:grid-cols-4">
+      <div className="mx-auto grid max-w-7xl gap-14 md:grid-cols-3">
         <div>
           <p className="text-3xl font-black tracking-tight text-[#fff7ed]">
             Urban Cowboy Rentals
@@ -71,17 +71,6 @@ const Footer = () => {
           </div>
         </div>
 
-        <div>
-          <p className="text-sm font-black uppercase tracking-[0.3em] text-[#f4b000]">
-            Future Platform
-          </p>
-
-          <p className="mt-6 max-w-sm leading-relaxed text-[#8f8577]">
-            Booking system, deposits, admin dashboard,
-            automation, notifications, and rental management
-            workflows coming soon.
-          </p>
-        </div>
       </div>
 
       <div className="mx-auto mt-20 max-w-7xl">
@@ -89,7 +78,13 @@ const Footer = () => {
 
         <div className="mt-8 flex flex-col items-center justify-between gap-4 md:flex-row">
           <p className="text-sm text-[#6f675e]">
-            © 2026 Urban Cowboy Rentals, LLC. All rights reserved.
+            Website by {" "}
+            <a
+              href="https://www.apexfusionstudios.com/"
+              className="transition hover:text-[#f4b000] focus-visible:text-[#f4b000] focus-visible:underline"
+            >
+              Apex Fusion Studios
+            </a>
           </p>
 
           <p className="text-xs uppercase tracking-[0.25em] text-[#5d554d]">
