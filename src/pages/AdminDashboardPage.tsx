@@ -672,7 +672,7 @@ const hasDateConflict = (
         description="Internal rental request dashboard for Urban Cowboy Rentals."
       />
 
-      <MainLayout>
+      <MainLayout showNavbar={false}>
         <section className="px-4 py-20 sm:px-6 lg:py-24">
           <div className="mx-auto max-w-7xl">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
