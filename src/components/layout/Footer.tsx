@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 const Footer = () => {
   return (
     <footer className="relative overflow-hidden border-t border-yellow-500/10 bg-[#050402] px-6 py-20">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(244,176,0,0.05),transparent_40%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(244,176,0,0.05),transparent_40%)]" />
 
       <div className="mx-auto grid max-w-7xl gap-14 md:grid-cols-3">
         <div>
@@ -78,10 +78,10 @@ const Footer = () => {
 
         <div className="mt-8 flex flex-col items-center justify-between gap-4 md:flex-row">
           <p className="text-sm text-[#6f675e]">
-            Website by {" "}
+            © {new Date().getFullYear()} {" "}
             <a
               href="https://www.apexfusionstudios.com/"
-              className="transition hover:text-[#f4b000] focus-visible:text-[#f4b000] focus-visible:underline"
+              className="text-[#a89c8e] underline decoration-[#6f675e] underline-offset-4 transition hover:text-[#f4b000] focus-visible:text-[#f4b000] focus-visible:outline focus-visible:outline-2"
             >
               Apex Fusion Studios
             </a>
