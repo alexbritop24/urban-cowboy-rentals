@@ -1,3 +1,4 @@
+import { operationalDashboardRecords } from "../utils/dashboardRecords";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -19,6 +20,7 @@ import {
 } from "../services/adminRequestLoader";
 
 interface RentalRequest {
+  is_test_data?: boolean;
   id: string;
   created_at: string;
   full_name: string;
@@ -248,10 +250,13 @@ const AdminDashboardPage = () => {
   };
 }, [navigate]);
 
+  const testRequestIds = useMemo(() => requests.filter(request => request.is_test_data === true).map(request => request.id), [requests]);
+  const operationalRequests = useMemo(() => operationalDashboardRecords(requests), [requests]);
+
   const filteredRequests = useMemo(() => {
     const normalizedSearchTerm = searchTerm.trim().toLowerCase();
 
-    return requests.filter((request) => {
+    return operationalRequests.filter((request) => {
       const matchesSearch =
         !normalizedSearchTerm ||
         [
@@ -280,36 +285,36 @@ const AdminDashboardPage = () => {
 
       return matchesSearch && matchesStatus && matchesPayment && matchesPriority;
     });
-  }, [requests, searchTerm, statusFilter, paymentFilter, priorityFilter]);
+  }, [operationalRequests, searchTerm, statusFilter, paymentFilter, priorityFilter]);
 
   const dashboardStats = useMemo(() => {
-    const activeRequests = requests.filter(
+    const activeRequests = operationalRequests.filter(
       (request) =>
         !["completed", "cancelled", "returned"].includes(request.status || "new")
     );
 
-    const quoteSent = requests.filter(
+    const quoteSent = operationalRequests.filter(
       (request) => request.status === "quote_sent"
     );
 
-    const confirmed = requests.filter(
+    const confirmed = operationalRequests.filter(
       (request) => request.status === "confirmed"
     );
 
-    const unpaid = requests.filter(
+    const unpaid = operationalRequests.filter(
       (request) => (request.payment_status || "unpaid") !== "paid"
     );
 
-    const urgent = requests.filter(
+    const urgent = operationalRequests.filter(
       (request) => (request.priority || "normal") === "urgent"
     );
 
-    const totalQuoted = requests.reduce((sum, request) => {
+    const totalQuoted = operationalRequests.reduce((sum, request) => {
       return sum + (Number(request.quote_amount) || 0);
     }, 0);
 
     return {
-      total: requests.length,
+      total: operationalRequests.length,
       active: activeRequests.length,
       quoteSent: quoteSent.length,
       confirmed: confirmed.length,
@@ -317,7 +322,7 @@ const AdminDashboardPage = () => {
       urgent: urgent.length,
       totalQuoted,
     };
-  }, [requests]);
+  }, [operationalRequests]);
 
   const createAutomationLog = async (
   request: RentalRequest,
@@ -776,7 +781,7 @@ const hasDateConflict = (
                     Incoming Requests
                   </h2>
                   <p className="mt-1 text-sm text-[#8f8577]">
-                    Showing {filteredRequests.length} of {requests.length}{" "}
+                    Showing {filteredRequests.length} of {operationalRequests.length}{" "}
                     requests.
                   </p>
                 </div>
@@ -880,7 +885,7 @@ const hasDateConflict = (
                     {isRefreshingRequests ? "Retrying..." : "Retry"}
                   </button>
                 </div>
-              ) : requests.length === 0 ? (
+              ) : operationalRequests.length === 0 ? (
                 <p className="text-[#b8a99a]">No rental requests yet.</p>
               ) : filteredRequests.length === 0 ? (
                 <p className="text-[#b8a99a]">
@@ -1493,7 +1498,7 @@ const hasDateConflict = (
             </div>
 
             <div className="mt-10">
-              <AutomationLogs />
+              <AutomationLogs excludedRequestIds={testRequestIds} />
             </div>
           </div>
         </section>

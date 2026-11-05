@@ -13,9 +13,11 @@ The versioned population mapping preserves the cleaned review's approved opening
 1. Commit/push the application and inactive preparation migration on the feature branch. Review the compatible deployment before activation.
 2. Apply `20261014000100_approved_equipment_lease_terms.sql` to the intended database. It only installs the new clause **disabled**, leaving the active selection and all business records unchanged. Normal migration tooling must verify the intended target.
 3. Deploy the compatible application and verify its version and staff Agreement route. Confirm legacy downloads remain available.
-4. Run `supabase/operations/activate-approved-equipment-lease.sql` against that intended database. It atomically selects the prepared clause for future Agreement creation only. It aborts unless exactly one prepared version exists.
+4. Run `supabase/operations/activate-approved-equipment-lease.sql` against that intended database. It atomically selects the prepared clause for future Agreement creation only. It verifies that prepared copies have identical content, selects one deterministically, and retains duplicate copies inactive. It aborts if the copies differ.
 5. Verify a newly created test Agreement freezes the `ucr_document_v1` clause, presents the full document, and downloads through the single PDF button. Acceptance must bind its new terms/material hashes. Use an isolated validation environment for the full creation/acceptance/finalization/Invoice/Payment/Approval smoke test before production activation.
 
 Do not rewrite prior drafts or transfer old acceptance to the replacement terms. An existing draft requires the established cancellation/replacement procedure if it must use the new terms.
 
 The local sample at `output/pdf/urban-cowboy-approved-agreement-sample.pdf` is explicitly marked SAMPLE DATA and is not an executed customer contract.
+
+Production selection was activated and verified during the November 4 closeout: one approved copy enabled, duplicate inactive, historical record fingerprints preserved. A fresh new-Agreement hosted smoke test remains required.
