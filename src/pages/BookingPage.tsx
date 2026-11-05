@@ -8,8 +8,8 @@ import { Link } from "react-router-dom";
 const BookingPage = () => {
   return (
     <PageTransition>
-       <SEO title="Urban Cowboy Rentals | Premium Equipment Rentals"
-      description="Rent heavy equipment, trailers, tools, and motorcycles from Urban Cowboy Rentals, LLC."
+       <SEO title="Request an Equipment Rental | Urban Cowboy Rentals"
+      description="Submit an equipment rental request with your preferred dates to Urban Cowboy Rentals."
       />
     <MainLayout>
       <section className="px-6 py-24">

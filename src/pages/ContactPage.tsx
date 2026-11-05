@@ -7,8 +7,8 @@ import SEO from "../components/seo/SEO";
 const ContactPage = () => {
   return (
     <PageTransition>
-       <SEO title="Urban Cowboy Rentals | Premium Equipment Rentals"
-      description="Rent heavy equipment, trailers, tools, and motorcycles from Urban Cowboy Rentals, LLC."
+       <SEO title="Contact Urban Cowboy Rentals | Urban Cowboy Rentals"
+      description="Contact Urban Cowboy Rentals about equipment availability, rental rates and pickup or delivery."
       />
     <MainLayout>
       <section className="px-6 py-24">

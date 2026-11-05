@@ -31,8 +31,8 @@ const EquipmentPage = () => {
 
   return (
     <PageTransition>
-       <SEO title="Urban Cowboy Rentals | Premium Equipment Rentals"
-      description="Rent heavy equipment, trailers, tools, and motorcycles from Urban Cowboy Rentals, LLC."
+       <SEO title="Equipment Rentals in Utah | Urban Cowboy Rentals"
+      description="Browse heavy equipment, trailers, tools and motorcycles available to rent from Urban Cowboy Rentals."
       />
     <MainLayout>
       <section className="px-6 py-24">

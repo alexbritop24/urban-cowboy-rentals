@@ -13,8 +13,8 @@ const values = [
 const AboutPage = () => {
   return (
     <PageTransition>
-      <SEO title="Urban Cowboy Rentals | Premium Equipment Rentals"
-      description="Rent heavy equipment, trailers, tools, and motorcycles from Urban Cowboy Rentals, LLC."
+      <SEO title="About Urban Cowboy Rentals | Urban Cowboy Rentals"
+      description="Learn about Urban Cowboy Rentals and our equipment rental service."
       />
       
     <MainLayout>
