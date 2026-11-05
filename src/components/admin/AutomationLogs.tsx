@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { operationalAutomationLogs } from "../../utils/dashboardRecords";
+import { useEffect, useMemo, useState } from "react";
 
 import { supabase } from "../../lib/supabase";
 
 import type { AutomationLog } from "../../types/automation";
 
-const AutomationLogs = () => {
+const AutomationLogs = ({excludedRequestIds = []}: {excludedRequestIds?: readonly string[]}) => {
   const [logs, setLogs] = useState<AutomationLog[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -49,6 +50,8 @@ const AutomationLogs = () => {
     };
   }, []);
 
+  const visibleLogs = useMemo(() => operationalAutomationLogs(logs, excludedRequestIds), [logs, excludedRequestIds]);
+
   if (loading) {
     return (
       <div className="text-[#d6c7b8]">
@@ -74,18 +77,18 @@ const AutomationLogs = () => {
           </button>
 
           <div className="rounded-full border border-yellow-500/20 px-4 py-2 text-sm text-[#f4b000]">
-            {logs.length} Events
+            {visibleLogs.length} Events
           </div>
         </div>
       </div>
 
-      {logs.length === 0 ? (
+      {visibleLogs.length === 0 ? (
         <p className="text-[#b8a99a]">
           No automation logs yet.
         </p>
       ) : (
         <div className="space-y-4">
-          {logs.map((log) => (
+          {visibleLogs.map((log) => (
             <div
               key={log.id}
               className="rounded-2xl border border-yellow-500/10 bg-[#050402] p-5"

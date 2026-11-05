@@ -835,6 +835,7 @@ export type Database = {
       };
       rental_requests: {
         Row: {
+          is_test_data: boolean;
           id: string;
           created_at: string;
           updated_at: string;
@@ -886,6 +887,7 @@ export type Database = {
           payment_link: string | null;
         };
         Insert: {
+          is_test_data?: boolean;
           id?: string;
           created_at?: string;
           updated_at?: string;
@@ -937,6 +939,7 @@ export type Database = {
           payment_link?: string | null;
         };
         Update: {
+          is_test_data?: boolean;
           id?: string;
           created_at?: string;
           updated_at?: string;

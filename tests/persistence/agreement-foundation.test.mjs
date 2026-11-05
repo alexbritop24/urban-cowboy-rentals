@@ -1036,7 +1036,16 @@ test("approved terms apply only to new Agreements and preserve prior drafts and 
   const selectedBefore = await database.query("select private.current_agreement_clause_snapshot() as clauses");
   await database.exec(migration);
   assert.deepEqual((await database.query("select private.current_agreement_clause_snapshot() as clauses")).rows, selectedBefore.rows);
-  await database.exec(await readFile(new URL("../../supabase/operations/activate-approved-equipment-lease.sql", import.meta.url),"utf8"));
+  // Reproduce manually repeated preparation without changing deployed migration history.
+  await database.exec(migration);
+  const activation = await readFile(new URL("../../supabase/operations/activate-approved-equipment-lease.sql", import.meta.url),"utf8");
+  await database.exec(activation);
+  const selected = await database.query("select count(*)::int as total,count(*) filter(where enabled)::int as active from public.agreement_clauses where clause_key='ucr-approved-equipment-lease-20261014'");
+  assert.deepEqual(selected.rows[0],{total:2,active:1});
+  const activeId = (await database.query("select id from public.agreement_clauses where enabled")).rows[0].id;
+  await database.exec(activation);
+  assert.equal((await database.query("select id from public.agreement_clauses where enabled")).rows[0].id,activeId);
+
   assert.deepEqual((await database.query("select * from public.rental_agreements order by id")).rows, before.rows);
   assert.deepEqual((await database.query("select * from public.agreement_items order by id")).rows, oldItems.rows);
   assert.notEqual(oldId, draftId);
@@ -1057,4 +1066,33 @@ test("approved terms apply only to new Agreements and preserve prior drafts and 
   const final = (await database.query("select accepted_terms_version=terms_version as bound, accepted_snapshot_hash=current_snapshot_hash as exact, locked_at is not null as locked from public.rental_agreements where id=$1",[newId])).rows[0];
   assert.deepEqual(final,{bound:true,exact:true,locked:true});
   assert.deepEqual((await database.query("select * from public.rental_agreements where id<>$1 order by id",[newId])).rows,before.rows);
+});
+
+
+test("test-data classification is reversible metadata and preserves locked Agreement evidence", async (t) => {
+  const database=await createDatabase(); t.after(()=>database.close());
+  await enableMultiItemGate(database);
+  const requestId=await createNormalizedRequest(database);
+  const agreementId=await createAgreement(database,requestId);
+  await recordAcceptance(database,agreementId);
+  await setRole(database,"authenticated",{app_metadata:{role:"staff"},sub:"11111111-1111-4111-8111-111111111111"});
+  await database.query("select public.finalize_rental_agreement($1::uuid)",[agreementId]);
+  await resetRole(database);
+  const before=(await database.query("select * from public.rental_agreements order by id")).rows;
+  const items=(await database.query("select * from public.agreement_items order by id")).rows;
+  const migration=await readFile(new URL("../../supabase/migrations/20261104000100_dashboard_test_record_classification.sql",import.meta.url),"utf8");
+  await database.exec(migration);
+  assert.equal((await database.query("select is_test_data from public.rental_requests where id=$1",[requestId])).rows[0].is_test_data,false);
+  await setRole(database,"anon");
+  await assert.rejects(database.query("update public.rental_requests set is_test_data=true where id=$1",[requestId]));
+  await resetRole(database);
+  await database.query("update public.rental_requests set is_test_data=true where id=$1",[requestId]);
+  await database.exec(migration);
+  assert.equal((await database.query("select is_test_data from public.rental_requests where id=$1",[requestId])).rows[0].is_test_data,true);
+  assert.deepEqual((await database.query("select * from public.rental_agreements order by id")).rows,before);
+  assert.deepEqual((await database.query("select * from public.agreement_items order by id")).rows,items);
+  await database.query("update public.rental_requests set is_test_data=false where id=$1",[requestId]);
+  assert.equal((await database.query("select is_test_data from public.rental_requests where id=$1",[requestId])).rows[0].is_test_data,false);
+  const genuine=await createNormalizedRequest(database,normalizedItems().map((item,i)=>({...item,start_date:isoDaysFromNow(90+i*7),end_date:isoDaysFromNow(92+i*7)})));
+  assert.equal((await database.query("select is_test_data from public.rental_requests where id=$1",[genuine])).rows[0].is_test_data,false);
 });
