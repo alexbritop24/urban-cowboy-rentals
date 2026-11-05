@@ -17,17 +17,41 @@ interface RentalApprovalChecklistProps {
 }
 
 const labels: Record<RentalApprovalCheckKey, string> = {
-  item_data_complete: "Item data complete",
-  initial_availability: "Initial availability confirmed",
+  item_data_complete: "Equipment and dates",
+  initial_availability: "Equipment availability",
   driver_license: "Driver license uploaded",
-  driver_license_verification: "Utah driver license verified",
+  driver_license_verification: "Utah license reviewed",
   insurance: "Insurance uploaded",
-  insurance_verification: "Insurance verified",
-  card_authorization: "Card authorization acknowledged",
-  acceptance: "Customer acceptance captured",
+  insurance_verification: "Insurance reviewed",
+  card_authorization: "Card authorization",
+  acceptance: "Customer agreement",
   agreement_final: "Agreement finalized",
-  payment_requirement: "Payment requirement",
-  final_availability: "Final availability",
+  payment_requirement: "Payment setup",
+  final_availability: "Final availability check",
+};
+
+// Preserve unknown server messages so new or unexpected conditions stay visible.
+const plainReasons: Record<string, string> = {
+  "Authoritative item data is complete.": "Equipment, dates, and quantity are complete.",
+  "Equipment items require valid resource identity, dates, and quantity.": "Check the equipment, rental dates, and quantity.",
+  "Initial availability has not been confirmed.": "Check that the equipment is available for these dates.",
+  "Initial availability confirmation is stale.": "The rental details changed. Check availability again.",
+  "The latest initial availability check found a conflict.": "The equipment conflicts with another rental. Review the dates.",
+  "Initial availability matches the current schedule.": "The equipment was available when last checked.",
+  "A current driver license is required before Utah verification.": "Upload the customer's current license before reviewing it.",
+  "The current driver license is manually verified as Utah-issued.": "The uploaded license was reviewed and verified as Utah-issued.",
+  "The current driver license requires a new Utah verification review.": "Review the current license again.",
+  "The current driver license was rejected.": "The uploaded license was rejected.",
+  "Agreement credit-card authorization is required.": "Record the customer's actual card authorization in the agreement.",
+  "Credit-card authorization was acknowledged in the Agreement.": "The customer's card authorization is recorded in the agreement.",
+  "Customer acceptance evidence must match the Agreement snapshot.": "Record the customer's actual acceptance of this version of the agreement.",
+  "Customer acceptance matches the Agreement snapshot.": "The customer's acceptance is recorded for this version of the agreement.",
+  "The immutable Agreement is finalized.": "The agreement has been finalized and locked.",
+  "Payment requirement has not been configured.": "The payment rule is not set up yet. Contact the administrator.",
+  "Final availability is checked transactionally during approval.": "The system checks availability again when you approve the rental.",
+  "Final availability was revalidated in the approval transaction.": "Availability was checked again when the rental was approved.",
+  "The latest final availability revalidation found a conflict.": "The final check found a scheduling conflict.",
+  "Approval was reversed; reapproval requires a new final check.": "Approval was reversed. Availability will be checked again before reapproval.",
 };
 
 const stateStyle = {
@@ -112,11 +136,13 @@ export default function RentalApprovalChecklist({
             Approval Checklist
           </p>
           <p className="mt-2 text-sm text-[#b8a99a]">
-            Server-derived operational gates. Final availability is checked inside Approval.
+            Complete the required steps before approving this rental. Availability is checked again when you approve.
           </p>
         </div>
         <span className="rounded-full border border-yellow-500/20 bg-black/30 px-3 py-1 text-xs font-black uppercase tracking-[0.08em] text-[#fff7ed]">
-          {checklist?.approvalState.replaceAll("_", " ") ?? "Loading"}
+          {checklist?.approvalState === "legacy_unverified"
+            ? "Older record — approval not verified"
+            : checklist?.approvalState.replaceAll("_", " ") ?? "Loading"}
         </span>
       </div>
 
@@ -130,7 +156,7 @@ export default function RentalApprovalChecklist({
               <span className="mr-2" aria-hidden="true">{stateSymbol[check.state]}</span>
               {labels[check.key]}
             </p>
-            <p className="mt-1 text-xs opacity-85">{check.reason}</p>
+            <p className="mt-1 text-xs opacity-85">{plainReasons[check.reason] ?? check.reason}</p>
           </div>
         ))}
       </div>
@@ -142,7 +168,7 @@ export default function RentalApprovalChecklist({
           maxLength={2000}
           value={note}
           onChange={(event) => setNote(event.target.value)}
-          placeholder="Optional audit note"
+          placeholder="Optional note about this approval"
           className="mt-2 w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 normal-case tracking-normal text-[#fff7ed] outline-none focus:border-yellow-500/40"
         />
       </label>
@@ -154,7 +180,7 @@ export default function RentalApprovalChecklist({
           onClick={() => void run("initial")}
           className="rounded-full border border-yellow-500/30 px-4 py-2 text-xs font-black uppercase tracking-[0.08em] text-[#fff7ed] disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {busy === "initial" ? "Checking..." : "Confirm Initial Availability"}
+          {busy === "initial" ? "Checking..." : "Check Availability"}
         </button>
         <button
           type="button"
