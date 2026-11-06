@@ -119,6 +119,8 @@ const AdminDashboardPage = () => {
   const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [adminNotice, setAdminNotice] = useState("");
+  const [agreementAction, setAgreementAction] = useState<{ id: string; error: string } | null>(null);
+  const [agreementBusyId, setAgreementBusyId] = useState<string | null>(null);
 
   const lifecycle = useRef({ isMounted: true });
   const requestLoaderRef = useRef<AdminRequestLoader | null>(null);
@@ -638,15 +640,20 @@ const hasDateConflict = (
   };
 
   const handleCreateRentalAgreement = async (request: RentalRequest) => {
+    if (agreementBusyId) return;
+    setAgreementBusyId(request.id);
+    setAgreementAction(null);
     try {
       const agreement = await createRentalAgreement(request.id);
       navigate(`/admin/agreement/${agreement.id}`);
       setAdminNotice(`Rental agreement created: ${agreement.agreement_number}`);
     } catch (error) {
       console.error("CREATE RENTAL AGREEMENT ERROR:", error);
-      setAdminNotice(
-        error instanceof Error ? error.message : "Could not create the Agreement."
-      );
+      const message = error && typeof error === "object" && "message" in error && typeof error.message === "string"
+        ? error.message : "Could not open the agreement. Please try again.";
+      setAgreementAction({ id: request.id, error: message });
+    } finally {
+      setAgreementBusyId(null);
     }
   };
 
@@ -1148,12 +1155,15 @@ const hasDateConflict = (
 
                         <button
                           type="button"
-                          disabled={updatingId === request.id}
+                          disabled={updatingId === request.id || agreementBusyId !== null}
                           onClick={() => handleCreateRentalAgreement(request)}
                           className="rounded-full border border-purple-500/20 bg-purple-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.08em] text-purple-300 transition hover:border-purple-500/50 disabled:opacity-50"
                             >
-                          Create Agreement
+                          {agreementBusyId === request.id ? "Opening Agreement..." : "Create / Open Agreement"}
                           </button>
+                        {agreementAction?.id === request.id && (
+                          <p role="alert" className="mt-3 text-sm text-red-300">{agreementAction.error}</p>
+                        )}
 
                         <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                           <div>

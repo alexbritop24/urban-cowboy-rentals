@@ -1096,3 +1096,20 @@ test("test-data classification is reversible metadata and preserves locked Agree
   const genuine=await createNormalizedRequest(database,normalizedItems().map((item,i)=>({...item,start_date:isoDaysFromNow(90+i*7),end_date:isoDaysFromNow(92+i*7)})));
   assert.equal((await database.query("select is_test_data from public.rental_requests where id=$1",[genuine])).rows[0].is_test_data,false);
 });
+
+test("staff can create a draft while availability and insurance are pending", async () => {
+  const database = await createDatabase();
+  try {
+    await database.exec(await readFile(new URL("../../supabase/migrations/20261105000100_allow_agreement_draft_before_checks.sql", import.meta.url), "utf8"));
+    const requestId = await createLegacyRequest(database, "Draft First", 150);
+    await database.query("update public.rental_requests set availability_status='pending_review', insurance_verification_status='pending' where id=$1", [requestId]);
+    const agreementId = await createAgreement(database, requestId);
+    const result = await database.query("select status, availability_confirmation_status, insurance_verification_status from public.rental_agreements where id=$1", [agreementId]);
+    assert.equal(result.rows[0].status, "draft");
+    assert.equal(result.rows[0].availability_confirmation_status, "pending_review");
+    assert.equal(result.rows[0].insurance_verification_status, "pending");
+    await database.exec(await readFile(new URL("../../supabase/migrations/20261105000100_allow_agreement_draft_before_checks.sql", import.meta.url), "utf8"));
+    await setRole(database, "authenticated", { app_metadata: { role: "customer" } });
+    await expectDatabaseError(() => database.query("select public.create_rental_agreement_for_request($1::uuid)", [requestId]), "staff authorization");
+  } finally { await database.close(); }
+});
