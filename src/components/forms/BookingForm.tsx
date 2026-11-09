@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { getBookableEquipment } from "../../data/equipmentSelectors";
@@ -10,6 +10,8 @@ import { applicationFeatureFlags } from "../../config/featureFlags";
 import type { BookingRequest } from "../../types/booking";
 
 const initialFormState = {
+  customerType: "individual" as BookingRequest["customerType"],
+  businessName: "",
   fullName: "",
   phone: "",
   email: "",
@@ -45,6 +47,8 @@ const LegacyBookingForm = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingError, setBookingError] = useState("");
+  const submitting = useRef(false);
+  const selectedEquipment = activeEquipment.find((item) => item.name === formData.equipmentRequested);
 
   const normalizePhoneNumber = (phone: string) => {
     return phone.replace(/\D/g, "");
@@ -142,15 +146,21 @@ const LegacyBookingForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (isSubmitting) return;
+    if (submitting.current) return;
 
     setBookingError("");
 
-    if (!rentalDuration) {
-      setBookingError("Please select a valid pickup and return date/time.");
+    if (formData.customerType === "business" && !formData.businessName.trim()) {
+      setBookingError("Enter your legal business name.");
       return;
     }
 
+    if (!rentalDuration) {
+      setBookingError("Choose a return date and time after the rental start.");
+      return;
+    }
+
+    submitting.current = true;
     setIsSubmitting(true);
 
     try {
@@ -164,12 +174,12 @@ const LegacyBookingForm = () => {
         setBookingError(
           "This equipment is already booked during the selected dates. Please choose another time or contact Urban Cowboy Rentals."
         );
-        setIsSubmitting(false);
         return;
       }
 
       const bookingRequest: BookingRequest = {
         ...formData,
+        businessName: formData.customerType === "business" ? formData.businessName.trim() : null,
         phone: normalizePhoneNumber(formData.phone),
         rentalDuration,
         status: "new",
@@ -179,6 +189,8 @@ const LegacyBookingForm = () => {
       };
 
       const { error } = await publicSupabase.from("rental_requests").insert({
+        customer_type: bookingRequest.customerType,
+        business_name: bookingRequest.businessName,
         full_name: bookingRequest.fullName,
         phone: bookingRequest.phone,
         email: bookingRequest.email,
@@ -204,100 +216,45 @@ const LegacyBookingForm = () => {
 
       if (error) {
         console.error("SUPABASE INSERT ERROR:", error);
-        setBookingError(`Database error: ${error.message}`);
+        setBookingError("We couldn’t save your request. Your details are still here. Please try again.");
         return;
       }
 
       notifyN8n(bookingRequest);
 
-      setFormData({
-        ...initialFormState,
-        equipmentRequested: defaultEquipment,
-      });
-
       setIsSubmitted(true);
     } catch (error) {
       console.error("BOOKING SUBMIT ERROR:", error);
 
-      if (error instanceof Error) {
-        setBookingError(error.message);
-      } else {
-        setBookingError("Something went wrong submitting the request.");
-      }
+      setBookingError("We couldn’t submit your request. Your details are still here. Please try again.");
     } finally {
+      submitting.current = false;
       setIsSubmitting(false);
     }
   };
 
   if (isSubmitted) {
-    return <BookingSuccess />;
+    return <BookingSuccess equipmentName={selectedEquipment?.name} />;
   }
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-[2rem] border border-yellow-500/10 bg-[#11100d]/90 p-8 shadow-2xl shadow-black/30"
+      className="rounded-[2rem] border border-yellow-500/10 bg-[#11100d]/90 p-4 sm:p-8 shadow-2xl shadow-black/30"
     >
       <div className="grid gap-6 md:grid-cols-2">
-        <div>
-          <label className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
-            Full Name
-          </label>
-
-          <input
-            type="text"
-            name="fullName"
-            value={formData.fullName}
-            onChange={handleChange}
-            required
-            placeholder="John Smith"
-            className="w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition placeholder:text-[#b8a99a]/50 focus:border-yellow-500/40"
-          />
-        </div>
-
-        <div>
-          <label className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
-            Phone Number
-          </label>
-
-          <input
-            type="tel"
-            name="phone"
-            value={formData.phone}
-            onChange={handleChange}
-            required
-            placeholder="801-903-9380"
-            className="w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition placeholder:text-[#b8a99a]/50 focus:border-yellow-500/40"
-          />
-        </div>
-
-        <div>
-          <label className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
-            Email
-          </label>
-
-          <input
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            required
-            placeholder="name@email.com"
-            className="w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition placeholder:text-[#b8a99a]/50 focus:border-yellow-500/40"
-          />
-        </div>
-
-        <div>
-          <label className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
+        <div className="md:col-span-2">
+          <label htmlFor="rental-equipmentRequested" className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
             Equipment Requested
           </label>
 
           <select
+            id="rental-equipmentRequested"
             name="equipmentRequested"
             value={formData.equipmentRequested}
             onChange={handleChange}
             required
-            className="w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition focus:border-yellow-500/40"
+            className="min-w-0 w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition focus:border-yellow-500/40"
           >
             <option value="">Select equipment</option>
 
@@ -307,42 +264,140 @@ const LegacyBookingForm = () => {
               </option>
             ))}
           </select>
+          {selectedEquipment && (
+            <p className="mt-2 text-sm text-[#d8c9bb]" aria-live="polite">
+              Starting rate <strong className="text-[#f4b000]">${selectedEquipment.startingPrice.toLocaleString("en-US")}</strong>.
+              We’ll confirm the final price and availability after reviewing your request.
+            </p>
+          )}
+        </div>
+
+        <fieldset className="md:col-span-2">
+          <legend className="mb-2 text-sm font-bold text-[#fff7ed]">Who is renting?</legend>
+          <div className="flex flex-wrap gap-3">
+            {(["individual", "business"] as const).map((customerType) => (
+              <label key={customerType} className="flex items-center gap-2 rounded-xl border border-yellow-500/20 px-4 py-3 capitalize text-[#fff7ed]">
+                <input
+                  type="radio"
+                  name="customerType"
+                  value={customerType}
+                  checked={formData.customerType === customerType}
+                  onChange={() => {
+                    setBookingError("");
+                    setFormData((previous) => ({ ...previous, customerType }));
+                  }}
+                />
+                {customerType}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        {formData.customerType === "business" && (
+          <div className="md:col-span-2">
+            <label htmlFor="rental-businessName" className="mb-2 block text-sm font-bold text-[#fff7ed]">
+              Legal business name
+            </label>
+            <input
+              id="rental-businessName"
+              name="businessName"
+              autoComplete="organization"
+              required
+              maxLength={200}
+              value={formData.businessName}
+              onChange={handleChange}
+              className="min-w-0 w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] focus:border-yellow-500/40"
+            />
+          </div>
+        )}
+
+        <div>
+          <label htmlFor="rental-fullName" className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
+            Full Name
+          </label>
+
+          <input
+            type="text"
+            id="rental-fullName"
+            name="fullName"
+            value={formData.fullName}
+            onChange={handleChange}
+            required
+            placeholder="John Smith"
+            className="min-w-0 w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition placeholder:text-[#b8a99a]/50 focus:border-yellow-500/40"
+          />
         </div>
 
         <div>
-          <label className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
+          <label htmlFor="rental-phone" className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
+            Phone Number
+          </label>
+
+          <input
+            type="tel"
+            id="rental-phone"
+            name="phone"
+            value={formData.phone}
+            onChange={handleChange}
+            required
+            placeholder="801-903-9380"
+            className="min-w-0 w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition placeholder:text-[#b8a99a]/50 focus:border-yellow-500/40"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="rental-email" className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
+            Email
+          </label>
+
+          <input
+            type="email"
+            id="rental-email"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            required
+            placeholder="name@email.com"
+            className="min-w-0 w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition placeholder:text-[#b8a99a]/50 focus:border-yellow-500/40"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="rental-pickupDate" className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
             Pickup Date & Time
           </label>
 
           <input
             type="datetime-local"
+            id="rental-pickupDate"
             name="pickupDate"
             value={formData.pickupDate}
             onChange={handleChange}
             required
-            className="w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition focus:border-yellow-500/40"
+            className="min-w-0 w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition focus:border-yellow-500/40"
           />
         </div>
 
         <div>
-          <label className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
+          <label htmlFor="rental-returnDate" className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
             Return Date & Time
           </label>
 
           <input
             type="datetime-local"
+            id="rental-returnDate"
             name="returnDate"
             value={formData.returnDate}
             onChange={handleChange}
             required
-            className="w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition focus:border-yellow-500/40"
+            className="min-w-0 w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition focus:border-yellow-500/40"
           />
         </div>
 
         <div>
-          <label className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
+          <p className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
             Estimated Rental Duration
-          </label>
+          </p>
 
           <div className="flex min-h-[58px] items-center rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed]">
             {rentalDuration || "Select pickup and return time"}
@@ -350,16 +405,17 @@ const LegacyBookingForm = () => {
         </div>
 
         <div>
-          <label className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
+          <label htmlFor="rental-fulfillmentType" className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
             Pickup or Delivery
           </label>
 
           <select
+            id="rental-fulfillmentType"
             name="fulfillmentType"
             value={formData.fulfillmentType}
             onChange={handleChange}
             required
-            className="w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition focus:border-yellow-500/40"
+            className="min-w-0 w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition focus:border-yellow-500/40"
           >
             <option value="">Select option</option>
             <option value="Pickup">Pickup</option>
@@ -368,39 +424,42 @@ const LegacyBookingForm = () => {
         </div>
 
         <div className="md:col-span-2">
-          <label className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
+          <label htmlFor="rental-projectType" className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
             Project Type / Reason For Rental
           </label>
 
           <input
             type="text"
+            id="rental-projectType"
             name="projectType"
             value={formData.projectType}
             onChange={handleChange}
             placeholder="Construction, hauling, demolition, weekend ride, etc."
-            className="w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition placeholder:text-[#b8a99a]/50 focus:border-yellow-500/40"
+            className="min-w-0 w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition placeholder:text-[#b8a99a]/50 focus:border-yellow-500/40"
           />
         </div>
       </div>
 
       <div className="mt-6">
-        <label className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
+        <label htmlFor="rental-notes" className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
           Notes
         </label>
 
         <textarea
+          id="rental-notes"
           name="notes"
           rows={5}
           value={formData.notes}
           onChange={handleChange}
           placeholder="Add delivery address, preferred pickup time, attachments needed, or other details."
-          className="w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition placeholder:text-[#b8a99a]/50 focus:border-yellow-500/40"
+          className="min-w-0 w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition placeholder:text-[#b8a99a]/50 focus:border-yellow-500/40"
         />
       </div>
 
       <div className="mt-6 flex items-start gap-3">
         <input
           type="checkbox"
+          id="rental-acknowledgment"
           name="agreementAccepted"
           checked={formData.agreementAccepted}
           onChange={handleChange}
@@ -408,15 +467,15 @@ const LegacyBookingForm = () => {
           className="mt-1"
         />
 
-        <p className="text-sm leading-relaxed text-[#b8a99a]">
+        <label htmlFor="rental-acknowledgment" className="text-sm leading-relaxed text-[#b8a99a]">
           I understand this is a rental request and availability, final price,
           payment, deposit, pickup, and delivery details must be confirmed by
           Urban Cowboy Rentals before the rental is approved.
-        </p>
+        </label>
       </div>
 
       {bookingError && (
-        <div className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-4">
+        <div role="alert" className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-4">
           <p className="text-sm font-semibold text-red-300">{bookingError}</p>
         </div>
       )}

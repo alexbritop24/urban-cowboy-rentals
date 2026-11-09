@@ -1,4 +1,6 @@
 export interface BookingRequest {
+  customerType: "individual" | "business";
+  businessName: string | null;
   fullName: string;
   phone: string;
   email: string;
