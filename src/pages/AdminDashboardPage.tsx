@@ -24,6 +24,8 @@ interface RentalRequest {
   id: string;
   created_at: string;
   full_name: string;
+  customer_type?: "individual" | "business";
+  business_name?: string | null;
   phone: string;
   email: string;
   equipment_requested: string;
@@ -263,6 +265,7 @@ const AdminDashboardPage = () => {
         !normalizedSearchTerm ||
         [
           request.full_name,
+          request.business_name,
           request.phone,
           request.email,
           request.equipment_requested,
@@ -943,6 +946,9 @@ const hasDateConflict = (
                           </h3>
 
                           <p className="mt-2 break-words text-[#b8a99a]">
+                            {request.customer_type === "business" && request.business_name && (
+                              <strong className="text-[#fff7ed]">{request.business_name} · </strong>
+                            )}
                             {request.full_name} · {request.phone} ·{" "}
                             {request.email}
                           </p>

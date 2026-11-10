@@ -541,3 +541,59 @@ test("public catalog projection matches the authoritative server seed", async (t
   assert.equal(publicCatalog.find((item) => item.id === "bobcat-e35r2-compact-excavator").dailyRate, 280);
   assert.equal(publicCatalog.filter((item) => item.status === "archived").every((item) => !item.featured), true);
 });
+
+test("guest requests save the customer type without widening staff access", async (t) => {
+  const database = await createDatabase();
+  t.after(() => database.close());
+  for (const index of migrationUrls.keys()) {
+    await applyMigration(database, index);
+  }
+  await database.exec(await readFile(
+    new URL("../../supabase/migrations/20261108000100_guest_rental_request_customer_details.sql", import.meta.url),
+    "utf8"
+  ));
+
+  const insert = `
+    insert into public.rental_requests (
+      full_name, phone, email, equipment_requested, rental_start_date,
+      rental_end_date, fulfillment_type, agreement_accepted, status,
+      source, priority, payment_status, deposit_status, delivery_status, availability_status,
+      customer_type, business_name
+    ) values (
+      'Guest Contact', '8015550100', $1, 'Plate Compactor', current_date + 2,
+      current_date + 3, 'Pickup', true, $4, 'website', 'normal', 'unpaid',
+      'not_required', 'not_scheduled', 'pending_review', $2, $3
+    )
+  `;
+
+  await setRole(database, "anon");
+  await database.query(insert, ["individual@example.test", "individual", null, "new"]);
+  await database.query(insert, ["business@example.test", "business", "Guest Business LLC", "new"]);
+  for (const [type, name, status] of [
+    ["business", null, "new"],
+    ["business", "\t  ", "new"],
+    ["business", "A".repeat(201), "new"],
+    ["individual", "Unexpected Business", "new"],
+    ["individual", null, "confirmed"],
+  ]) {
+    await expectDatabaseError(
+      () => database.query(insert, ["invalid@example.test", type, name, status]),
+      "row-level security"
+    );
+  }
+  await expectDatabaseError(
+    () => database.query("select business_name from public.rental_requests"),
+    "permission denied"
+  );
+  await setRole(database, "authenticated", { app_metadata: { role: "staff" } });
+  const { rows } = await database.query(`
+    select customer_type, business_name
+    from public.rental_requests
+    where email in ('business@example.test', 'individual@example.test', 'invalid@example.test')
+    order by email
+  `);
+  assert.deepEqual(rows, [
+    { customer_type: "business", business_name: "Guest Business LLC" },
+    { customer_type: "individual", business_name: null },
+  ]);
+});

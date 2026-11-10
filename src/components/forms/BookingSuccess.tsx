@@ -1,21 +1,21 @@
 import { CheckCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 
-const BookingSuccess = () => {
+const BookingSuccess = ({ equipmentName }: { equipmentName?: string }) => {
   return (
-    <div className="rounded-[2rem] border border-yellow-500/10 bg-[#11100d]/90 p-10 text-center shadow-2xl shadow-black/30">
+    <div role="status" className="rounded-[2rem] border border-yellow-500/10 bg-[#11100d]/90 p-5 text-center sm:p-10 shadow-2xl shadow-black/30">
       <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#f4b000]">
         <CheckCircle className="h-10 w-10 text-black" />
       </div>
 
       <h2 className="mt-8 text-4xl font-black text-[#fff7ed]">
-        Rental Request Sent
+        Rental request received
       </h2>
 
       <p className="mx-auto mt-5 max-w-xl leading-relaxed text-[#b8a99a]">
-        Your request has been captured. Urban Cowboy Rentals will review the
-        equipment, dates, pickup or delivery details, and contact you to confirm
-        availability and next steps.
+        We received your request{equipmentName ? <> for <strong>{equipmentName}</strong></> : ""}.
+        Urban Cowboy Rentals will contact you to confirm availability, pricing, and next steps.
+        Your rental is pending review.
       </p>
 
       <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
