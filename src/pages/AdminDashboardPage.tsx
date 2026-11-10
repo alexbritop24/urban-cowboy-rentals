@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import AutomationLogs from "../components/admin/AutomationLogs";
 import AdminRentalRequestItemsEditor from "../components/admin/AdminRentalRequestItemsEditor";
+import RentalQuoteDraft from "../components/admin/RentalQuoteDraft";
 import RentalRequestQueue from "../components/admin/RentalRequestQueue";
 import RentalApprovalChecklist from "../components/approval/RentalApprovalChecklist";
 import RentalDocumentWorkflowSection from "../components/documents/RentalDocumentWorkflowSection";
@@ -529,6 +530,22 @@ const hasDateConflict = (
     return requests.find((request) => request.id === requestId) || null;
   };
 
+  const saveQuoteAmount = async (requestId: string, amount: number | null) => {
+    const { data, error } = await supabase
+      .from("rental_requests")
+      .update({ quote_amount: amount })
+      .eq("id", requestId)
+      .select("quote_amount")
+      .single();
+
+    if (error || !data) return false;
+
+    setRequests((current) => current.map((item) =>
+      item.id === requestId ? { ...item, quote_amount: data.quote_amount } : item
+    ));
+    return true;
+  };
+
   const handleInternalNotesChange = (requestId: string, value: string) => {
     setRequests((prev) =>
       prev.map((request) =>
@@ -995,6 +1012,17 @@ const hasDateConflict = (
                         </div>
                       )}
 
+                      <RentalQuoteDraft
+                        customerName={request.full_name}
+                        customerEmail={request.email}
+                        equipment={request.equipment_requested}
+                        startDate={request.rental_start_date}
+                        endDate={request.rental_end_date}
+                        fulfillment={request.fulfillment_type}
+                        savedAmount={request.quote_amount ?? null}
+                        onSave={(amount) => saveQuoteAmount(request.id, amount)}
+                      />
+
                       <div className="mt-6">
                         <RentalDocumentWorkflowSection
                           rentalRequestId={request.id}
@@ -1106,27 +1134,6 @@ const hasDateConflict = (
                                 </option>
                               ))}
                             </select>
-                          </div>
-
-                          <div>
-                            <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#8f8577]">
-                              Quote Amount
-                            </label>
-
-                            <input
-                              type="number"
-                              min="0"
-                              value={request.quote_amount ?? ""}
-                              onChange={(e) =>
-                                updateRequestField(
-                                  request.id,
-                                  "quote_amount",
-                                  e.target.value ? Number(e.target.value) : null
-                                )
-                              }
-                              placeholder="0.00"
-                              className="w-full rounded-2xl border border-yellow-500/10 bg-black/40 px-4 py-3 text-[#fff7ed] outline-none focus:border-yellow-500/40"
-                            />
                           </div>
 
                           <div>
