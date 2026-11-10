@@ -1,8 +1,10 @@
+import { CalendarDays, ChevronDown, Package, UserRound } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { getBookableEquipment } from "../../data/equipmentSelectors";
 import { publicSupabase } from "../../lib/supabase";
+import { mountainBookingDateTimeToIso } from "../../utils/bookingDateTime";
 import BookingSuccess from "./BookingSuccess";
 import MultiItemBookingForm from "./MultiItemBookingForm";
 import { applicationFeatureFlags } from "../../config/featureFlags";
@@ -25,6 +27,14 @@ const initialFormState = {
 };
 
 const activeEquipment = getBookableEquipment();
+
+const labelClass = "mb-1.5 block text-sm font-semibold";
+const controlClass = "min-h-12 w-full min-w-0 rounded-xl border border-[#b8aa96] bg-white px-3 text-base text-[#201b14] placeholder:text-[#6a5e50] focus:border-[#805300] focus:outline-2 focus:outline-offset-1 focus:outline-[#805300]";
+const dateClass = `${controlClass} [&::-webkit-date-and-time-value]:text-left`;
+const selectClass = `${controlClass} appearance-none pr-10 forced-colors:appearance-auto`;
+const selectIconClass = "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#51432d] forced-colors:hidden";
+const sectionTitleClass = "flex items-center gap-2 text-lg font-bold";
+const gridClass = "grid grid-cols-1 gap-4 sm:grid-cols-2";
 
 const LegacyBookingForm = () => {
   const [searchParams] = useSearchParams();
@@ -58,7 +68,7 @@ const LegacyBookingForm = () => {
     return dateTimeValue ? dateTimeValue.split("T")[0] : null;
   };
 
-  const calculateRentalDuration = (pickupDate: string, returnDate: string) => {
+  const calculateRentalDuration = (pickupDate: string | null, returnDate: string | null) => {
     if (!pickupDate || !returnDate) return "";
 
     const pickupTime = new Date(pickupDate).getTime();
@@ -80,10 +90,9 @@ const LegacyBookingForm = () => {
     }`;
   };
 
-  const rentalDuration = calculateRentalDuration(
-    formData.pickupDate,
-    formData.returnDate
-  );
+  const pickupDateIso = useMemo(() => mountainBookingDateTimeToIso(formData.pickupDate), [formData.pickupDate]);
+  const returnDateIso = useMemo(() => mountainBookingDateTimeToIso(formData.returnDate), [formData.returnDate]);
+  const rentalDuration = calculateRentalDuration(pickupDateIso, returnDateIso);
 
   const checkAvailabilityConflict = async (
     equipmentRequested: string,
@@ -155,6 +164,11 @@ const LegacyBookingForm = () => {
       return;
     }
 
+    if (!pickupDateIso || !returnDateIso) {
+      setBookingError("Choose valid Mountain Time dates and times. Some times are skipped when the clocks change.");
+      return;
+    }
+
     if (!rentalDuration) {
       setBookingError("Choose a return date and time after the rental start.");
       return;
@@ -166,8 +180,8 @@ const LegacyBookingForm = () => {
     try {
       const hasConflict = await checkAvailabilityConflict(
         formData.equipmentRequested,
-        formData.pickupDate,
-        formData.returnDate
+        pickupDateIso,
+        returnDateIso
       );
 
       if (hasConflict) {
@@ -197,8 +211,8 @@ const LegacyBookingForm = () => {
         equipment_requested: bookingRequest.equipmentRequested,
         rental_start_date: getDateOnly(bookingRequest.pickupDate),
         rental_end_date: getDateOnly(bookingRequest.returnDate),
-        pickup_date: bookingRequest.pickupDate || null,
-        return_date: bookingRequest.returnDate || null,
+        pickup_date: pickupDateIso,
+        return_date: returnDateIso,
         rental_duration: bookingRequest.rentalDuration,
         fulfillment_type: bookingRequest.fulfillmentType,
         project_type: bookingRequest.projectType,
@@ -240,253 +254,245 @@ const LegacyBookingForm = () => {
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-[2rem] border border-yellow-500/10 bg-[#11100d]/90 p-4 sm:p-8 shadow-2xl shadow-black/30"
+      aria-label="Equipment rental request"
+      className="overflow-hidden rounded-3xl border border-white/15 bg-[#fcfaf6] text-[#201b14] shadow-2xl shadow-black/25 [color-scheme:light]"
     >
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="md:col-span-2">
-          <label htmlFor="rental-equipmentRequested" className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
-            Equipment Requested
-          </label>
-
-          <select
-            id="rental-equipmentRequested"
-            name="equipmentRequested"
-            value={formData.equipmentRequested}
-            onChange={handleChange}
-            required
-            className="min-w-0 w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition focus:border-yellow-500/40"
-          >
-            <option value="">Select equipment</option>
-
-            {activeEquipment.map((item) => (
-              <option key={item.id} value={item.name}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-          {selectedEquipment && (
-            <p className="mt-2 text-sm text-[#d8c9bb]" aria-live="polite">
-              Starting rate <strong className="text-[#f4b000]">${selectedEquipment.startingPrice.toLocaleString("en-US")}</strong>.
-              We’ll confirm the final price and availability after reviewing your request.
-            </p>
-          )}
-        </div>
-
-        <fieldset className="md:col-span-2">
-          <legend className="mb-2 text-sm font-bold text-[#fff7ed]">Who is renting?</legend>
-          <div className="flex flex-wrap gap-3">
-            {(["individual", "business"] as const).map((customerType) => (
-              <label key={customerType} className="flex items-center gap-2 rounded-xl border border-yellow-500/20 px-4 py-3 capitalize text-[#fff7ed]">
-                <input
-                  type="radio"
-                  name="customerType"
-                  value={customerType}
-                  checked={formData.customerType === customerType}
-                  onChange={() => {
-                    setBookingError("");
-                    setFormData((previous) => ({ ...previous, customerType }));
-                  }}
-                />
-                {customerType}
-              </label>
-            ))}
+      <div className="divide-y divide-[#e4dbcd] px-5 sm:px-8">
+        <section aria-labelledby="booking-equipment-heading" className="space-y-4 py-6">
+          <h2 id="booking-equipment-heading" className={sectionTitleClass}>
+            <Package size={19} aria-hidden="true" /> Equipment
+          </h2>
+          <div>
+            <label htmlFor="rental-equipmentRequested" className={labelClass}>Equipment requested</label>
+            <div className="relative">
+              <select
+                id="rental-equipmentRequested"
+                name="equipmentRequested"
+                value={formData.equipmentRequested}
+                onChange={handleChange}
+                required
+                className={selectClass}
+              >
+                <option value="">Select equipment</option>
+                {activeEquipment.map((item) => (
+                  <option key={item.id} value={item.name}>{item.name}</option>
+                ))}
+              </select>
+              <ChevronDown size={18} aria-hidden="true" className={selectIconClass} />
+            </div>
           </div>
-        </fieldset>
+          {selectedEquipment && (
+            <div aria-live="polite" className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-[#fff0c9] px-4 py-3 text-sm">
+              <p className="font-semibold">
+                Starting rate <strong className="ml-1 text-lg">${selectedEquipment.startingPrice.toLocaleString("en-US")}</strong>
+              </p>
+              <p className="text-[#51432d]">We’ll confirm the final price and availability after review.</p>
+            </div>
+          )}
+        </section>
 
-        {formData.customerType === "business" && (
-          <div className="md:col-span-2">
-            <label htmlFor="rental-businessName" className="mb-2 block text-sm font-bold text-[#fff7ed]">
-              Legal business name
-            </label>
+        <section aria-labelledby="booking-schedule-heading" className="space-y-4 py-6">
+          <h2 id="booking-schedule-heading" className={sectionTitleClass}>
+            <CalendarDays size={19} aria-hidden="true" /> Rental schedule
+          </h2>
+          <p className="text-sm text-[#635849]">Rental times are in Utah’s Mountain Time.</p>
+          <div className={gridClass}>
+            <div>
+              <label htmlFor="rental-pickupDate" className={labelClass}>Rental start date and time</label>
+              <input
+                type="datetime-local"
+                id="rental-pickupDate"
+                name="pickupDate"
+                value={formData.pickupDate}
+                onChange={handleChange}
+                required
+                className={dateClass}
+              />
+            </div>
+            <div>
+              <label htmlFor="rental-returnDate" className={labelClass}>Return date and time</label>
+              <input
+                type="datetime-local"
+                id="rental-returnDate"
+                name="returnDate"
+                value={formData.returnDate}
+                onChange={handleChange}
+                required
+                className={dateClass}
+              />
+            </div>
+            <div>
+              <label htmlFor="rental-fulfillmentType" className={labelClass}>Pickup or delivery</label>
+              <div className="relative">
+                <select
+                  id="rental-fulfillmentType"
+                  name="fulfillmentType"
+                  value={formData.fulfillmentType}
+                  onChange={handleChange}
+                  required
+                  className={selectClass}
+                >
+                  <option value="">Select an option</option>
+                  <option value="Pickup">Pickup</option>
+                  <option value="Delivery">Delivery</option>
+                </select>
+                <ChevronDown size={18} aria-hidden="true" className={selectIconClass} />
+              </div>
+            </div>
+            {rentalDuration && (
+              <p className="self-end rounded-xl bg-[#f0ebe1] px-4 py-3 text-sm" aria-live="polite">
+                Estimated duration <strong>{rentalDuration}</strong>
+              </p>
+            )}
+          </div>
+        </section>
+
+        <section aria-labelledby="booking-contact-heading" className="space-y-4 py-6">
+          <h2 id="booking-contact-heading" className={sectionTitleClass}>
+            <UserRound size={19} aria-hidden="true" /> Contact details
+          </h2>
+          <fieldset>
+            <legend className={labelClass}>Who is renting?</legend>
+            <div className="grid grid-cols-2 gap-2 sm:max-w-sm">
+              {(["individual", "business"] as const).map((customerType) => (
+                <label
+                  key={customerType}
+                  className="flex min-h-12 cursor-pointer items-center gap-2 rounded-xl border border-[#b8aa96] bg-white px-3 text-sm font-medium capitalize has-checked:border-[#8c5b00] has-checked:bg-[#fff0c9] sm:px-4"
+                >
+                  <input
+                    type="radio"
+                    name="customerType"
+                    value={customerType}
+                    checked={formData.customerType === customerType}
+                    onChange={() => {
+                      setBookingError("");
+                      setFormData((previous) => ({ ...previous, customerType }));
+                    }}
+                    className="size-4 accent-[#805300] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#805300]"
+                  />
+                  {customerType}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <div className={gridClass}>
+            {formData.customerType === "business" && (
+              <div className="sm:col-span-2">
+                <label htmlFor="rental-businessName" className={labelClass}>Legal business name</label>
+                <input
+                  id="rental-businessName"
+                  name="businessName"
+                  autoComplete="organization"
+                  required
+                  maxLength={200}
+                  value={formData.businessName}
+                  onChange={handleChange}
+                  className={controlClass}
+                />
+              </div>
+            )}
+            <div>
+              <label htmlFor="rental-fullName" className={labelClass}>Full name</label>
+              <input
+                id="rental-fullName"
+                name="fullName"
+                autoComplete="name"
+                value={formData.fullName}
+                onChange={handleChange}
+                required
+                className={controlClass}
+              />
+            </div>
+            <div>
+              <label htmlFor="rental-phone" className={labelClass}>Phone number</label>
+              <input
+                type="tel"
+                id="rental-phone"
+                name="phone"
+                autoComplete="tel"
+                value={formData.phone}
+                onChange={handleChange}
+                required
+                className={controlClass}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label htmlFor="rental-email" className={labelClass}>Email</label>
+              <input
+                type="email"
+                id="rental-email"
+                name="email"
+                autoComplete="email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                className={controlClass}
+              />
+            </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="booking-notes-heading" className="space-y-4 py-6">
+          <h2 id="booking-notes-heading" className="text-base font-semibold">Additional details <span className="ml-1 text-sm font-normal text-[#635849]">Optional</span></h2>
+          <div>
+            <label htmlFor="rental-projectType" className={labelClass}>What are you working on?</label>
             <input
-              id="rental-businessName"
-              name="businessName"
-              autoComplete="organization"
-              required
-              maxLength={200}
-              value={formData.businessName}
+              id="rental-projectType"
+              name="projectType"
+              value={formData.projectType}
               onChange={handleChange}
-              className="min-w-0 w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] focus:border-yellow-500/40"
+              placeholder="For example, grading a driveway"
+              className={controlClass}
             />
           </div>
+          <div>
+            <label htmlFor="rental-notes" className={labelClass}>Notes</label>
+            <textarea
+              id="rental-notes"
+              name="notes"
+              rows={3}
+              value={formData.notes}
+              onChange={handleChange}
+              placeholder="Delivery address, preferred pickup time, or attachments needed"
+              className={`${controlClass} py-3`}
+            />
+          </div>
+        </section>
+      </div>
+
+      <div className="space-y-4 border-t border-[#e4dbcd] bg-[#f4efe5] px-5 py-6 sm:px-8">
+        <label htmlFor="rental-acknowledgment" className="flex cursor-pointer items-start gap-3 text-sm leading-relaxed text-[#40372a]">
+          <input
+            type="checkbox"
+            id="rental-acknowledgment"
+            name="agreementAccepted"
+            checked={formData.agreementAccepted}
+            onChange={handleChange}
+            required
+            className="mt-0.5 size-5 shrink-0 accent-[#805300] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#805300]"
+          />
+          <span>
+            I understand this is a rental request and availability, final price,
+            payment, deposit, pickup, and delivery details must be confirmed by
+            Urban Cowboy Rentals before the rental is approved.
+          </span>
+        </label>
+
+        {bookingError && (
+          <p role="alert" className="rounded-xl border border-[#e5b6ad] bg-[#fff0ec] px-4 py-3 text-sm font-semibold text-[#8a241b]">
+            {bookingError}
+          </p>
         )}
 
-        <div>
-          <label htmlFor="rental-fullName" className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
-            Full Name
-          </label>
-
-          <input
-            type="text"
-            id="rental-fullName"
-            name="fullName"
-            value={formData.fullName}
-            onChange={handleChange}
-            required
-            placeholder="John Smith"
-            className="min-w-0 w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition placeholder:text-[#b8a99a]/50 focus:border-yellow-500/40"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="rental-phone" className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
-            Phone Number
-          </label>
-
-          <input
-            type="tel"
-            id="rental-phone"
-            name="phone"
-            value={formData.phone}
-            onChange={handleChange}
-            required
-            placeholder="801-903-9380"
-            className="min-w-0 w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition placeholder:text-[#b8a99a]/50 focus:border-yellow-500/40"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="rental-email" className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
-            Email
-          </label>
-
-          <input
-            type="email"
-            id="rental-email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            required
-            placeholder="name@email.com"
-            className="min-w-0 w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition placeholder:text-[#b8a99a]/50 focus:border-yellow-500/40"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="rental-pickupDate" className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
-            Pickup Date & Time
-          </label>
-
-          <input
-            type="datetime-local"
-            id="rental-pickupDate"
-            name="pickupDate"
-            value={formData.pickupDate}
-            onChange={handleChange}
-            required
-            className="min-w-0 w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition focus:border-yellow-500/40"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="rental-returnDate" className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
-            Return Date & Time
-          </label>
-
-          <input
-            type="datetime-local"
-            id="rental-returnDate"
-            name="returnDate"
-            value={formData.returnDate}
-            onChange={handleChange}
-            required
-            className="min-w-0 w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition focus:border-yellow-500/40"
-          />
-        </div>
-
-        <div>
-          <p className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
-            Estimated Rental Duration
-          </p>
-
-          <div className="flex min-h-[58px] items-center rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed]">
-            {rentalDuration || "Select pickup and return time"}
-          </div>
-        </div>
-
-        <div>
-          <label htmlFor="rental-fulfillmentType" className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
-            Pickup or Delivery
-          </label>
-
-          <select
-            id="rental-fulfillmentType"
-            name="fulfillmentType"
-            value={formData.fulfillmentType}
-            onChange={handleChange}
-            required
-            className="min-w-0 w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition focus:border-yellow-500/40"
-          >
-            <option value="">Select option</option>
-            <option value="Pickup">Pickup</option>
-            <option value="Delivery">Delivery</option>
-          </select>
-        </div>
-
-        <div className="md:col-span-2">
-          <label htmlFor="rental-projectType" className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
-            Project Type / Reason For Rental
-          </label>
-
-          <input
-            type="text"
-            id="rental-projectType"
-            name="projectType"
-            value={formData.projectType}
-            onChange={handleChange}
-            placeholder="Construction, hauling, demolition, weekend ride, etc."
-            className="min-w-0 w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition placeholder:text-[#b8a99a]/50 focus:border-yellow-500/40"
-          />
-        </div>
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="min-h-12 w-full rounded-xl bg-[#f4b000] px-6 py-3 font-bold text-[#201b14] transition hover:bg-[#e9a600] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#805300] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+        >
+          {isSubmitting ? "Submitting request…" : "Submit rental request"}
+        </button>
       </div>
-
-      <div className="mt-6">
-        <label htmlFor="rental-notes" className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-[#fff7ed]">
-          Notes
-        </label>
-
-        <textarea
-          id="rental-notes"
-          name="notes"
-          rows={5}
-          value={formData.notes}
-          onChange={handleChange}
-          placeholder="Add delivery address, preferred pickup time, attachments needed, or other details."
-          className="min-w-0 w-full rounded-2xl border border-yellow-500/10 bg-[#1a1612] px-5 py-4 text-[#fff7ed] outline-none transition placeholder:text-[#b8a99a]/50 focus:border-yellow-500/40"
-        />
-      </div>
-
-      <div className="mt-6 flex items-start gap-3">
-        <input
-          type="checkbox"
-          id="rental-acknowledgment"
-          name="agreementAccepted"
-          checked={formData.agreementAccepted}
-          onChange={handleChange}
-          required
-          className="mt-1"
-        />
-
-        <label htmlFor="rental-acknowledgment" className="text-sm leading-relaxed text-[#b8a99a]">
-          I understand this is a rental request and availability, final price,
-          payment, deposit, pickup, and delivery details must be confirmed by
-          Urban Cowboy Rentals before the rental is approved.
-        </label>
-      </div>
-
-      {bookingError && (
-        <div role="alert" className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-4">
-          <p className="text-sm font-semibold text-red-300">{bookingError}</p>
-        </div>
-      )}
-
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="mt-8 w-full rounded-full bg-[#f4b000] px-8 py-5 text-lg font-black uppercase tracking-[0.08em] text-black transition hover:bg-[#f59e0b] disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {isSubmitting ? "Submitting Request..." : "Submit Rental Request"}
-      </button>
     </form>
   );
 };
