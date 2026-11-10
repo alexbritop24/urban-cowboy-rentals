@@ -248,10 +248,10 @@ export default function AgreementPage() {
         >
           <button
             type="button"
-            onClick={() => navigate("/admin")}
+            onClick={() => navigate(`/admin?request=${encodeURIComponent(agreement.rental_request_id)}`)}
             className="document-no-print mb-8 rounded-xl border border-yellow-500/30 px-5 py-3 font-bold text-[#fff7ed] transition hover:border-yellow-500/60 hover:bg-yellow-500/10"
           >
-            ← Back to Dashboard
+            ← Back to rental request
           </button>
 
           <section className="document-no-print mb-8 rounded-3xl border border-yellow-500/10 bg-[#15110d] p-6">

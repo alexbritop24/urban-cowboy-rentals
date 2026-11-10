@@ -6,9 +6,10 @@ import Footer from "./Footer";
 interface MainLayoutProps {
   children: ReactNode;
   showNavbar?: boolean;
+  showFooter?: boolean;
 }
 
-const MainLayout = ({ children, showNavbar = true }: MainLayoutProps) => {
+const MainLayout = ({ children, showNavbar = true, showFooter = true }: MainLayoutProps) => {
   return (
     <div className="relative min-h-screen overflow-hidden">
       <div className="grain-overlay" />
@@ -23,9 +24,11 @@ const MainLayout = ({ children, showNavbar = true }: MainLayoutProps) => {
 
       <main className={showNavbar ? "pt-24" : undefined}>{children}</main>
 
-      <div className="document-no-print">
-        <Footer />
-      </div>
+      {showFooter && (
+        <div className="document-no-print">
+          <Footer />
+        </div>
+      )}
     </div>
   );
 };
