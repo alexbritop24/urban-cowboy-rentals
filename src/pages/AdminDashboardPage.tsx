@@ -1,3 +1,4 @@
+import { postAutomationWebhook } from "../services/automationWebhookService";
 import EquipmentPricing from "../components/admin/EquipmentPricing";
 import CustomerDirectory from "../components/admin/CustomerDirectory";
 import { operationalDashboardRecords } from "../utils/dashboardRecords";
@@ -319,39 +320,15 @@ const AdminDashboardPage = () => {
   const newRequestCount = operationalRequests.filter((item) => (item.status || "new") === "new").length;
 
   const createAutomationLog = async (
-  request: RentalRequest,
-  eventType: string,
-  message: string,
-  channel = "email"
-) => {
-  const { error } = await supabase.from("automation_logs").insert({
-    rental_request_id: request.id,
-    event_type: eventType,
-    channel,
-    status: "success",
-    message,
-  });
+    request: RentalRequest,
+    eventType: string,
+    message: string,
+    channel = "email"
+  ) => {
+    let status = "accepted";
 
-  if (error) {
-    console.error("CREATE AUTOMATION LOG ERROR:", error);
-    setAdminNotice(
-      "The request was updated, but the automation log could not be created."
-    );
-    return;
-  }
-
-  if (!automationWebhookUrl) {
-    console.warn("Missing VITE_N8N_AUTOMATION_WEBHOOK_URL.");
-    return;
-  }
-
-  try {
-    await fetch(automationWebhookUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    try {
+      await postAutomationWebhook(automationWebhookUrl, {
         rental_request_id: request.id,
         event_type: eventType,
         channel,
@@ -370,12 +347,32 @@ const AdminDashboardPage = () => {
         deposit_status: request.deposit_status,
         delivery_status: request.delivery_status,
         payment_link: request.payment_link,
-      }),
+      });
+    } catch (error) {
+      console.error("AUTOMATION WEBHOOK ERROR:", error);
+      status = "dispatch_failed";
+    }
+
+    const { error } = await supabase.from("automation_logs").insert({
+      rental_request_id: request.id,
+      event_type: eventType,
+      channel,
+      status,
+      message: status === "accepted"
+        ? "The automation webhook accepted this event. Delivery has not been confirmed."
+        : "The dashboard could not confirm webhook acceptance. Check n8n before retrying.",
     });
-  } catch (webhookError) {
-    console.error("N8N WEBHOOK ERROR:", webhookError);
-  }
-};
+
+    if (error) {
+      console.error("CREATE AUTOMATION LOG ERROR:", error);
+    }
+
+    if (status === "dispatch_failed") {
+      setAdminNotice("The request was updated, but the dashboard could not confirm notification dispatch. Check with Alex before retrying.");
+    } else if (error) {
+      setAdminNotice("The automation webhook accepted the event, but the dashboard could not save its log.");
+    }
+  };
 
 const hasDateConflict = (
   currentRequestId: string,

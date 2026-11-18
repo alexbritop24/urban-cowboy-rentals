@@ -1,3 +1,4 @@
+import { postAutomationWebhook } from "../../services/automationWebhookService";
 import RentalRate from "../equipment/RentalRate";
 import { CalendarDays, ChevronDown, Package, UserRound } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
@@ -136,25 +137,6 @@ export const RentalRequestForm = ({ onCreated }: { onCreated?: (id: string) => P
     }));
   };
 
-  const notifyN8n = (bookingRequest: BookingRequest) => {
-    const webhookUrl = import.meta.env.VITE_N8N_RENTAL_REQUEST_WEBHOOK;
-
-    if (!webhookUrl) {
-      console.warn("N8N webhook URL missing.");
-      return;
-    }
-
-    fetch(webhookUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(bookingRequest),
-    }).catch((error) => {
-      console.error("N8N WEBHOOK ERROR:", error);
-    });
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -261,7 +243,8 @@ export const RentalRequestForm = ({ onCreated }: { onCreated?: (id: string) => P
         return;
       }
 
-      notifyN8n(bookingRequest);
+      void postAutomationWebhook(import.meta.env.VITE_N8N_RENTAL_REQUEST_WEBHOOK, bookingRequest)
+        .catch((error) => console.error("RENTAL REQUEST WEBHOOK ERROR:", error));
 
       setIsSubmitted(true);
     } catch (error) {
