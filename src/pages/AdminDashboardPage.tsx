@@ -6,6 +6,7 @@ import AutomationLogs from "../components/admin/AutomationLogs";
 import AdminRentalRequestItemsEditor from "../components/admin/AdminRentalRequestItemsEditor";
 import RentalQuoteDraft from "../components/admin/RentalQuoteDraft";
 import RentalRequestQueue from "../components/admin/RentalRequestQueue";
+import { RentalRequestForm } from "../components/forms/BookingForm";
 import RentalApprovalChecklist from "../components/approval/RentalApprovalChecklist";
 import RentalDocumentWorkflowSection from "../components/documents/RentalDocumentWorkflowSection";
 import { rentalDateRangesOverlapInclusive } from "../domain/availability/rentalAvailability";
@@ -118,6 +119,7 @@ const AdminDashboardPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const requestedId = searchParams.get("request");
+  const isCreating = requestedId === "new";
   const workspaceHeading = useRef<HTMLHeadingElement>(null);
   const previousRequestedId = useRef(requestedId);
 
@@ -689,7 +691,7 @@ const hasDateConflict = (
                   Urban Cowboy Rentals · Staff workspace
                 </p>
                 <h1 ref={workspaceHeading} tabIndex={-1} className="mt-2 text-3xl font-bold tracking-tight text-[#fff7ed] outline-none sm:text-4xl">
-                  {requestedId ? "Rental request" : "Rentals"}
+                  {isCreating ? "New rental request" : requestedId ? "Rental request" : "Rentals"}
                 </h1>
                 {!requestedId && (
                   <p className="mt-2 text-sm text-[#d3c6b8]">Review incoming requests and open one to see the rental details.</p>
@@ -712,6 +714,14 @@ const hasDateConflict = (
               </Link>
             )}
 
+            {isCreating ? (
+              <div className="mx-auto mt-5 max-w-3xl">
+                <RentalRequestForm onCreated={async (id) => {
+                  await fetchRequests();
+                  navigate(`/admin?request=${encodeURIComponent(id)}`, { replace: true });
+                }} />
+              </div>
+            ) : (
             <div className="mt-4 rounded-2xl border border-[#40362c] bg-[#14120f] p-4 sm:p-6">
               {adminNotice && (
                 <div role="status" className="mb-5 rounded-xl border border-yellow-500/25 bg-yellow-500/10 px-4 py-3 text-sm text-[#fff7ed]">
@@ -729,6 +739,9 @@ const hasDateConflict = (
                         </p>
                       )}
                     </div>
+                    <Link to="/admin?request=new" className="rounded-lg bg-[#f4b000] px-4 py-2 text-sm font-semibold text-[#201b14] hover:bg-[#ffd06b]">
+                      New rental request
+                    </Link>
                     {requestLoadState === "ready" && (
                       <button
                         type="button"
@@ -1406,6 +1419,8 @@ const hasDateConflict = (
                 <RentalRequestQueue requests={filteredRequests} />
               )}
             </div>
+
+            )}
 
             {!requestedId && (
               <details className="mt-5 rounded-2xl border border-[#40362c] bg-[#14120f] p-4">

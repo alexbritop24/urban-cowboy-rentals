@@ -3,7 +3,7 @@ import { useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { getBookableEquipment } from "../../data/equipmentSelectors";
-import { publicSupabase } from "../../lib/supabase";
+import { publicSupabase, supabase } from "../../lib/supabase";
 import { mountainBookingDateTimeToIso } from "../../utils/bookingDateTime";
 import BookingSuccess from "./BookingSuccess";
 import MultiItemBookingForm from "./MultiItemBookingForm";
@@ -36,7 +36,7 @@ const selectIconClass = "pointer-events-none absolute right-3 top-1/2 -translate
 const sectionTitleClass = "flex items-center gap-2 text-lg font-bold";
 const gridClass = "grid grid-cols-1 gap-4 sm:grid-cols-2";
 
-const LegacyBookingForm = () => {
+export const RentalRequestForm = ({ onCreated }: { onCreated?: (id: string) => Promise<void> }) => {
   const [searchParams] = useSearchParams();
 
   const equipmentQuery = searchParams.get("equipment");
@@ -58,6 +58,8 @@ const LegacyBookingForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingError, setBookingError] = useState("");
   const submitting = useRef(false);
+  const submissionId = useRef<string | null>(null);
+  const [staffSource, setStaffSource] = useState("phone");
   const selectedEquipment = activeEquipment.find((item) => item.name === formData.equipmentRequested);
 
   const normalizePhoneNumber = (phone: string) => {
@@ -202,7 +204,7 @@ const LegacyBookingForm = () => {
         eventType: "new_request",
       };
 
-      const { error } = await publicSupabase.from("rental_requests").insert({
+      const payload = {
         customer_type: bookingRequest.customerType,
         business_name: bookingRequest.businessName,
         full_name: bookingRequest.fullName,
@@ -226,7 +228,25 @@ const LegacyBookingForm = () => {
         delivery_status: "not_scheduled",
         availability_status: "pending_review",
         availability_notes: null,
-      });
+      };
+
+      if (onCreated) {
+        submissionId.current ??= crypto.randomUUID();
+        const { data, error } = await supabase.rpc("create_staff_rental_request", {
+          request_id: submissionId.current,
+          details: { ...payload, source: staffSource, agreement_accepted: false },
+        });
+        if (error || typeof data !== "string") {
+          setBookingError(error?.code === "42883" || error?.code === "PGRST202"
+            ? "Staff entry is being set up. Please try again after the update is installed."
+            : "We couldn’t save your request. Your details are still here. Please try again.");
+          return;
+        }
+        await onCreated(data);
+        return;
+      }
+
+      const { error } = await publicSupabase.from("rental_requests").insert(payload);
 
       if (error) {
         console.error("SUPABASE INSERT ERROR:", error);
@@ -258,6 +278,15 @@ const LegacyBookingForm = () => {
       className="overflow-hidden rounded-3xl border border-white/15 bg-[#fcfaf6] text-[#201b14] shadow-2xl shadow-black/25 [color-scheme:light]"
     >
       <div className="divide-y divide-[#e4dbcd] px-5 sm:px-8">
+        {onCreated && (
+          <div className="py-6">
+            <label htmlFor="staff-request-source" className={labelClass}>How did the customer contact you?</label>
+            <select id="staff-request-source" value={staffSource} onChange={(event) => setStaffSource(event.target.value)} className={selectClass}>
+              <option value="phone">Phone</option>
+              <option value="walk_in">Walk-in</option>
+            </select>
+          </div>
+        )}
         <section aria-labelledby="booking-equipment-heading" className="space-y-4 py-6">
           <h2 id="booking-equipment-heading" className={sectionTitleClass}>
             <Package size={19} aria-hidden="true" /> Equipment
@@ -462,7 +491,7 @@ const LegacyBookingForm = () => {
       </div>
 
       <div className="space-y-4 border-t border-[#e4dbcd] bg-[#f4efe5] px-5 py-6 sm:px-8">
-        <label htmlFor="rental-acknowledgment" className="flex cursor-pointer items-start gap-3 text-sm leading-relaxed text-[#40372a]">
+        {!onCreated && <label htmlFor="rental-acknowledgment" className="flex cursor-pointer items-start gap-3 text-sm leading-relaxed text-[#40372a]">
           <input
             type="checkbox"
             id="rental-acknowledgment"
@@ -477,7 +506,7 @@ const LegacyBookingForm = () => {
             payment, deposit, pickup, and delivery details must be confirmed by
             Urban Cowboy Rentals before the rental is approved.
           </span>
-        </label>
+        </label>}
 
         {bookingError && (
           <p role="alert" className="rounded-xl border border-[#e5b6ad] bg-[#fff0ec] px-4 py-3 text-sm font-semibold text-[#8a241b]">
@@ -490,7 +519,7 @@ const LegacyBookingForm = () => {
           disabled={isSubmitting}
           className="min-h-12 w-full rounded-xl bg-[#f4b000] px-6 py-3 font-bold text-[#201b14] transition hover:bg-[#e9a600] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#805300] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
-          {isSubmitting ? "Submitting request…" : "Submit rental request"}
+          {isSubmitting ? "Saving request…" : onCreated ? "Create request" : "Submit rental request"}
         </button>
       </div>
     </form>
@@ -501,7 +530,7 @@ const BookingForm = () =>
   applicationFeatureFlags.multiItemRentalRequests ? (
     <MultiItemBookingForm />
   ) : (
-    <LegacyBookingForm />
+    <RentalRequestForm />
   );
 
 export default BookingForm;
