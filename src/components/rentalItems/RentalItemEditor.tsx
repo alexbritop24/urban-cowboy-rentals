@@ -39,7 +39,7 @@ export default function RentalItemEditor({
   const rateError = getIssue(issues, ".dailyRate");
 
   const updateEquipment = (equipmentId: string) => {
-    onChange(selectRentalRequestDraftEquipment(item, equipmentId));
+    onChange(selectRentalRequestDraftEquipment(item, equipmentId, equipmentOptions));
   };
 
   return (

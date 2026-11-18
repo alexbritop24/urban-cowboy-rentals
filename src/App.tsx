@@ -1,3 +1,6 @@
+import CustomerAccountPage from "./pages/CustomerAccountPage";
+import { useEffect } from "react";
+import { loadRentalPrices } from "./hooks/useRentalPrices";
 import { AnimatePresence } from "framer-motion";
 import { Route, Routes, useLocation } from "react-router-dom";
 
@@ -17,6 +20,12 @@ import RentalRequirementsPage from "./pages/RentalRequirementsPage";
 
 function App() {
   const location = useLocation();
+  useEffect(() => {
+    void loadRentalPrices();
+    const refresh = () => { void loadRentalPrices(); };
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, []);
 
   return (
     <AnimatePresence mode="wait">
@@ -29,6 +38,7 @@ function App() {
         <Route path="/book" element={<BookingPage />} />
         <Route path="/policies" element={<PoliciesPage />} />
         <Route path="/rental-requirements" element={<RentalRequirementsPage />} />
+        <Route path="/account" element={<CustomerAccountPage />} />
         <Route path="/admin-login" element={<AdminLoginPage />} />
 
         <Route

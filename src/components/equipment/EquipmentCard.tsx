@@ -1,3 +1,4 @@
+import RentalRate from "./RentalRate";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 
@@ -61,7 +62,7 @@ const EquipmentCard = ({ equipment }: EquipmentCardProps) => {
           </p>
 
           <p className="mt-2 text-4xl font-black text-[#f4b000]">
-            ${equipment.startingPrice}
+            <RentalRate equipmentId={equipment.id} />
           </p>
         </div>
 

@@ -1,3 +1,4 @@
+import type { EquipmentItem } from "../types/equipment";
 import {
   getBookableEquipment,
   getEquipmentDailyRate,
@@ -70,9 +71,10 @@ export const addRentalRequestDraftItem = (
 
 export const selectRentalRequestDraftEquipment = (
   item: RentalRequestItemDraft,
-  equipmentId: string
+  equipmentId: string,
+  availableEquipment: readonly EquipmentItem[] = equipmentOptions
 ): RentalRequestItemDraft => {
-  const equipment = equipmentOptions.find((option) => option.id === equipmentId);
+  const equipment = availableEquipment.find((option) => option.id === equipmentId);
 
   return {
     ...item,

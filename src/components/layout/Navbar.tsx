@@ -7,6 +7,7 @@ import logo from "../../assets/urban-cowboy-logo.jpeg";
 
 const links = [
   { label: "Home", href: "/" },
+  { label: "My account", href: "/account" },
   { label: "Equipment", href: "/equipment" },
   { label: "About", href: "/about" },
   { label: "Contact", href: "/contact" },
@@ -42,7 +43,7 @@ const Navbar = () => {
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-10 md:flex">
+          <nav className="hidden items-center gap-5 xl:flex">
             {links.map((link) => (
               <NavLink
                 key={link.href}
@@ -71,7 +72,7 @@ const Navbar = () => {
 
           <Link
             to="/book"
-            className="hidden rounded-full bg-[#f4b000] px-7 py-4 text-sm font-black uppercase tracking-[0.14em] text-black transition duration-300 hover:scale-[1.03] hover:bg-[#f59e0b] hover:shadow-2xl hover:shadow-yellow-500/20 md:block"
+            className="hidden rounded-full bg-[#f4b000] px-7 py-4 text-sm font-black uppercase tracking-[0.14em] text-black transition duration-300 hover:scale-[1.03] hover:bg-[#f59e0b] hover:shadow-2xl hover:shadow-yellow-500/20 xl:block"
           >
             Request Rental
           </Link>
@@ -79,7 +80,7 @@ const Navbar = () => {
           <button
             type="button"
             onClick={() => setIsOpen((prev) => !prev)}
-            className="flex h-12 w-12 items-center justify-center rounded-full border border-yellow-500/10 bg-[#11100d] text-[#fff7ed] md:hidden"
+            className="flex h-12 w-12 items-center justify-center rounded-full border border-yellow-500/10 bg-[#11100d] text-[#fff7ed] xl:hidden"
             aria-label="Toggle menu"
           >
             {isOpen ? <X size={22} /> : <Menu size={22} />}
@@ -94,7 +95,7 @@ const Navbar = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -18 }}
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed inset-0 z-40 bg-[#050402]/95 px-6 pt-32 backdrop-blur-2xl md:hidden"
+            className="fixed inset-0 z-40 bg-[#050402]/95 overflow-y-auto px-6 pb-8 pt-32 backdrop-blur-2xl xl:hidden"
           >
             <div className="gold-line mb-10" />
 

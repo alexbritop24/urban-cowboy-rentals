@@ -1,3 +1,5 @@
+import { useRentalPrices } from "../hooks/useRentalPrices";
+import RentalRate from "../components/equipment/RentalRate";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, CheckCircle, Phone } from "lucide-react";
 import { motion } from "framer-motion";
@@ -16,6 +18,8 @@ const EquipmentDetailPage = () => {
   const { id } = useParams();
 
   const equipment = getEquipmentById(id);
+  const pricing = useRentalPrices();
+  const liveRates = pricing.rows.find(item => item.equipment_id === id)?.rates;
 
   if (!equipment) {
     return (
@@ -104,7 +108,7 @@ const EquipmentDetailPage = () => {
                   </p>
 
                   <p className="mt-4 text-4xl font-black text-[#fff7ed]">
-                    ${equipment.startingPrice}
+                    <RentalRate equipmentId={equipment.id} />
                   </p>
                 </div>
               </div>
@@ -139,7 +143,7 @@ const EquipmentDetailPage = () => {
                   </p>
 
                   <p className="mt-3 text-5xl font-black text-[#f4b000]">
-                    ${equipment.startingPrice}
+                    <RentalRate equipmentId={equipment.id} />
                   </p>
 
                   <p className="mt-2 text-sm text-[#b8a99a]">
@@ -246,7 +250,7 @@ const EquipmentDetailPage = () => {
             </h2>
           </div>
 
-          <PricingTable rates={equipment.rates} />
+          {liveRates ? <PricingTable rates={liveRates} /> : <p className="text-[#fff7ed]">{pricing.loading ? "Loading rates…" : "Contact us for rental pricing."}</p>}
         </div>
       </section>
 

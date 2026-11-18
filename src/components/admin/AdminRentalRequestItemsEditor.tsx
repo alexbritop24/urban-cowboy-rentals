@@ -1,3 +1,4 @@
+import { useRentalPrices } from "../../hooks/useRentalPrices";
 import { useEffect, useState } from "react";
 
 import {
@@ -30,7 +31,7 @@ interface AdminRentalRequestItemsEditorProps {
   onSaved: () => void;
 }
 
-const equipmentOptions = getRentalRequestEquipmentOptions();
+const catalogOptions = getRentalRequestEquipmentOptions();
 
 export default function AdminRentalRequestItemsEditor({
   rentalRequestId,
@@ -43,6 +44,8 @@ export default function AdminRentalRequestItemsEditor({
   onSaved,
 }: AdminRentalRequestItemsEditorProps) {
   const statusAllowsEditing = isRentalRequestStatusEditable(requestStatus);
+  const prices = useRentalPrices();
+  const equipmentOptions = catalogOptions.map(equipment => ({ ...equipment, dailyRate: prices.rows.find(row => row.equipment_id === equipment.id)?.daily_rate ?? 0 }));
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);

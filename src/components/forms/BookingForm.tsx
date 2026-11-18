@@ -1,3 +1,4 @@
+import RentalRate from "../equipment/RentalRate";
 import { CalendarDays, ChevronDown, Package, UserRound } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -246,7 +247,13 @@ export const RentalRequestForm = ({ onCreated }: { onCreated?: (id: string) => P
         return;
       }
 
-      const { error } = await publicSupabase.from("rental_requests").insert(payload);
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      const session = sessionData.session;
+      const signedPayload = { ...payload, customer_user_id: session?.user.id };
+      const { error } = session
+        ? await supabase.from("rental_requests").insert(signedPayload)
+        : await publicSupabase.from("rental_requests").insert(payload);
 
       if (error) {
         console.error("SUPABASE INSERT ERROR:", error);
@@ -313,7 +320,7 @@ export const RentalRequestForm = ({ onCreated }: { onCreated?: (id: string) => P
           {selectedEquipment && (
             <div aria-live="polite" className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-[#fff0c9] px-4 py-3 text-sm">
               <p className="font-semibold">
-                Starting rate <strong className="ml-1 text-lg">${selectedEquipment.startingPrice.toLocaleString("en-US")}</strong>
+                Starting rate <strong className="ml-1 text-lg"><RentalRate equipmentId={selectedEquipment.id} /></strong>
               </p>
               <p className="text-[#51432d]">We’ll confirm the final price and availability after review.</p>
             </div>

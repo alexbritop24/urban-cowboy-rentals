@@ -1,3 +1,5 @@
+import EquipmentPricing from "../components/admin/EquipmentPricing";
+import CustomerDirectory from "../components/admin/CustomerDirectory";
 import { operationalDashboardRecords } from "../utils/dashboardRecords";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -25,6 +27,8 @@ import {
 
 interface RentalRequest {
   is_test_data?: boolean;
+  customer_id?: string | null;
+  customer_user_id?: string | null;
   id: string;
   created_at: string;
   full_name: string;
@@ -120,6 +124,7 @@ const AdminDashboardPage = () => {
   const [searchParams] = useSearchParams();
   const requestedId = searchParams.get("request");
   const isCreating = requestedId === "new";
+  const view = searchParams.get("view");
   const workspaceHeading = useRef<HTMLHeadingElement>(null);
   const previousRequestedId = useRef(requestedId);
 
@@ -708,6 +713,14 @@ const hasDateConflict = (
               </button>
             </header>
 
+            <nav aria-label="Staff workspace" className="mt-5 flex flex-wrap gap-3 text-sm font-semibold text-[#ffd98a]">
+              <Link to="/admin" className="rounded-lg border border-[#514337] px-4 py-2">Rentals</Link>
+              <Link to="/admin?view=customers" className="rounded-lg border border-[#514337] px-4 py-2">Customers</Link>
+              <Link to="/admin?view=pricing" className="rounded-lg border border-[#514337] px-4 py-2">Equipment and pricing</Link>
+            </nav>
+            {view === "pricing" ? <EquipmentPricing /> : view === "customers" ? (
+              requestLoadState === "loading" ? <p role="status" className="mt-5 text-[#fff7ed]">Loading customers…</p> : requestLoadError ? <div role="alert" className="mt-5 text-[#fff7ed]">{requestLoadError}<button className="ml-3 underline" onClick={() => void fetchRequests()}>Retry</button></div> : <CustomerDirectory requests={operationalRequests} onChanged={() => void fetchRequests()} />
+            ) : <>
             {requestedId && (
               <Link to="/admin" className="mt-5 inline-flex rounded-md px-1 py-2 text-sm font-semibold text-[#ffd98a] hover:underline">
                 ← Back to requests
@@ -1430,6 +1443,7 @@ const hasDateConflict = (
                 </div>
               </details>
             )}
+            </>}
           </div>
         </section>
       </MainLayout>

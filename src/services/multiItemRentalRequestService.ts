@@ -26,7 +26,10 @@ export const adminRentalRequestItemService = createRentalRequestItemService(
 export const submitPublicMultiItemRentalRequest = async (
   submission: RentalRequestSubmission
 ) => {
-  const result = await publicRentalRequestWorkflowService.createRequest(submission);
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  const workflow = session ? adminRentalRequestWorkflowService : publicRentalRequestWorkflowService;
+  const result = await workflow.createRequest(submission);
   const webhookUrl = import.meta.env.VITE_N8N_RENTAL_REQUEST_WEBHOOK;
 
   if (webhookUrl) {
