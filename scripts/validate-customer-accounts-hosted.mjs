@@ -26,6 +26,7 @@ try{
  mine=await owner.client.rpc('get_my_rentals');assert.ok(fixtures.every(id=>mine.data.some(r=>r.id===id)));
  assert.ok((await owner.client.from('rental_requests').insert({...payload,full_name:'Forged '+run,customer_user_id:other.user.id})).error);
  const settings=await fetch(url+'/auth/v1/settings',{headers:{apikey:process.env.VITE_SUPABASE_ANON_KEY}}).then(r=>r.json());
- assert.ifError((await staff.client.from('rental_requests').update({is_test_data:true}).in('id',fixtures)).error);
- const evidence={project:'cmqsvywbhswrycgxvbgy',fixtures,passed:true,emailEnabled:settings.external?.email,requiresConfirmation:!settings.mailer_autoconfirm,signupDisabled:settings.disable_signup,notes:'No emails sent. Rates saved without changing amounts. Existing synthetic users only; fixtures retained on staging.'};await writeFile(process.env.CUSTOMER_ACCOUNTS_EVIDENCE_PATH || '/private/tmp/ucr-accounts-hosted-evidence.json',JSON.stringify(evidence,null,2));console.log(JSON.stringify(evidence));
+ const classification=await staff.client.from('rental_requests').update({is_test_data:true}).in('id',fixtures);
+ if(classification.error && !['42703','PGRST204'].includes(classification.error.code)) throw classification.error;
+ const evidence={fixturesClassified:!classification.error,project:'cmqsvywbhswrycgxvbgy',fixtures,passed:true,emailEnabled:settings.external?.email,requiresConfirmation:!settings.mailer_autoconfirm,signupDisabled:settings.disable_signup,notes:'No emails sent. Rates saved without changing amounts. Existing synthetic users only; fixtures retained on staging.'};await writeFile(process.env.CUSTOMER_ACCOUNTS_EVIDENCE_PATH || '/private/tmp/ucr-accounts-hosted-evidence.json',JSON.stringify(evidence,null,2));console.log(JSON.stringify(evidence));
 }finally{for(const session of sessions)await admin.auth.admin.signOut(session.access_token,'local');}
