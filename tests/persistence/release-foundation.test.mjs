@@ -723,4 +723,15 @@ test("editable rates preserve snapshots and customer accounts isolate rental his
   await setRole(database,'authenticated',{sub:owner});
   const multi = (await createRequest(database,{...requestPayload,email:'signed-multi@example.test'})).rows[0].id;
   assert.ok((await database.query('select public.get_my_rentals() as rentals')).rows[0].rentals.some(rental=>rental.id===multi));
+  await resetRole(database);
+  const reconciliation=await readFile(new URL('../../supabase/migrations/20261117000300_reconcile_published_bobcat_rates.sql',import.meta.url),'utf8');
+  // A later custom staff price survives the legacy reconciliation.
+  await database.exec(reconciliation);
+  assert.equal(Number((await database.query("select daily_rate from private.rental_equipment_catalog where equipment_id='bobcat-t550-skid-steer'")).rows[0].daily_rate),299.5);
+  await database.exec("update private.rental_equipment_catalog set daily_rate=120,rate_options=jsonb_set(rate_options,'{0,price}','120') where equipment_id='bobcat-t550-skid-steer'");
+  await database.exec(reconciliation);
+  await database.exec(reconciliation);
+  const reconciled=(await database.query("select * from public.get_rental_rates() where equipment_id='bobcat-t550-skid-steer'")).rows[0];
+  assert.equal(Number(reconciled.daily_rate),280);assert.equal(Number(reconciled.rates[0].price),280);
+  assert.equal(Number((await database.query('select daily_rate from public.rental_request_items where rental_request_id=$1',[multi])).rows[0].daily_rate),299.5);
 });

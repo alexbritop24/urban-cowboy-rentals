@@ -1,6 +1,6 @@
 # Pricing, customer history, and accounts
 
-Implemented on `codex/pricing-customers-accounts`. Production has not been changed by this phase.
+Implemented in PR #23 and deployed to production on November 18, 2026. See the deployment record below for verification results and remaining email checks.
 
 ## Jason's workflow
 
@@ -38,3 +38,11 @@ node --env-file=/path/to/staging-validation.env scripts/validate-customer-accoun
 ```
 
 The script requires the expected validation project, service key, existing synthetic-user tokens, and `RELEASE_VALIDATION_ALLOW_MUTATIONS=true`. It refreshes those synthetic sessions without sending email, creates two staging requests and leaves them for inspection. It marks them as test data when the staging schema supports that column; the current staging project lacks it, so the two fixtures remain visible there. No unrelated classification migration was applied. It writes evidence to `CUSTOMER_ACCOUNTS_EVIDENCE_PATH`, defaulting to `/private/tmp/ucr-accounts-hosted-evidence.json`. Never run against production.
+
+## Production deployment, November 18, 2026
+
+- PR #23 merged as `390809140b34311d683a9d85c6f4fd95e7270997`. Vercel production deployment `9yGpqGN2Q8wRbXCreMWSL9G9XQzC` reported success.
+- Applied and recorded migration `20261117000200` in production. Transactional digest checks preserved all existing request details (excluding contact metadata/update timestamps), request items, agreements/items, and invoices/items. All 9 existing requests have contact IDs; none were automatically assigned account ownership. Existing 18 agreements and 2 invoices remained unchanged.
+- Live desktop/mobile browser checks passed for the account page, noindex metadata, mobile sizing, the guest booking form, and staff login protection, with no JavaScript errors. Signed-in staff/account scenarios remain covered by the earlier staging/browser tests; no real customer history was linked during deployment.
+- Live API verification exposed missed September Bobcat rate migrations: the production catalog still held August seed rates of $120/$275, while the published source catalog listed $280/$280. Migration `20261117000300` reconciles only those known legacy daily values and their displayed daily tiers. A focused regression test verifies repeatability, preservation of later custom prices, and unchanged saved item prices. The operational production wrapper also checks the old timestamps/missing migration history and verifies all rental/document records remain byte-for-byte unchanged.
+- Production Auth configuration and actual confirmation/recovery email delivery remain unverified. The existing CLI credential was not available to the separate configuration lookup, and computer-use browser access timed out. Deployment does not establish that recovery email delivery has been tested.
