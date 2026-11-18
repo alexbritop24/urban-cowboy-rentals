@@ -597,3 +597,57 @@ test("guest requests save the customer type without widening staff access", asyn
     { customer_type: "individual", business_name: null },
   ]);
 });
+
+test("staff intake enforces staff access, preserves consent, and retries without duplicates", async (t) => {
+  const database = await createDatabase();
+  t.after(() => database.close());
+  for (const index of migrationUrls.keys()) await applyMigration(database, index);
+  const migration = await readFile(new URL(
+    "../../supabase/migrations/20261117000100_staff_rental_request_intake.sql", import.meta.url
+  ), "utf8");
+  await database.exec(migration);
+  await database.exec(migration);
+  const payload = {
+    customer_type: "business", business_name: "  Mountain Company  ", full_name: "  Staff Contact  ",
+    phone: "(801) 555-0100", email: "intake@example.test", source: "phone",
+    equipment_requested: "2024 Bobcat T550 Track Loader", fulfillment_type: "Pickup",
+    pickup_date: "2027-02-03T16:00:00.000Z", return_date: "2027-02-04T16:00:00.000Z",
+    agreement_accepted: true, status: "confirmed", payment_status: "paid", quote_amount: 999,
+  };
+  const id = "a1111111-1111-4111-8111-111111111111";
+  const create = (requestId = id, details = payload) => database.query(
+    "select public.create_staff_rental_request($1, $2::jsonb) as id", [requestId, JSON.stringify(details)]
+  );
+  await setRole(database, "anon");
+  await expectDatabaseError(() => create(), "permission denied");
+  await setRole(database, "authenticated", { user_metadata: { role: "staff" } });
+  await expectDatabaseError(() => create(), "Staff access");
+  await setRole(database, "authenticated", { app_metadata: { role: "staff" } });
+  assert.equal((await create()).rows[0].id, id);
+  assert.equal((await create()).rows[0].id, id);
+  const { rows } = await database.query("select * from public.rental_requests where id = $1", [id]);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].source, "phone");
+  assert.equal(rows[0].business_name, "Mountain Company");
+  assert.equal(rows[0].full_name, "Staff Contact");
+  assert.equal(rows[0].phone, "8015550100");
+  assert.equal(rows[0].rental_start_date.toISOString().slice(0, 10), "2027-02-03");
+  assert.equal(rows[0].agreement_accepted, false);
+  assert.equal(rows[0].status, "new");
+  assert.equal(rows[0].payment_status, "unpaid");
+  assert.equal(rows[0].quote_amount, null);
+  const individualId = "b1111111-1111-4111-8111-111111111111";
+  await create(individualId, { ...payload, customer_type: "individual", source: "walk_in" });
+  const individual = await database.query("select business_name, source from public.rental_requests where id = $1", [individualId]);
+  assert.deepEqual(individual.rows, [{ business_name: null, source: "walk_in" }]);
+  for (const invalid of [
+    { business_name: "" }, { customer_type: "unknown" }, { source: "website" },
+    { full_name: "" }, { email: "invalid" }, { fulfillment_type: "unknown" },
+    { equipment_requested: "Invented equipment" }, { return_date: payload.pickup_date },
+  ]) {
+    await expectDatabaseError(() => create("c1111111-1111-4111-8111-111111111111", { ...payload, ...invalid }), "required|Select available");
+  }
+  await expectDatabaseError(() => database.query(
+    "insert into public.rental_requests (full_name,phone,email,equipment_requested) values ('Direct','8015550100','direct@example.test','Test')"
+  ), "permission denied");
+});
