@@ -1,9 +1,10 @@
 import { operationalDashboardRecords } from "../utils/dashboardRecords";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import AutomationLogs from "../components/admin/AutomationLogs";
 import AdminRentalRequestItemsEditor from "../components/admin/AdminRentalRequestItemsEditor";
+import RentalRequestQueue from "../components/admin/RentalRequestQueue";
 import RentalApprovalChecklist from "../components/approval/RentalApprovalChecklist";
 import RentalDocumentWorkflowSection from "../components/documents/RentalDocumentWorkflowSection";
 import { rentalDateRangesOverlapInclusive } from "../domain/availability/rentalAvailability";
@@ -13,6 +14,7 @@ import PageTransition from "../components/ui/PageTransition";
 import { supabase } from "../lib/supabase";
 import { createRentalAgreement } from "../services/agreementService";
 import { applicationFeatureFlags } from "../config/featureFlags";
+import { formatDocumentDate } from "../utils/documentPresentation";
 import { getCurrentStaffAuthorization } from "../services/authorizationService";
 import {
   createAdminRequestLoader,
@@ -100,6 +102,8 @@ const deliveryStatusOptions = [
   "returned",
 ];
 
+const queueControlClass = "min-w-0 rounded-lg border border-[#514337] bg-[#1c1915] px-3 py-2.5 text-sm text-[#fff7ed] [color-scheme:dark] placeholder:text-[#bfb0a1] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f4b000]";
+
 const formatLabel = (value: string) => value.replaceAll("_", " ");
 
 const automationWebhookUrl = import.meta.env.VITE_N8N_AUTOMATION_WEBHOOK_URL;
@@ -111,6 +115,16 @@ const requestLoadErrorMessage =
 
 const AdminDashboardPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const requestedId = searchParams.get("request");
+  const workspaceHeading = useRef<HTMLHeadingElement>(null);
+  const previousRequestedId = useRef(requestedId);
+
+  useEffect(() => {
+    if (previousRequestedId.current === requestedId) return;
+    previousRequestedId.current = requestedId;
+    workspaceHeading.current?.focus();
+  }, [requestedId]);
 
   const [requests, setRequests] = useState<RentalRequest[]>([]);
   const [requestLoadState, setRequestLoadState] =
@@ -257,6 +271,8 @@ const AdminDashboardPage = () => {
   const testRequestIds = useMemo(() => requests.filter(request => request.is_test_data === true).map(request => request.id), [requests]);
   const operationalRequests = useMemo(() => operationalDashboardRecords(requests), [requests]);
 
+  const request = requestedId ? operationalRequests.find((item) => item.id === requestedId) : undefined;
+
   const filteredRequests = useMemo(() => {
     const normalizedSearchTerm = searchTerm.trim().toLowerCase();
 
@@ -278,7 +294,7 @@ const AdminDashboardPage = () => {
           .includes(normalizedSearchTerm);
 
       const matchesStatus =
-        statusFilter === "all" || request.status === statusFilter;
+        statusFilter === "all" || (request.status || "new") === statusFilter;
 
       const matchesPayment =
         paymentFilter === "all" ||
@@ -292,42 +308,7 @@ const AdminDashboardPage = () => {
     });
   }, [operationalRequests, searchTerm, statusFilter, paymentFilter, priorityFilter]);
 
-  const dashboardStats = useMemo(() => {
-    const activeRequests = operationalRequests.filter(
-      (request) =>
-        !["completed", "cancelled", "returned"].includes(request.status || "new")
-    );
-
-    const quoteSent = operationalRequests.filter(
-      (request) => request.status === "quote_sent"
-    );
-
-    const confirmed = operationalRequests.filter(
-      (request) => request.status === "confirmed"
-    );
-
-    const unpaid = operationalRequests.filter(
-      (request) => (request.payment_status || "unpaid") !== "paid"
-    );
-
-    const urgent = operationalRequests.filter(
-      (request) => (request.priority || "normal") === "urgent"
-    );
-
-    const totalQuoted = operationalRequests.reduce((sum, request) => {
-      return sum + (Number(request.quote_amount) || 0);
-    }, 0);
-
-    return {
-      total: operationalRequests.length,
-      active: activeRequests.length,
-      quoteSent: quoteSent.length,
-      confirmed: confirmed.length,
-      unpaid: unpaid.length,
-      urgent: urgent.length,
-      totalQuoted,
-    };
-  }, [operationalRequests]);
+  const newRequestCount = operationalRequests.filter((item) => (item.status || "new") === "new").length;
 
   const createAutomationLog = async (
   request: RentalRequest,
@@ -682,178 +663,98 @@ const hasDateConflict = (
         description="Internal rental request dashboard for Urban Cowboy Rentals."
       />
 
-      <MainLayout showNavbar={false}>
-        <section className="px-4 py-20 sm:px-6 lg:py-24">
-          <div className="mx-auto max-w-7xl">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+      <MainLayout showNavbar={false} showFooter={false}>
+        <section className="px-4 py-8 sm:px-6 sm:py-12">
+          <div className="mx-auto max-w-6xl">
+            <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4 border-b border-[#40362c] pb-5">
               <div>
-                <p className="text-sm font-black uppercase tracking-[0.35em] text-[#f4b000]">
-                  Admin Dashboard
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#f4b000]">
+                  Urban Cowboy Rentals · Staff workspace
                 </p>
-
-                <h1 className="mt-5 max-w-5xl text-4xl font-black tracking-tight text-[#fff7ed] sm:text-5xl md:text-7xl">
-                  Rental request command center.
+                <h1 ref={workspaceHeading} tabIndex={-1} className="mt-2 text-3xl font-bold tracking-tight text-[#fff7ed] outline-none sm:text-4xl">
+                  {requestedId ? "Rental request" : "Rentals"}
                 </h1>
-
-                <p className="mt-6 max-w-2xl text-base leading-relaxed text-[#b8a99a] sm:text-lg">
-                  Review incoming rental requests, customer details, dates,
-                  status, automation history, internal notes, assignments, and
-                  payment workflow.
-                </p>
+                {!requestedId && (
+                  <p className="mt-2 text-sm text-[#d3c6b8]">Review incoming requests and open one to see the rental details.</p>
+                )}
               </div>
 
               <button
                 type="button"
                 onClick={handleLogout}
                 disabled={isLoggingOut}
-                className="w-fit rounded-full border border-red-500/20 bg-red-500/10 px-6 py-4 text-sm font-black uppercase tracking-[0.1em] text-red-300 transition hover:border-red-500/50 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-lg border border-[#514337] px-4 py-2 text-sm font-semibold text-[#fff7ed] hover:bg-white/10 disabled:opacity-60"
               >
-                {isLoggingOut ? "Logging Out..." : "Logout"}
+                {isLoggingOut ? "Signing out…" : "Sign out"}
               </button>
-            </div>
+            </header>
 
-            <div className="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-[1.5rem] border border-yellow-500/10 bg-[#11100d]/90 p-5 shadow-xl shadow-black/20">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#8f8577]">
-                  Total Requests
-                </p>
-                <p className="mt-3 text-4xl font-black text-[#fff7ed]">
-                  {dashboardStats.total}
-                </p>
-              </div>
+            {requestedId && (
+              <Link to="/admin" className="mt-5 inline-flex rounded-md px-1 py-2 text-sm font-semibold text-[#ffd98a] hover:underline">
+                ← Back to requests
+              </Link>
+            )}
 
-              <div className="rounded-[1.5rem] border border-yellow-500/10 bg-[#11100d]/90 p-5 shadow-xl shadow-black/20">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#8f8577]">
-                  Active Rentals
-                </p>
-                <p className="mt-3 text-4xl font-black text-[#fff7ed]">
-                  {dashboardStats.active}
-                </p>
-              </div>
-
-              <div className="rounded-[1.5rem] border border-yellow-500/10 bg-[#11100d]/90 p-5 shadow-xl shadow-black/20">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#8f8577]">
-                  Payment Follow-Ups
-                </p>
-                <p className="mt-3 text-4xl font-black text-[#fff7ed]">
-                  {dashboardStats.unpaid}
-                </p>
-              </div>
-
-              <div className="rounded-[1.5rem] border border-yellow-500/10 bg-[#11100d]/90 p-5 shadow-xl shadow-black/20">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#8f8577]">
-                  Total Quoted
-                </p>
-                <p className="mt-3 text-4xl font-black text-[#fff7ed]">
-                  ${dashboardStats.totalQuoted.toLocaleString()}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              <div className="rounded-[1.5rem] border border-yellow-500/10 bg-black/30 p-5">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#8f8577]">
-                  Quotes Sent
-                </p>
-                <p className="mt-2 text-3xl font-black text-[#f4b000]">
-                  {dashboardStats.quoteSent}
-                </p>
-              </div>
-
-              <div className="rounded-[1.5rem] border border-yellow-500/10 bg-black/30 p-5">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#8f8577]">
-                  Confirmed
-                </p>
-                <p className="mt-2 text-3xl font-black text-green-300">
-                  {dashboardStats.confirmed}
-                </p>
-              </div>
-
-              <div className="rounded-[1.5rem] border border-yellow-500/10 bg-black/30 p-5">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#8f8577]">
-                  Urgent
-                </p>
-                <p className="mt-2 text-3xl font-black text-red-300">
-                  {dashboardStats.urgent}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-12 rounded-[2rem] border border-yellow-500/10 bg-[#11100d]/90 p-4 shadow-2xl shadow-black/30 sm:p-6">
-            {adminNotice && (
-           <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm font-bold text-red-300">
+            <div className="mt-4 rounded-2xl border border-[#40362c] bg-[#14120f] p-4 sm:p-6">
+              {adminNotice && (
+                <div role="status" className="mb-5 rounded-xl border border-yellow-500/25 bg-yellow-500/10 px-4 py-3 text-sm text-[#fff7ed]">
                   {adminNotice}
-                          </div>
-                )}
-              <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                <div>
-                  <h2 className="text-2xl font-black text-[#fff7ed]">
-                    Incoming Requests
-                  </h2>
-                  <p className="mt-1 text-sm text-[#8f8577]">
-                    Showing {filteredRequests.length} of {operationalRequests.length}{" "}
-                    requests.
-                  </p>
                 </div>
-
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                  <input
-                    type="search"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search customer, phone, email, equipment..."
-                    className="w-full rounded-full border border-yellow-500/10 bg-black/40 px-5 py-3 text-sm text-[#fff7ed] outline-none transition placeholder:text-[#8f8577] focus:border-yellow-500/40 lg:w-80"
-                  />
-
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="rounded-full border border-yellow-500/10 bg-black/40 px-5 py-3 text-sm font-black uppercase tracking-[0.08em] text-[#fff7ed] outline-none focus:border-yellow-500/40"
-                  >
-                    <option value="all">All Statuses</option>
-                    {statusOptions.map((status) => (
-                      <option key={status} value={status}>
-                        {formatLabel(status)}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={paymentFilter}
-                    onChange={(e) => setPaymentFilter(e.target.value)}
-                    className="rounded-full border border-yellow-500/10 bg-black/40 px-5 py-3 text-sm font-black uppercase tracking-[0.08em] text-[#fff7ed] outline-none focus:border-yellow-500/40"
-                  >
-                    <option value="all">All Payments</option>
-                    {paymentStatusOptions.map((status) => (
-                      <option key={status} value={status}>
-                        {formatLabel(status)}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={priorityFilter}
-                    onChange={(e) => setPriorityFilter(e.target.value)}
-                    className="rounded-full border border-yellow-500/10 bg-black/40 px-5 py-3 text-sm font-black uppercase tracking-[0.08em] text-[#fff7ed] outline-none focus:border-yellow-500/40"
-                  >
-                    <option value="all">All Priorities</option>
-                    {priorityOptions.map((priority) => (
-                      <option key={priority} value={priority}>
-                        {priority}
-                      </option>
-                    ))}
-                  </select>
-
-                  <button
-                    type="button"
-                    onClick={fetchRequests}
-                    disabled={isRefreshingRequests}
-                    className="rounded-full border border-yellow-500/20 bg-[#1a1612] px-5 py-3 text-sm font-black uppercase tracking-[0.08em] text-[#fff7ed] transition hover:border-yellow-500/50 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {isRefreshingRequests ? "Refreshing..." : "Refresh"}
-                  </button>
+              )}
+              {!requestedId && (
+                <div className="mb-5 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-xl font-bold text-[#fff7ed]">Request queue</h2>
+                      {requestLoadState === "ready" && (
+                        <p className="mt-1 text-sm text-[#d3c6b8]">
+                          Showing {filteredRequests.length} of {operationalRequests.length} requests
+                        </p>
+                      )}
+                    </div>
+                    {requestLoadState === "ready" && (
+                      <button
+                        type="button"
+                        aria-pressed={statusFilter === "new"}
+                        onClick={() => setStatusFilter(statusFilter === "new" ? "all" : "new")}
+                        className="rounded-lg border border-[#7c6238] px-3 py-2 text-sm font-semibold text-[#ffd98a] hover:bg-[#f4b000]/10 aria-pressed:bg-[#f4b000]/15"
+                      >
+                        New requests · {newRequestCount}
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 xl:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]">
+                    <input
+                      type="search"
+                      aria-label="Search requests"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Search customer, company, or equipment"
+                      className={`col-span-2 xl:col-span-1 ${queueControlClass}`}
+                    />
+                    <select aria-label="Request status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={queueControlClass}>
+                      <option value="all">All statuses</option>
+                      {statusOptions.map((status) => <option key={status} value={status}>{formatLabel(status)}</option>)}
+                    </select>
+                    <select aria-label="Payment status" value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)} className={queueControlClass}>
+                      <option value="all">All payments</option>
+                      {paymentStatusOptions.map((status) => <option key={status} value={status}>{formatLabel(status)}</option>)}
+                    </select>
+                    <select aria-label="Priority" value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className={queueControlClass}>
+                      <option value="all">All priorities</option>
+                      {priorityOptions.map((priority) => <option key={priority} value={priority}>{priority}</option>)}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={fetchRequests}
+                      disabled={isRefreshingRequests || requestLoadState === "loading"}
+                      className={`${queueControlClass} hover:bg-white/10 disabled:opacity-50`}
+                    >
+                      {isRefreshingRequests ? "Refreshing…" : "Refresh"}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {requestLoadError && requestLoadState === "ready" && (
                 <div
@@ -895,25 +796,8 @@ const hasDateConflict = (
                     {isRefreshingRequests ? "Retrying..." : "Retry"}
                   </button>
                 </div>
-              ) : operationalRequests.length === 0 ? (
-                <p className="text-[#b8a99a]">No rental requests yet.</p>
-              ) : filteredRequests.length === 0 ? (
-                <p className="text-[#b8a99a]">
-                  No requests match the current filters.
-                </p>
-              ) : (
-                <div className="grid gap-5">
-                  {filteredRequests.map((request) => (
-                    <article
-                      key={request.id}
-                      className={`rounded-[1.5rem] p-4 sm:p-6 ${
-                      request.availability_status === "conflict"
-                      ? "border border-red-500/80 bg-[#1a1612] shadow-2xl shadow-red-500/25"
-                       : request.status === "new"
-                      ? "border border-red-400/70 bg-[#1a1612] shadow-2xl shadow-red-500/20"
-                          : "border border-yellow-500/10 bg-[#1a1612]"
-                              }`}
-                    >
+              ) : request ? (
+                    <article key={request.id} aria-label="Request details">
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
@@ -921,16 +805,11 @@ const hasDateConflict = (
                               {formatLabel(request.status || "new")}
                             </p>
 
-                            {request.status === "new" && (
-                           <p className="animate-pulse rounded-full border border-red-400 bg-red-500 px-4 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-white shadow-lg shadow-red-500/40">
-                                         🔥 New Request
-                                        </p>
-                                     )}
-                             {request.availability_status === "conflict" && (
-                              <p className="animate-pulse rounded-full border border-red-400 bg-red-600 px-4 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-white shadow-lg shadow-red-500/40">
-                                            ⚠️ Conflict
-                                              </p>
-                              )}        
+                            {request.availability_status === "conflict" && (
+                              <p className="rounded-full bg-red-500/15 px-3 py-1 text-xs font-semibold text-red-200">
+                                Date conflict
+                              </p>
+                            )}
 
                             <p className="rounded-full border border-yellow-500/10 bg-black/30 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-[#b8a99a]">
                               {request.priority || "normal"}
@@ -941,9 +820,9 @@ const hasDateConflict = (
                             </p>
                           </div>
 
-                          <h3 className="mt-3 text-2xl font-black text-[#fff7ed]">
+                          <h2 className="mt-3 text-2xl font-bold text-[#fff7ed]">
                             {request.equipment_requested}
-                          </h3>
+                          </h2>
 
                           <p className="mt-2 break-words text-[#b8a99a]">
                             {request.customer_type === "business" && request.business_name && (
@@ -960,6 +839,7 @@ const hasDateConflict = (
                           </div>
 
                           <select
+                            aria-label="Update rental status"
                             value={request.status || "new"}
                             disabled={updatingId === request.id}
                             onChange={async (e) => {
@@ -1053,7 +933,7 @@ const hasDateConflict = (
                             Start Date
                           </p>
                           <p className="mt-1 text-[#fff7ed]">
-                            {request.rental_start_date}
+                            {formatDocumentDate(request.rental_start_date)}
                           </p>
                         </div>
 
@@ -1062,7 +942,7 @@ const hasDateConflict = (
                             End Date
                           </p>
                           <p className="mt-1 text-[#fff7ed]">
-                            {request.rental_end_date}
+                            {formatDocumentDate(request.rental_end_date)}
                           </p>
                         </div>
 
@@ -1071,7 +951,7 @@ const hasDateConflict = (
                             Duration
                           </p>
                           <p className="mt-1 text-[#fff7ed]">
-                            {request.rental_duration}
+                            {request.rental_duration || "Not provided"}
                           </p>
                         </div>
 
@@ -1080,7 +960,7 @@ const hasDateConflict = (
                             Pickup / Delivery
                           </p>
                           <p className="mt-1 text-[#fff7ed]">
-                            {request.fulfillment_type}
+                            {request.fulfillment_type || "Not provided"}
                           </p>
                         </div>
 
@@ -1102,6 +982,18 @@ const hasDateConflict = (
                           </p>
                         </div>
                       </div>
+
+                      {request.notes && (
+                        <div className="mt-6 rounded-2xl border border-yellow-500/10 bg-black/30 p-5">
+                          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8f8577]">
+                            Customer Notes
+                          </p>
+
+                          <p className="mt-2 leading-relaxed text-[#b8a99a]">
+                            {request.notes}
+                          </p>
+                        </div>
+                      )}
 
                       <div className="mt-6">
                         <RentalDocumentWorkflowSection
@@ -1496,26 +1388,26 @@ const hasDateConflict = (
                         </div>
                       </div>
 
-                      {request.notes && (
-                        <div className="mt-6 rounded-2xl border border-yellow-500/10 bg-black/30 p-5">
-                          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8f8577]">
-                            Customer Notes
-                          </p>
-
-                          <p className="mt-2 leading-relaxed text-[#b8a99a]">
-                            {request.notes}
-                          </p>
-                        </div>
-                      )}
                     </article>
-                  ))}
-                </div>
+              ) : requestedId ? (
+                <p role="status" className="text-[#d3c6b8]">This request is unavailable. Return to the request queue to select another.</p>
+              ) : operationalRequests.length === 0 ? (
+                <p className="text-[#d3c6b8]">No rental requests yet.</p>
+              ) : filteredRequests.length === 0 ? (
+                <p className="text-[#d3c6b8]">No requests match the current filters.</p>
+              ) : (
+                <RentalRequestQueue requests={filteredRequests} />
               )}
             </div>
 
-            <div className="mt-10">
-              <AutomationLogs excludedRequestIds={testRequestIds} />
-            </div>
+            {!requestedId && (
+              <details className="mt-5 rounded-2xl border border-[#40362c] bg-[#14120f] p-4">
+                <summary className="cursor-pointer text-sm font-semibold text-[#fff7ed]">Automation history</summary>
+                <div className="mt-4">
+                  <AutomationLogs excludedRequestIds={testRequestIds} />
+                </div>
+              </details>
+            )}
           </div>
         </section>
       </MainLayout>
