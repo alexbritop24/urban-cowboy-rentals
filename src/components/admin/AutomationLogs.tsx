@@ -5,6 +5,12 @@ import { supabase } from "../../lib/supabase";
 
 import type { AutomationLog } from "../../types/automation";
 
+const statusColors: Record<string, string> = {
+  success: "bg-green-500/10 text-green-400",
+  accepted: "bg-yellow-500/10 text-yellow-400",
+  dispatch_failed: "bg-red-500/10 text-red-400",
+};
+
 const AutomationLogs = ({excludedRequestIds = []}: {excludedRequestIds?: readonly string[]}) => {
   const [logs, setLogs] = useState<AutomationLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,12 +110,10 @@ const AutomationLogs = ({excludedRequestIds = []}: {excludedRequestIds?: readonl
 
                 <span
                   className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] ${
-                    log.status === "success"
-                      ? "bg-green-500/10 text-green-400"
-                      : "bg-red-500/10 text-red-400"
+                    statusColors[log.status] ?? "bg-white/5 text-[#d6c7b8]"
                   }`}
                 >
-                  {log.status}
+                  {log.status?.replaceAll("_", " ") ?? "unknown"}
                 </span>
               </div>
 
