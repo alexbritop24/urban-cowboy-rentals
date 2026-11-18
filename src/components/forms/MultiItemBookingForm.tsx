@@ -1,3 +1,4 @@
+import { useRentalPrices } from "../../hooks/useRentalPrices";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -19,7 +20,7 @@ import RentalPricingSummary from "../rentalItems/RentalPricingSummary";
 import RentalValidationSummary from "../rentalItems/RentalValidationSummary";
 import BookingSuccess from "./BookingSuccess";
 
-const equipmentOptions = getRentalRequestEquipmentOptions();
+const catalogOptions = getRentalRequestEquipmentOptions();
 
 export default function MultiItemBookingForm() {
   const [searchParams] = useSearchParams();
@@ -43,6 +44,9 @@ export default function MultiItemBookingForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
+  const prices = useRentalPrices();
+  const equipmentOptions = catalogOptions.map(equipment => ({ ...equipment, dailyRate: prices.rows.find(row => row.equipment_id === equipment.id)?.daily_rate ?? 0 }));
+  const pricedItems = useMemo(() => items.map(item => ({ ...item, dailyRate: prices.rows.find(row => row.equipment_id === item.equipmentId)?.daily_rate ?? 0 })), [items, prices.rows]);
   const submission = useMemo<RentalRequestSubmission>(
     () => ({
       customerType,
@@ -54,7 +58,7 @@ export default function MultiItemBookingForm() {
       projectType,
       notes,
       agreementAccepted,
-      items,
+      items: pricedItems,
     }),
     [
       agreementAccepted,
@@ -63,7 +67,7 @@ export default function MultiItemBookingForm() {
       email,
       fulfillmentType,
       fullName,
-      items,
+      pricedItems,
       notes,
       phone,
       projectType,
@@ -83,6 +87,7 @@ export default function MultiItemBookingForm() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (isSubmitting) return;
+    if (prices.loading || prices.error || pricedItems.some(item => item.equipmentId && !prices.rows.some(row => row.equipment_id === item.equipmentId))) { setSubmissionError("Prices are unavailable. Please reload or call us to request a quote."); return; }
 
     const validationIssues = validateRentalRequestFormSubmission(submission);
     setIssues(validationIssues);
@@ -154,7 +159,7 @@ export default function MultiItemBookingForm() {
       <div className="my-8 border-t border-yellow-500/10" />
 
       <RentalItemEditorList
-        items={items}
+        items={pricedItems}
         equipmentOptions={equipmentOptions}
         issues={issues}
         onItemsChange={updateItems}
@@ -200,7 +205,7 @@ export default function MultiItemBookingForm() {
           </label>
         </div>
 
-        <RentalPricingSummary items={items} />
+        <RentalPricingSummary items={pricedItems} />
       </div>
 
       <label className="mt-8 flex items-start gap-3 text-sm leading-6 text-[#b8a99a]">
