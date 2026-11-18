@@ -11,3 +11,10 @@ major_version = 17
 
 [functions.rental-documents]
 verify_jwt = true
+
+[functions.rental-quotes]
+verify_jwt = true
+
+# Provider callbacks authenticate using their verified Svix signatures.
+[functions.quote-events]
+verify_jwt = false

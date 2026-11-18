@@ -1039,6 +1039,8 @@ const hasDateConflict = (
                       )}
 
                       <RentalQuoteDraft
+                        key={request.id}
+                        requestId={request.id}
                         customerName={request.full_name}
                         customerEmail={request.email}
                         equipment={request.equipment_requested}

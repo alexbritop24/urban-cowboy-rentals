@@ -14,7 +14,9 @@
     "test:documents": "node --test tests/persistence/document-*.test.mjs",
     "test:hosted": "node scripts/validate-release-hosted.mjs",
     "test:presentation": "node --test tests/presentation/document-presentation.test.mjs",
-    "test:persistence": "node --test tests/persistence/*.test.mjs"
+    "test:persistence": "node --test tests/persistence/*.test.mjs",
+    "check:functions": "tsc -p tsconfig.functions.json",
+    "test:quotes": "node --test tests/persistence/quote-delivery.test.mjs tests/server/quote-delivery.test.mjs"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.5.1",

@@ -16,5 +16,10 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "codex/automated-quote-delivery": false
+    }
+  }
 }
